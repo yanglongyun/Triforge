@@ -1,0 +1,56 @@
+# ─── 依赖 ───
+node_modules/
+.pnpm-store/
+
+# ─── 构建产物 ───
+ui/dist/
+dist/
+build/
+release/
+*.tsbuildinfo
+
+# ─── 本地数据 ───
+# 任何位置的 sqlite 文件(避免根目录意外生成 db 时漏拦)
+*.db
+*.db-*
+*.sqlite
+*.sqlite-*
+database/
+data/
+
+# ─── 运行时 ───
+*.log
+*.pid
+.cache/
+.tmp/
+tmp/
+
+# ─── 环境变量 / 密钥 ───
+.env
+.env.*
+!.env.example
+*.pem
+*.key
+
+# ─── 编辑器 / 系统 ───
+.DS_Store
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+.history/
+
+# ─── Vite / esbuild ───
+.vite/
+
+# ─── 测试覆盖率 ───
+coverage/
+.nyc_output/
+
+# ─── 其它 ───
+*.bak
+
+# agent 工作区(app 托管的真实目录)
+workspaces/
+.claude/launch.json
