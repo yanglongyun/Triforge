@@ -364,17 +364,26 @@ export function NodeTree({
       if (meta && key.toLowerCase() === "x" && !String(window.getSelection() || "")) { copySelection(true); return; }
       if (meta && key.toLowerCase() === "v" && clipboardRef.current) { void pasteClipboard(); return; }
 
-      if ((key === "F2" || key === "Enter") && anchor) {
+      // Enter / F2:进入重命名(VS Code mac 习惯;文件、文件夹、工作区根都适用)
+      if ((key === "F2" || key === "Enter") && anchor && !meta) {
         const node = nodesRef.current.get(anchor);
         if (!node) return;
         e.preventDefault();
-        if (key === "F2") { keyApiRef.current.startRename(node); return; }
+        keyApiRef.current.startRename(node);
+        return;
+      }
+      // ⌘↓:打开(文件开标签,文件夹展开/收起)—— 打开的键位让给它,Enter 归重命名
+      if (meta && key === "ArrowDown" && anchor) {
+        const node = nodesRef.current.get(anchor);
+        if (!node) return;
+        e.preventDefault();
         if (node.kind === "space") keyApiRef.current.toggleExpand(node.id);
         else keyApiRef.current.handleSelect(node);
         return;
       }
 
       if (["ArrowDown", "ArrowUp", "ArrowLeft", "ArrowRight"].includes(key)) {
+        if (meta) return; // 带 ⌘ 的方向键不参与焦点移动
         e.preventDefault();
         const order = visibleTreeIds();
         if (!order.length) return;
