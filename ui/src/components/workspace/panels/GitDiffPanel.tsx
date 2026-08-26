@@ -75,7 +75,7 @@ export function GitDiffPanel({ tab, refreshKey = 0, onChanged }: GitDiffPanelPro
     setNotice("已复制路径");
   };
 
-  const discard = () => {
+  const discard = async () => {
     if (!(await dialog.confirm(`丢弃「${tab.path}」的更改?\n这个操作不可撤销。`, { danger: true, confirmText: "丢弃" }))) return;
     runAction("discard", () => api.gitDiscard({ root: tab.root, path: tab.path }));
   };

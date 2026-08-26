@@ -4,7 +4,7 @@ import { api } from "../../api";
 import { NodeRow, InlineCreateRow, iconFor, colorFor, type TreeControls } from "./NodeRow";
 import { AgentRail } from "./AgentRail";
 import { SiteRail } from "./SiteRail";
-import { ContextMenu, type MenuItem } from "../ui";
+import { ContextMenu, dialog, type MenuItem } from "../ui";
 import { Settings, Folder, FolderPlus, FolderOpen, FileText, Bot, Trash2, Pencil, Plus, X, Copy, PanelRight, Terminal, GitBranch, Radio, MessageSquare, Files, Globe, Scissors, ClipboardPaste, FoldVertical } from "lucide-react";
 
 const REVEAL_LABEL = /Mac/i.test(navigator.platform) ? "在 Finder 中显示"
