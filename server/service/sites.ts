@@ -17,10 +17,23 @@ const normalizeUrl = (raw) => {
 
 const list = () => getDb().prepare("SELECT * FROM sites ORDER BY created_at, rowid").all();
 
+/** 站点身份键:主机去 www.、小写 + 非默认端口 —— 收藏去重不看协议和路径尾斜杠。 */
+const siteKey = (normalized) => {
+  const u = new URL(normalized);
+  return u.hostname.toLowerCase().replace(/^www\./, "") + (u.port ? `:${u.port}` : "");
+};
+
 const create = ({ url, title } = {}) => {
   const normalized = normalizeUrl(url);
+  // 同一个站已收藏:直接返回已有条目,不重复插行
+  const key = siteKey(normalized);
+  const existing = list().find((row) => {
+    try { return siteKey(normalizeUrl(row.url)) === key; } catch { return false; }
+  });
+  if (existing) return existing;
+
   const id = randomUUID();
-  const name = String(title || "").trim() || new URL(normalized).host;
+  const name = String(title || "").trim() || new URL(normalized).hostname.replace(/^www\./, "");
   getDb().prepare("INSERT INTO sites (id, title, url) VALUES (?, ?, ?)").run(id, name, normalized);
   changed();
   return getDb().prepare("SELECT * FROM sites WHERE id = ?").get(id);

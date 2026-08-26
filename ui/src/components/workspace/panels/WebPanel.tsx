@@ -5,12 +5,7 @@ import { useEffect, useRef, useState } from "react";
 import { ArrowLeft, ArrowRight, Copy, ExternalLink, Globe, RotateCw } from "lucide-react";
 import type { WebTab } from "../types";
 import { IN_ELECTRON, RE_REGISTER_EVENT, registerWebview, unregisterWebview } from "../../../lib/webviewHost";
-
-const normalizeInput = (raw: string) => {
-  const value = raw.trim();
-  if (!value) return "";
-  return /^[a-z][a-z0-9+.-]*:/i.test(value) ? value : `https://${value}`;
-};
+import { displayUrl, normalizeUrl } from "../../../lib/urls";
 
 type Socket = {
   send: (m: any) => void;
@@ -25,7 +20,8 @@ export function WebPanel({ tab, socket, onUpdate }: {
 }) {
   const viewRef = useRef<HTMLElement | null>(null);
   const wcIdRef = useRef<number | null>(null);
-  const [address, setAddress] = useState(tab.url);
+  // 平时展示人话形(藏 https:// 和尾斜杠),点进编辑时换完整 URL
+  const [address, setAddress] = useState(displayUrl(tab.url));
   const [editing, setEditing] = useState(false);
   const [loading, setLoading] = useState(false);
 
@@ -62,7 +58,7 @@ export function WebPanel({ tab, socket, onUpdate }: {
     };
     const onNavigate = (e: any) => {
       if (!e.url) return;
-      setEditing((editing) => { if (!editing) setAddress(e.url); return editing; });
+      setEditing((editing) => { if (!editing) setAddress(displayUrl(e.url)); return editing; });
       onUpdate(tab.id, { url: e.url });
       if (wcIdRef.current != null) socket.send({ type: "web_tab_update", wcId: wcIdRef.current, url: e.url });
     };
@@ -98,7 +94,7 @@ export function WebPanel({ tab, socket, onUpdate }: {
   }, [onUpdate, socket, tab.id]);
 
   const go = () => {
-    const url = normalizeInput(address);
+    const url = address.trim() ? normalizeUrl(address) : "";
     if (!url) return;
     setEditing(false);
     (viewRef.current as any)?.loadURL?.(url);
@@ -136,11 +132,17 @@ export function WebPanel({ tab, socket, onUpdate }: {
         <input
           value={address}
           onChange={(e) => setAddress(e.target.value)}
-          onFocus={(e) => { setEditing(true); e.target.select(); }}
-          onBlur={() => { setEditing(false); setAddress(tab.url); }}
+          onFocus={(e) => {
+            // 编辑态换完整 URL(要精确就给全文),值换完再全选
+            setEditing(true);
+            setAddress(tab.url);
+            const el = e.target as HTMLInputElement;
+            requestAnimationFrame(() => el.select());
+          }}
+          onBlur={() => { setEditing(false); setAddress(displayUrl(tab.url)); }}
           onKeyDown={(e) => {
             if (e.key === "Enter") { go(); (e.target as HTMLInputElement).blur(); }
-            if (e.key === "Escape") { setEditing(false); setAddress(tab.url); (e.target as HTMLInputElement).blur(); }
+            if (e.key === "Escape") { setEditing(false); setAddress(displayUrl(tab.url)); (e.target as HTMLInputElement).blur(); }
           }}
           spellCheck={false}
           className="flex-1 min-w-0 h-7 px-2.5 rounded-md border border-border bg-white text-[12.5px] font-mono text-text-dim focus:text-text focus:border-accent outline-none transition-colors"

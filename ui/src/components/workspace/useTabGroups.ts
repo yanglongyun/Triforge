@@ -1,4 +1,5 @@
 import { useCallback, useMemo, useRef, useState } from "react";
+import { exactKey, hostKey } from "../../lib/urls";
 import type { Node } from "../../api";
 import {
   isOpenableSpace,
@@ -178,19 +179,18 @@ export function useTabGroups({ canCloseTab = () => true, onTabClosed = () => {} 
   }, [activateTab]);
 
   /**
-   * 打开网页标签。同站已开就聚焦不重复开:先精确 URL(忽略尾斜杠),再同源(host)。
+   * 打开网页标签。同站已开就聚焦不重复开,身份不看协议:
+   * 先精确键(主机+路径+query,忽略协议/www/尾斜杠),再站点键(主机)兜底。
    * 返回被聚焦的已有标签(null = 新开了一个)—— AI 发起的 open 靠它兑现 token。
    */
   const openWeb = useCallback((url: string, title?: string, opts: { groupId?: WorkspaceGroupId; side?: boolean; token?: string } = {}): WebTab | null => {
-    const clean = (value: string) => String(value || "").replace(/\/+$/, "");
-    let origin = "";
-    try { origin = new URL(url).origin; } catch { /* 非法就只做精确匹配 */ }
-    const originOf = (value: string) => { try { return new URL(value).origin; } catch { return ""; } };
+    const exact = exactKey(url);
+    const host = hostKey(url);
     for (const groupId of groupOrder) {
       const tabs = groupsRef.current[groupId].tabs;
       const existing =
-        tabs.find((tab): tab is WebTab => isWebTab(tab) && clean(tab.url) === clean(url))
-        || (origin ? tabs.find((tab): tab is WebTab => isWebTab(tab) && originOf(tab.url) === origin) : undefined);
+        tabs.find((tab): tab is WebTab => isWebTab(tab) && exactKey(tab.url) === exact)
+        || (host ? tabs.find((tab): tab is WebTab => isWebTab(tab) && hostKey(tab.url) === host) : undefined);
       if (existing) {
         activateTab(groupId, existing.id);
         return existing;
