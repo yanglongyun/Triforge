@@ -126,6 +126,12 @@ const handleApi = async (req, res) => {
     }
 
     // ---- tree(纯文件树:文件夹 / 文件)----
+    if (path === "/api/tree/copy" && method === "POST") {
+      const body = await parseBody(req);
+      try { return json(res, 201, { ok: true, item: tree.copy(body.id, body.parentId || null) }); }
+      catch (error) { return json(res, 400, { ok: false, error: error.message }); }
+    }
+
     if (path === "/api/tree") {
       if (method === "GET") {
         return json(res, 200, { ok: true, items: tree.listChildren(url.searchParams.get("parentId")) });

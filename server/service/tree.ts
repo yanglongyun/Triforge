@@ -37,6 +37,12 @@ const remove = (id) => {
   emit({ type: "agents_changed" }); // 子树上的智能体可能被塌缩搬家
 };
 
+const copy = (id, targetParentId = null) => {
+  const item = repo.copyItem(id, targetParentId);
+  emit({ type: "tree_changed", item, reason: "copied" });
+  return item;
+};
+
 const listWorkspaces = () => repo.listWorkspaces();
 
 const addWorkspace = (body = {}) => {
@@ -63,4 +69,4 @@ const terminalCwd = (id) => {
   return repo.terminalCwd(id);
 };
 
-export { listChildren, listAll, getItem, create, update, remove, ancestry, search, fileRawAbs, pathForId, listWorkspaces, addWorkspace, removeWorkspace, terminalCwd };
+export { listChildren, listAll, getItem, create, update, remove, copy, ancestry, search, fileRawAbs, pathForId, listWorkspaces, addWorkspace, removeWorkspace, terminalCwd };

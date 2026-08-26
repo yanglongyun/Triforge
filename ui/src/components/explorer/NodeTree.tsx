@@ -5,7 +5,7 @@ import { NodeRow, InlineCreateRow, iconFor, colorFor, type TreeControls } from "
 import { AgentRail } from "./AgentRail";
 import { SiteRail } from "./SiteRail";
 import { ContextMenu, type MenuItem } from "../ui";
-import { Settings, Folder, FolderPlus, FolderOpen, FileText, Bot, Trash2, Pencil, Plus, X, Copy, PanelRight, Terminal, GitBranch, Radio, MessageSquare, Files, Globe } from "lucide-react";
+import { Settings, Folder, FolderPlus, FolderOpen, FileText, Bot, Trash2, Pencil, Plus, X, Copy, PanelRight, Terminal, GitBranch, Radio, MessageSquare, Files, Globe, Scissors, ClipboardPaste } from "lucide-react";
 
 const REVEAL_LABEL = /Mac/i.test(navigator.platform) ? "在 Finder 中显示"
   : /Win/i.test(navigator.platform) ? "在资源管理器中显示" : "在文件管理器中显示";
@@ -128,13 +128,8 @@ export function NodeTree({
     if (node.kind === "space") toggleExpand(node.id);
   };
 
-  // Esc 清空多选;切 tab 也清
-  useEffect(() => {
-    const onKey = (e: KeyboardEvent) => { if (e.key === "Escape") clearMulti(); };
-    window.addEventListener("keydown", onKey);
-    return () => window.removeEventListener("keydown", onKey);
-  }, [clearMulti]);
   useEffect(() => { clearMulti(); }, [sideTab, clearMulti]);
+
 
   // 创建
   const [creatingUnder, setCreatingUnder] = useState<string | null>(null);
@@ -162,6 +157,149 @@ export function NodeTree({
     setExpanded,
     getSelection: () => [...multiSelRef.current],
   });
+
+  // ── 键盘与剪贴板(资源管理器快捷键)──
+  // 行注册表:渲染时把 Node 对象按 id 登记,键盘操作按 anchor 查对象
+  const nodesRef = useRef(new Map<string, Node>());
+  const registerNode = useCallback((n: Node) => { nodesRef.current.set(n.id, n); }, []);
+  /** 内部文件剪贴板:复制(可反复粘贴)/ 剪切(粘贴即移动,行半透明标记)。 */
+  const clipboardRef = useRef<{ ids: string[]; cut: boolean } | null>(null);
+  const [cutIds, setCutIds] = useState<Set<string>>(new Set());
+  const rootsRef = useRef(roots); rootsRef.current = roots;
+  const selectedIdRef = useRef(selectedId); selectedIdRef.current = selectedId;
+  const expandedRef = useRef(expandedIds); expandedRef.current = expandedIds;
+  const sideTabRef = useRef(sideTab); sideTabRef.current = sideTab;
+
+  /** 删除一组 id(菜单与 Delete 键共用):祖先已选剔除后代;工作区走移除。 */
+  const deleteIds = useCallback(async (rawIds: string[]) => {
+    const ids = pruneNested(rawIds.filter(Boolean));
+    if (!ids.length) return;
+    const workspaces = ids.filter((id) => rootsRef.current.some((r) => r.id === id && r.workspace));
+    const normal = ids.filter((id) => !workspaces.includes(id));
+    const hint = workspaces.length ? `\n其中 ${workspaces.length} 个是工作区:只从 Workbench 移除,不删磁盘文件。` : "";
+    const label = rawIds.length === 1
+      ? `「${nodesRef.current.get(rawIds[0])?.title || rawIds[0].split("/").pop()}」`
+      : `选中的 ${rawIds.length} 项`;
+    if (!confirm(`删除${label}?文件夹内的内容会一起删除。${hint}`)) return;
+    for (const id of workspaces) await api.removeWorkspace(id).catch(() => {});
+    for (const id of normal) await api.deleteNode(id).catch(() => {});
+    if (rawIds.includes(selectedIdRef.current)) onSelect(null);
+    clearMulti();
+    refresh();
+  }, [clearMulti, onSelect, refresh]);
+
+  /** 复制/剪切当前选择进内部剪贴板(工作区根除外)。 */
+  const copySelection = useCallback((cut: boolean) => {
+    const ids = multiSelRef.current.size ? [...multiSelRef.current] : anchorRef.current ? [anchorRef.current] : [];
+    const usable = ids.filter((id) => !rootsRef.current.some((r) => r.id === id && r.workspace));
+    if (!usable.length) return;
+    clipboardRef.current = { ids: usable, cut };
+    setCutIds(cut ? new Set(usable) : new Set());
+  }, []);
+
+  /** 粘贴到 anchor 所在目录(anchor 是文件夹 → 进它;是文件 → 进它的父级)。 */
+  const pasteClipboard = useCallback(async () => {
+    const clip = clipboardRef.current;
+    if (!clip?.ids.length) return;
+    const anchorNode = anchorRef.current ? nodesRef.current.get(anchorRef.current) : null;
+    const targetDir = anchorNode
+      ? anchorNode.kind === "space" ? anchorNode.id : (anchorNode.parent_id || rootsRef.current[0]?.id)
+      : rootsRef.current[0]?.id;
+    if (!targetDir) return;
+    const ids = pruneNested(clip.ids).filter((id) => !(targetDir === id || targetDir.startsWith(id + "/")));
+    for (const id of ids) {
+      if (clip.cut) await api.moveNode(id, targetDir).catch((e: any) => alert(e.message || "移动失败"));
+      else await api.copyNode(id, targetDir).catch((e: any) => alert(e.message || "复制失败"));
+    }
+    if (clip.cut) { clipboardRef.current = null; setCutIds(new Set()); }
+    setExpanded(targetDir, true);
+    refresh();
+  }, [refresh, setExpanded]);
+
+  // 每渲染刷新一次的「最新函数」出口,键盘 handler 通过它调用,不吃过期闭包
+  const keyApiRef = useRef({ handleSelect: (_n: Node | null) => {}, startRename: (_n: Node) => {}, toggleExpand: (_id: string) => {}, setExpanded: (_id: string, _on: boolean) => {} });
+
+  useEffect(() => {
+    const isTyping = (target: EventTarget | null) => {
+      const el = target as HTMLElement | null;
+      if (!el) return false;
+      const tag = (el.tagName || "").toLowerCase();
+      return tag === "input" || tag === "textarea" || !!el.isContentEditable;
+    };
+    const focusRow = (id: string) => {
+      anchorRef.current = id;
+      setMultiSel(new Set([id]));
+      document.querySelector(`[data-nid="${CSS.escape(id)}"]`)?.scrollIntoView({ block: "nearest" });
+    };
+    const onKey = (e: KeyboardEvent) => {
+      if (e.key === "Escape") { clearMulti(); return; }
+      if (sideTabRef.current !== "files" || isTyping(e.target)) return;
+      const anchor = anchorRef.current;
+      const engaged = !!anchor || multiSelRef.current.size > 0;
+      if (!engaged) return; // 没点过树,不抢任何键
+      const meta = e.metaKey || e.ctrlKey;
+      const key = e.key;
+
+      // 删除:Delete 或 Cmd/Ctrl+Backspace(VS Code mac 同款)
+      if (key === "Delete" || (key === "Backspace" && meta)) {
+        e.preventDefault();
+        void deleteIds(multiSelRef.current.size ? [...multiSelRef.current] : anchor ? [anchor] : []);
+        return;
+      }
+      if (meta && key.toLowerCase() === "a") {
+        e.preventDefault();
+        setMultiSel(new Set(visibleTreeIds()));
+        return;
+      }
+      // 复制/剪切/粘贴:页面上有文字选区时让位给系统复制
+      if (meta && key.toLowerCase() === "c" && !String(window.getSelection() || "")) { copySelection(false); return; }
+      if (meta && key.toLowerCase() === "x" && !String(window.getSelection() || "")) { copySelection(true); return; }
+      if (meta && key.toLowerCase() === "v" && clipboardRef.current) { void pasteClipboard(); return; }
+
+      if ((key === "F2" || key === "Enter") && anchor) {
+        const node = nodesRef.current.get(anchor);
+        if (!node) return;
+        e.preventDefault();
+        if (key === "F2") { keyApiRef.current.startRename(node); return; }
+        if (node.kind === "space") keyApiRef.current.toggleExpand(node.id);
+        else keyApiRef.current.handleSelect(node);
+        return;
+      }
+
+      if (["ArrowDown", "ArrowUp", "ArrowLeft", "ArrowRight"].includes(key)) {
+        e.preventDefault();
+        const order = visibleTreeIds();
+        if (!order.length) return;
+        const cur = anchor ? order.indexOf(anchor) : -1;
+        if (key === "ArrowDown" || key === "ArrowUp") {
+          const nextIdx = cur === -1
+            ? (key === "ArrowDown" ? 0 : order.length - 1)
+            : Math.max(0, Math.min(order.length - 1, cur + (key === "ArrowDown" ? 1 : -1)));
+          const id = order[nextIdx];
+          if (e.shiftKey) {
+            setMultiSel((prev) => { const n = new Set(prev.size ? prev : anchor ? [anchor] : []); n.add(id); return n; });
+            anchorRef.current = id;
+            document.querySelector(`[data-nid="${CSS.escape(id)}"]`)?.scrollIntoView({ block: "nearest" });
+          } else focusRow(id);
+          return;
+        }
+        if (!anchor) return;
+        const node = nodesRef.current.get(anchor);
+        if (key === "ArrowRight") {
+          if (node?.kind === "space" && !expandedRef.current.has(anchor)) keyApiRef.current.setExpanded(anchor, true);
+          else if (cur >= 0 && cur < order.length - 1) focusRow(order[cur + 1]);
+          return;
+        }
+        // ArrowLeft:展开的文件夹先收起;否则跳到父级
+        if (node?.kind === "space" && expandedRef.current.has(anchor)) { keyApiRef.current.setExpanded(anchor, false); return; }
+        const parent = anchor.slice(0, anchor.lastIndexOf("/"));
+        if (order.includes(parent)) focusRow(parent);
+        return;
+      }
+    };
+    window.addEventListener("keydown", onKey);
+    return () => window.removeEventListener("keydown", onKey);
+  }, [clearMulti, copySelection, deleteIds, pasteClipboard]);
 
   useEffect(() => { load(); }, [load, refreshKey]);
 
@@ -328,11 +466,12 @@ export function NodeTree({
     // 多选状态下:在选中项上右键 → 批量菜单;在选区外右键 → 退回单选(VS Code 行为)
     if (multiSel.size > 1) {
       if (multiSel.has(node.id)) {
-        const ids = pruneNested([...multiSel]);
         const count = multiSel.size;
         setMenu({
           x: e.clientX, y: e.clientY,
           items: [
+            { label: `复制(${count} 项)`, icon: <Copy size={13} />, onClick: () => copySelection(false) },
+            { label: `剪切(${count} 项)`, icon: <Scissors size={13} />, onClick: () => copySelection(true) },
             { label: `复制路径(${count} 项)`, icon: <Copy size={13} />,
               onClick: async () => {
                 const text = [...multiSel].map((id) => id.replace(/^.*\/workspaces\//, "")).join("\n");
@@ -340,23 +479,14 @@ export function NodeTree({
               } },
             "divider",
             { label: `删除选中的 ${count} 项`, icon: <Trash2 size={13} />, danger: true,
-              onClick: async () => {
-                const workspaces = ids.filter((id) => roots.some((r) => r.id === id && r.workspace));
-                const normal = ids.filter((id) => !workspaces.includes(id));
-                const hint = workspaces.length ? `\n其中 ${workspaces.length} 个是工作区:只从 Workbench 移除,不删磁盘文件。` : "";
-                if (!confirm(`删除选中的 ${count} 项?文件夹内的内容会一起删除。${hint}`)) return;
-                for (const id of workspaces) await api.removeWorkspace(id).catch(() => {});
-                for (const id of normal) await api.deleteNode(id).catch(() => {});
-                if (multiSel.has(selectedId)) onSelect(null);
-                clearMulti();
-                refresh();
-              } },
+              onClick: () => { void deleteIds([...multiSel]); } },
           ],
         });
         return;
       }
       clearMulti(); // 选区外右键:清多选,走单项菜单
     }
+    anchorRef.current = node.id; // 右键即聚焦:粘贴/键盘操作以它为落点
 
     const items: MenuItem[] = [];
     let gitRepo: GitRepositoryStatus | null = null;
@@ -385,6 +515,20 @@ export function NodeTree({
         { label: "打开到侧边", icon: <PanelRight size={13} />, onClick: () => onOpenSide(node) },
         "divider",
       );
+    }
+    if (!node.workspace) {
+      items.push(
+        { label: "复制", icon: <Copy size={13} />,
+          onClick: () => { clipboardRef.current = { ids: [node.id], cut: false }; setCutIds(new Set()); } },
+        { label: "剪切", icon: <Scissors size={13} />,
+          onClick: () => { clipboardRef.current = { ids: [node.id], cut: true }; setCutIds(new Set([node.id])); } },
+      );
+    }
+    if (clipboardRef.current?.ids.length) {
+      items.push({
+        label: `粘贴(${clipboardRef.current.ids.length} 项)`, icon: <ClipboardPaste size={13} />,
+        onClick: () => { void pasteClipboard(); },
+      });
     }
     items.push(
       { label: "重命名", icon: <Pencil size={13} />, onClick: () => startRename(node) },
@@ -481,6 +625,9 @@ export function NodeTree({
     });
   };
 
+  // 键盘 handler 的最新函数出口(handler 只挂一次,经 ref 调最新实现)
+  keyApiRef.current = { handleSelect, startRename, toggleExpand, setExpanded };
+
   const controls: TreeControls = {
     expandedIds, toggleExpand, setExpanded,
     creatingUnder, creatingKind, draftTitle, setDraftTitle, commitCreate, cancelCreate,
@@ -488,6 +635,8 @@ export function NodeTree({
     activeId: activeNode?.id || null, overNodeId: overInfo?.nodeId || null, dropPos: overInfo?.pos || null,
     agentDirs,
     multiSelectedIds: multiSel,
+    cutIds,
+    registerNode,
   };
   return (
     <DndContext sensors={sensors} {...dndHandlers}>

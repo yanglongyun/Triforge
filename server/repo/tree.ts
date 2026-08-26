@@ -322,6 +322,38 @@ const deleteItem = (id) => {
   collapseAgents(hit.abs, path.dirname(hit.abs));
 };
 
+/** 目标目录里找一个不冲突的名字:name → name copy → name copy 2 …(带扩展名的插在扩展名前)。 */
+const uniqueDest = (dir, name) => {
+  let candidate = path.join(dir, name);
+  if (!fs.existsSync(candidate)) return candidate;
+  const parsed = path.parse(name);
+  for (let i = 1; i < 100; i += 1) {
+    const suffix = i === 1 ? " copy" : ` copy ${i}`;
+    candidate = path.join(dir, `${parsed.name}${suffix}${parsed.ext}`);
+    if (!fs.existsSync(candidate)) return candidate;
+  }
+  throw new Error("重名副本太多");
+};
+
+// 复制到某空间下(targetParentId 缺省 = 原地出副本)。重名自动 「name copy」。
+const copyItem = (id, targetParentId = null) => {
+  const hit = locate(id);
+  if (!hit) throw new Error(`not found: ${id}`);
+  if (hit.kind === "space" && isWorkspaceRoot(hit.abs)) throw new Error("工作区根不能复制");
+  let targetDir;
+  if (targetParentId) {
+    const ph = locate(targetParentId);
+    if (!ph || ph.kind !== "space") throw new Error("目标必须是一个文件夹");
+    targetDir = ph.abs;
+  } else targetDir = path.dirname(hit.abs);
+  if (hit.kind === "space" && (targetDir === hit.abs || targetDir.startsWith(withSep(hit.abs)))) {
+    throw new Error("不能把文件夹复制进自己的子孙");
+  }
+  const dest = uniqueDest(targetDir, path.basename(hit.abs));
+  fs.cpSync(hit.abs, dest, { recursive: true });
+  return hit.kind === "space" ? spaceItem(dest) : fileItem(dest, true);
+};
+
 // 移到某空间下(newParentId 必须是空间或 null=根)。position 忽略(按名排序)。
 const moveItem = (id, newParentId, _position = undefined) => {
   const hit = locate(id);
@@ -390,7 +422,7 @@ const listWorkspaces = () => workspaceRows();
 
 export {
   ROOT, ensureRoot, IGNORE_DIRS, isAllowedPath,
-  listChildren, listAll, getItem, createItem, updateItem, deleteItem, moveItem, ancestry,
+  listChildren, listAll, getItem, createItem, updateItem, deleteItem, moveItem, copyItem, ancestry,
   resolveFileAbs, pathForId, agentContext,
   listWorkspaces, addWorkspace, removeWorkspace, isWorkspaceRoot, terminalCwd,
 };

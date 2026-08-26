@@ -31,6 +31,10 @@ export type TreeControls = {
   agentDirs: Map<string, number>;
   /** 多选集(Cmd 点选 / Shift 范围选,VS Code 资源管理器同款);高亮与单选同款。 */
   multiSelectedIds: Set<string>;
+  /** 剪切标记:进了剪贴板等待移动的行,半透明提示。 */
+  cutIds: Set<string>;
+  /** 行注册表:渲染时登记 Node 对象,键盘操作按 id 反查。 */
+  registerNode: (n: Node) => void;
 };
 
 // 按扩展名挑文件图标(VSCode 风)
@@ -70,6 +74,7 @@ export function NodeRow({
 }) {
   const [children, setChildren] = useState<Node[]>([]);
   const [loaded, setLoaded] = useState(false);
+  controls.registerNode(node); // 键盘操作按 id 反查 Node(ref 写入,渲染期安全)
 
   const isContainer = node.kind === "space";
   const expanded = controls.expandedIds.has(node.id);
@@ -141,6 +146,7 @@ export function NodeRow({
           "group relative flex items-center gap-1.5 py-[3px] pr-2 cursor-pointer select-none text-text touch-none",
           isSelected && !isRenaming ? "bg-bg-inset" : "hover:bg-bg-hover",
           isDragging ? "opacity-40" : "",
+          controls.cutIds.has(node.id) ? "opacity-50" : "", // 剪切待移动
           dropPos === "into" ? "drop-target" : "",
         ].join(" ")}
         style={{ paddingLeft: `${depth * 0.9 + 0.5}rem` }}

@@ -165,6 +165,8 @@ export const api = {
     request<{ item: Node }>(`/api/tree?id=${encodeURIComponent(id)}`, { method: "PATCH", ...jsonBody(patch) }).then(one),
   moveNode: (id: string, newParentId: string | null, position?: number) =>
     request<{ item: Node }>(`/api/tree?id=${encodeURIComponent(id)}`, { method: "PATCH", ...jsonBody({ parentId: newParentId, position }) }).then(one),
+  copyNode: (id: string, parentId?: string | null) =>
+    request<{ item: Node }>("/api/tree/copy", { method: "POST", ...jsonBody({ id, parentId }) }).then(one),
   deleteNode: (id: string) =>
     request<{ ok: boolean }>(`/api/tree?id=${encodeURIComponent(id)}`, { method: "DELETE" }),
   ancestry: (id: string) =>
