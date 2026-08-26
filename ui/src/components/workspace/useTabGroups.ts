@@ -133,8 +133,8 @@ export function useTabGroups({ canCloseTab = () => true, onTabClosed = () => {} 
     openTab(activityTab(), opts);
   }, [openTab]);
 
-  const openWeb = useCallback((url: string, title?: string, opts: { groupId?: WorkspaceGroupId; side?: boolean } = {}) => {
-    openTab(webTab(url, title), opts);
+  const openWeb = useCallback((url: string, title?: string, opts: { groupId?: WorkspaceGroupId; side?: boolean; token?: string } = {}) => {
+    openTab(webTab(url, title, opts.token), opts);
   }, [openTab]);
 
   /** 网页标签的标题/地址跟着页面走(page-title-updated / did-navigate)。 */

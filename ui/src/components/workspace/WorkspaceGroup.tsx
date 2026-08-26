@@ -135,7 +135,7 @@ export function WorkspaceGroup({
             key={web.id}
             className={`absolute inset-0 bg-bg ${tab?.id === web.id ? "flex flex-col" : "hidden"}`}
           >
-            <WebPanel tab={web} onPatch={(patch) => onUpdateWebTab(web.id, patch)} />
+            <WebPanel tab={web} socket={socket} onUpdate={onUpdateWebTab} />
           </div>
         ))}
       </div>

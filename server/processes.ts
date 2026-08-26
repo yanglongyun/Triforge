@@ -4,11 +4,19 @@
 // not durable project state.
 import { spawn } from "child_process";
 import { randomUUID } from "crypto";
-import { existsSync } from "fs";
+import { createWriteStream, existsSync, mkdirSync } from "fs";
+import { dirname, join } from "path";
+import { fileURLToPath } from "url";
 import { emit } from "./bus.js";
 
 const MAX_LOG_CHARS = 200_000;
 const DEFAULT_TAIL = 40_000;
+
+// 日志同时落文件:bash background 启动后,模型用 read/tail 日志文件看输出,
+// 不需要专门的「读进程日志」工具(6 工具体系的闭环)。
+const __dirname = dirname(fileURLToPath(import.meta.url));
+const HOME = process.env.ARBOR_HOME || join(__dirname, "..");
+const LOG_DIR = join(HOME, "logs", "processes");
 
 const SHELL_CANDIDATES = [process.env.SHELL, "/bin/zsh", "/bin/bash", "/bin/sh"];
 const resolveShell = () => {
@@ -85,6 +93,7 @@ const publicProcess = (record, { tail = DEFAULT_TAIL } = {}) => {
     signal: record.signal || null,
     ports: record.ports || [],
     preview_url: record.preview_url || null,
+    log_file: record.log_file || null,
     output: tail === 0 ? "" : output.slice(-Math.max(0, Number(tail) || DEFAULT_TAIL)),
   };
 };
@@ -105,8 +114,10 @@ const scheduleEmit = (record, immediate = false) => {
 
 const appendLog = (record, chunk) => {
   if (!chunk) return;
-  record.output = `${record.output || ""}${stripAnsi(chunk)}`;
+  const clean = stripAnsi(chunk);
+  record.output = `${record.output || ""}${clean}`;
   if (record.output.length > MAX_LOG_CHARS) record.output = record.output.slice(-MAX_LOG_CHARS);
+  try { record.logStream?.write(clean); } catch { /* 日志文件写不进不拦运行 */ }
   record.preview_url = inferPreviewUrl(record);
   scheduleEmit(record);
 };
@@ -125,6 +136,15 @@ const startProcess = ({ command, cwd, reason = "" }) => {
     env: { ...process.env, FORCE_COLOR: "0" },
   });
 
+  let logStream = null;
+  let logFile = null;
+  try {
+    mkdirSync(LOG_DIR, { recursive: true });
+    logFile = join(LOG_DIR, `${id}.log`);
+    logStream = createWriteStream(logFile, { flags: "a" });
+    logStream.write(`# ${cmd}\n# cwd: ${cwd || process.cwd()}\n# started: ${new Date().toISOString()}\n\n`);
+  } catch { /* 开不出日志文件也照常跑,只是少了文件视角 */ }
+
   const record = {
     id,
     command: cmd,
@@ -141,6 +161,8 @@ const startProcess = ({ command, cwd, reason = "" }) => {
     ports: portsFromText(cmd),
     preview_url: null,
     output: "",
+    log_file: logFile,
+    logStream,
   };
   record.preview_url = inferPreviewUrl(record);
   processes.set(id, record);
@@ -151,14 +173,17 @@ const startProcess = ({ command, cwd, reason = "" }) => {
     record.status = "error";
     record.ended_at = new Date().toISOString();
     appendLog(record, `\n[process error] ${error.message}\n`);
+    try { record.logStream?.end(); } catch { /* noop */ }
     scheduleEmit(record, true);
   });
   child.on("exit", (code, signal) => {
     record.ended_at = new Date().toISOString();
     record.exit_code = code;
     record.signal = signal;
-    record.status = record.stopping ? "stopped" : code === 0 ? "exited" : "error";
+    // 被信号杀掉(包括外部 bash kill)算「停止」,不算报错
+    record.status = record.stopping || signal ? "stopped" : code === 0 ? "exited" : "error";
     appendLog(record, `\n[process ${record.status}${code == null ? "" : ` code=${code}`}${signal ? ` signal=${signal}` : ""}]\n`);
+    try { record.logStream?.end(); } catch { /* noop */ }
     scheduleEmit(record, true);
   });
   child.unref?.();

@@ -1,7 +1,7 @@
 // 过程体系:思考 / 工具各是一行(图标位悬停换 chevron,展开转 90°),
 // 相邻的已完成常规工具收成一行摘要,完成的一轮整体收进「已工作X」折叠条。
 // 运行中的工具标签走扫光;整轮进行中时底部是转圈 + 「正在工作」。
-// create_agent / call_agent 不进分组 —— 多智能体动作是 Arbor 的招牌,永远单独可见。
+// agent / cdp 不进分组 —— 多智能体动作和浏览器操作是 Arbor 的招牌,永远单独可见。
 import { useState, type ReactNode } from "react";
 import {
   ChevronRight, FilePlus2, FileText, Globe, ListTree, Loader2,
@@ -16,10 +16,44 @@ export type TurnEntry = { kind: "think" | "tool" | "text"; row: Row };
 
 const basename = (value: unknown) => String(value ?? "").split("/").filter(Boolean).pop() || "";
 
+/** cdp 各动作的中文标签。 */
+const CDP_LABEL: Record<string, string> = {
+  list: "查看网页标签",
+  open: "打开网页",
+  navigate: "网页跳转",
+  back: "网页后退",
+  read: "读取网页",
+  js: "网页脚本",
+  click: "网页点击",
+  type: "网页输入",
+  screenshot: "网页截图",
+};
+
 const toolMeta = (row: Row): { icon: ReactNode; label: string; pill: string; wide: boolean } => {
   const args = row.args || {};
   const summary = String(args.summary ?? "");
   switch (row.name) {
+    case "bash":
+      return args.background
+        ? { icon: <Play size={14} />, label: "后台执行", pill: summary || String(args.command ?? ""), wide: true }
+        : { icon: <Terminal size={14} />, label: "执行", pill: summary || String(args.command ?? ""), wide: true };
+    case "read":
+      return { icon: <FileText size={14} />, label: "读取", pill: basename(args.path) || summary, wide: false };
+    case "edit":
+      return { icon: <Pencil size={13} />, label: "修改", pill: basename(args.path) || summary, wide: false };
+    case "write":
+      return { icon: <FilePlus2 size={14} />, label: "写入", pill: basename(args.path) || summary, wide: false };
+    case "cdp": {
+      const action = String(args.action ?? "");
+      const pill = summary || String(args.url ?? args.selector ?? args.code ?? "");
+      return { icon: <Globe size={14} />, label: CDP_LABEL[action] || "操作网页", pill, wide: true };
+    }
+    case "agent":
+      return args.agent_id
+        ? { icon: <PhoneCall size={14} />, label: "呼叫智能体", pill: summary || String(args.message ?? "").slice(0, 60), wide: true }
+        : { icon: <Sparkles size={14} />, label: "创建智能体", pill: String(args.title ?? "") || summary, wide: false };
+
+    // ── 旧工具名(0.2.0 之前的历史对话)──
     case "shell":
       return { icon: <Terminal size={14} />, label: "执行", pill: summary || String(args.command ?? ""), wide: true };
     case "run_process":
@@ -155,9 +189,9 @@ export function ToolItem({ row, compact }: { row: Row; compact?: boolean }) {
 type GroupKind = "create" | "edit" | "read" | "exec";
 
 const groupKind = (row: Row): GroupKind => {
-  if (row.name === "read_file") return "read";
-  if (row.name === "write_file") return "create";
-  if (row.name === "edit_file") return "edit";
+  if (row.name === "read" || row.name === "read_file") return "read";
+  if (row.name === "write" || row.name === "write_file") return "create";
+  if (row.name === "edit" || row.name === "edit_file") return "edit";
   return "exec";
 };
 
@@ -245,7 +279,8 @@ export function TurnFold({ durationMs, children }: { durationMs: number | null; 
 
 /* ── 有序渲染一串条目:常规工具做相邻分组,中间文本按 markdown 平铺 ── */
 
-const NEVER_GROUP = new Set(["create_agent", "call_agent"]);
+// 多智能体动作与浏览器操作是 Arbor 的招牌,永远单独可见,不收进「执行了 N 步」
+const NEVER_GROUP = new Set(["agent", "cdp", "create_agent", "call_agent"]);
 
 export function TurnEntries({ items }: { items: TurnEntry[] }) {
   const nodes: ReactNode[] = [];

@@ -1,7 +1,7 @@
 // @ts-nocheck
 // 文件系统监听:树的另一半事实来源。
 //
-// 自己的工具(shell/write_file/…)改文件会手动广播 tree_changed;但 Finder、终端、
+// 自己的工具(bash/write/…)改文件会手动广播 tree_changed;但 Finder、终端、
 // dev server、git、别的进程改磁盘时没人说话 —— 树就静默过期。VS Code 的资源管理器
 // 之所以"总是新的",是向内核注册文件事件(macOS FSEvents / Win ReadDirectoryChangesW /
 // Linux inotify)。Node 的 fs.watch({recursive}) 在 libuv 底下用的正是同一套内核 API,

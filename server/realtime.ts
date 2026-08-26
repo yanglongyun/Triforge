@@ -12,6 +12,7 @@ import { appendItem } from "./repo/messages.js";
 import { touchAgent } from "./repo/agents.js";
 import { emit } from "./bus.js";
 import { resizeTerminal, startTerminal, stopAllTerminals, stopTerminal, writeTerminal } from "./terminals.js";
+import { registerHost, registerTab, resolveCdp, unregisterClient, unregisterTab, updateTab } from "./browserHost.js";
 
 const clients = new Set();
 
@@ -49,6 +50,13 @@ const handleConnection = (ws) => {
     if (type === "terminal_resize") { resizeTerminal(client, payload); return; }
     if (type === "terminal_stop") { stopTerminal(client, payload.terminalId, sendToClient); return; }
 
+    // ── 浏览器宿主(cdp 工具的执行端:Electron 壳里的 UI)──
+    if (type === "web_host_hello") { registerHost(client); return; }
+    if (type === "web_tab_register") { registerTab(client, payload); return; }
+    if (type === "web_tab_update") { updateTab(payload); return; }
+    if (type === "web_tab_unregister") { unregisterTab(payload); return; }
+    if (type === "cdp_response") { resolveCdp(payload); return; }
+
     if (type === "send") {
       if (!agentId) { sendJson(ws, { type: "error", error: "missing agentId" }); return; }
       const prompt = String(payload.prompt || "").trim();
@@ -75,6 +83,7 @@ const handleConnection = (ws) => {
 
   ws.on("close", () => {
     stopAllTerminals(client);
+    unregisterClient(client); // 窗口没了,它注册的网页标签一并出册
     clients.delete(client);
   });
 };

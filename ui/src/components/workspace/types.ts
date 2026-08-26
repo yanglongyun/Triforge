@@ -57,6 +57,8 @@ export type WebTab = {
   kind: "web";
   title: string;
   url: string;
+  /** cdp open 的关联令牌:webview 注册时带上,server 以此兑现「打开标签」请求。 */
+  token?: string;
 };
 
 export type WorkspaceTab = Node | ProcessTab | TerminalTab | GitTab | GitDiffTab | SettingsTab | ActivityTab | WebTab;
@@ -111,11 +113,12 @@ export const activityTab = (): ActivityTab => ({
   title: "活动",
 });
 
-export const webTab = (url: string, title?: string): WebTab => ({
+export const webTab = (url: string, title?: string, token?: string): WebTab => ({
   id: `${WEB_TAB_PREFIX}:${Date.now()}:${Math.random().toString(36).slice(2, 8)}`,
   kind: "web",
   title: title || url.replace(/^https?:\/\//, "").replace(/\/$/, ""),
   url,
+  token,
 });
 
 export const isProcessTab = (tab: WorkspaceTab | null | undefined): tab is ProcessTab =>

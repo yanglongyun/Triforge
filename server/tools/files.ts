@@ -1,6 +1,6 @@
 // @ts-nocheck
-// 文件三件套:有界读(带行号)/ 精确替换 / 带护栏写。
-// 相对路径相对智能体的工作目录(ctx.cwd)解析,和 shell 一致。
+// 文件三件套:read(有界读,带行号)/ edit(精确替换)/ write(带护栏写)。
+// 相对路径相对智能体的工作目录(ctx.cwd)解析,和 bash 一致。
 import { existsSync, mkdirSync, readFileSync, statSync, writeFileSync } from "fs";
 import { dirname, isAbsolute, resolve } from "path";
 
@@ -10,11 +10,11 @@ const resolvePath = (p, ctx) => {
   return isAbsolute(rel) ? rel : resolve(ctx?.cwd || process.cwd(), rel);
 };
 
-export const readFileDef = {
+export const readDef = {
   type: "function",
-  name: "read_file",
+  name: "read",
   description:
-    "读取一个文本文件,返回带行号的内容(便于随后用 edit_file 精确定位)。大文件用 offset/limit 分页。" +
+    "读取一个文本文件,返回带行号的内容(便于随后用 edit 精确定位)。大文件用 offset/limit 分页。" +
     "相对路径相对你的工作目录。",
   parameters: {
     type: "object",
@@ -29,12 +29,12 @@ export const readFileDef = {
   },
 };
 
-export const read_file = ({ path: p, offset, limit }, ctx) => {
+export const read = ({ path: p, offset, limit }, ctx) => {
   const abs = resolvePath(p, ctx);
   let stat;
   try { stat = statSync(abs); } catch { return `error: 文件不存在: ${p}`; }
-  if (stat.isDirectory()) return `error: ${p} 是目录(列目录用 shell 的 ls)`;
-  if (stat.size > 5_000_000) return `error: 文件过大(${stat.size} 字节),请用 shell 处理`;
+  if (stat.isDirectory()) return `error: ${p} 是目录(列目录用 bash 的 ls)`;
+  if (stat.size > 5_000_000) return `error: 文件过大(${stat.size} 字节),请用 bash 处理`;
   let buf;
   try { buf = readFileSync(abs); } catch (e) { return `error: ${e.message}`; }
   if (buf.subarray(0, 8192).includes(0)) return `(二进制文件,${stat.size} 字节,无法按文本读)`;
@@ -48,12 +48,12 @@ export const read_file = ({ path: p, offset, limit }, ctx) => {
   return numbered + (rest > 0 ? `\n… (还有 ${rest} 行,用 offset=${start + count} 继续读)` : "");
 };
 
-export const editFileDef = {
+export const editDef = {
   type: "function",
-  name: "edit_file",
+  name: "edit",
   description:
     "精确替换文件里的一段文本:把 old 替换成 new。old 必须在文件里唯一匹配(否则报错,请带更长上下文)。" +
-    "改文件首选 —— 比 shell sed / 重写整文件可靠且省 token。需替换多处可设 replace_all。",
+    "改文件首选 —— 比 bash sed / 重写整文件可靠且省 token。需替换多处可设 replace_all。",
   parameters: {
     type: "object",
     properties: {
@@ -68,26 +68,26 @@ export const editFileDef = {
   },
 };
 
-export const edit_file = ({ path: p, old, new: next, replace_all }, ctx) => {
+export const edit = ({ path: p, old, new: next, replace_all }, ctx) => {
   if (old == null || old === "") return "error: old(要替换的原文)不能为空";
   const newStr = next ?? "";
   const abs = resolvePath(p, ctx);
   let content;
   try { content = readFileSync(abs, "utf8"); } catch { return `error: 读不到文件: ${p}`; }
   const occurrences = content.split(old).length - 1;
-  if (occurrences === 0) return "error: 没找到要替换的内容(old 在文件里不存在)。先用 read_file 确认原文。";
+  if (occurrences === 0) return "error: 没找到要替换的内容(old 在文件里不存在)。先用 read 确认原文。";
   if (occurrences > 1 && !replace_all) return `error: old 出现了 ${occurrences} 次,不唯一。请带上更长、唯一的上下文,或设 replace_all=true。`;
   const updated = replace_all ? content.split(old).join(String(newStr)) : content.replace(old, String(newStr));
   try { writeFileSync(abs, updated); } catch (e) { return `error: 写回失败 ${e.message}`; }
-  ctx.emit?.({ type: "tree_changed", reason: "edit_file" });
+  ctx.emit?.({ type: "tree_changed", reason: "edit" });
   return `已编辑 ${p}(替换 ${replace_all ? occurrences : 1} 处)`;
 };
 
-export const writeFileDef = {
+export const writeDef = {
   type: "function",
-  name: "write_file",
+  name: "write",
   description:
-    "把 content 写入文件(不存在则创建,父目录自动创建;存在则覆盖)。新建文件或整体重写时用它;只改局部请用 edit_file。",
+    "把 content 写入文件(不存在则创建,父目录自动创建;存在则覆盖)。新建文件或整体重写时用它;只改局部请用 edit。",
   parameters: {
     type: "object",
     properties: {
@@ -100,7 +100,7 @@ export const writeFileDef = {
   },
 };
 
-export const write_file = ({ path: p, content }, ctx) => {
+export const write = ({ path: p, content }, ctx) => {
   if (!p) return "error: path 不能为空";
   const abs = resolvePath(p, ctx);
   const existed = existsSync(abs);
@@ -108,7 +108,7 @@ export const write_file = ({ path: p, content }, ctx) => {
     mkdirSync(dirname(abs), { recursive: true });
     writeFileSync(abs, content != null ? String(content) : "");
   } catch (e) { return `error: ${e.message}`; }
-  ctx.emit?.({ type: "tree_changed", reason: "write_file" });
+  ctx.emit?.({ type: "tree_changed", reason: "write" });
   const bytes = Buffer.byteLength(content != null ? String(content) : "");
   return `${existed ? "已覆盖" : "已创建"} ${p}(${bytes} 字节)`;
 };

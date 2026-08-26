@@ -20,6 +20,7 @@ data/
 
 # ─── 运行时 ───
 *.log
+logs/
 *.pid
 .cache/
 .tmp/

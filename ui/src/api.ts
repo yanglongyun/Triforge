@@ -85,6 +85,7 @@ export type ManagedProcess = {
   signal: string | null;
   ports: number[];
   preview_url: string | null;
+  log_file: string | null;
   output: string;
 };
 

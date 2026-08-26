@@ -4,8 +4,7 @@
 import { useEffect, useRef, useState } from "react";
 import { ArrowLeft, ArrowRight, Copy, ExternalLink, Globe, RotateCw } from "lucide-react";
 import type { WebTab } from "../types";
-
-const IN_ELECTRON = navigator.userAgent.includes("Electron");
+import { IN_ELECTRON, RE_REGISTER_EVENT, registerWebview, unregisterWebview } from "../../../lib/webviewHost";
 
 const normalizeInput = (raw: string) => {
   const value = raw.trim();
@@ -13,40 +12,84 @@ const normalizeInput = (raw: string) => {
   return /^[a-z][a-z0-9+.-]*:/i.test(value) ? value : `https://${value}`;
 };
 
-export function WebPanel({ tab, onPatch }: {
+type Socket = {
+  send: (m: any) => void;
+  on: (t: string, fn: (p: any) => void) => () => void;
+};
+
+export function WebPanel({ tab, socket, onUpdate }: {
   tab: WebTab;
-  onPatch: (patch: Partial<Pick<WebTab, "title" | "url">>) => void;
+  socket: Socket;
+  /** 必须是恒定引用(useCallback):注册 effect 依赖它,抖了 webview 会掉册。 */
+  onUpdate: (id: string, patch: Partial<Pick<WebTab, "title" | "url">>) => void;
 }) {
   const viewRef = useRef<HTMLElement | null>(null);
+  const wcIdRef = useRef<number | null>(null);
   const [address, setAddress] = useState(tab.url);
   const [editing, setEditing] = useState(false);
   const [loading, setLoading] = useState(false);
 
-  // webview 事件:标题/地址跟着页面走,标签栏与地址栏同步
+  // webview 事件:标题/地址跟着页面走,标签栏与地址栏同步;
+  // 同时把自己登记为 cdp 可操作的标签(本地注册表 + server 注册表)
   useEffect(() => {
     const view = viewRef.current as any;
     if (!view) return;
-    const onTitle = (e: any) => { if (e.title) onPatch({ title: e.title }); };
+    const registerToServer = () => {
+      if (wcIdRef.current == null) return;
+      socket.send({
+        type: "web_tab_register",
+        wcId: wcIdRef.current,
+        tabId: tab.id,
+        url: view.getURL?.() || tab.url,
+        title: tab.title,
+        token: tab.token,
+      });
+    };
+    const onDomReady = () => {
+      try {
+        const wcId = view.getWebContentsId?.();
+        if (typeof wcId === "number") {
+          wcIdRef.current = wcId;
+          registerWebview(wcId, view);
+          registerToServer();
+        }
+      } catch { /* webview 还没 attach 好,下一次 dom-ready 再来 */ }
+    };
+    const onTitle = (e: any) => {
+      if (!e.title) return;
+      onUpdate(tab.id, { title: e.title });
+      if (wcIdRef.current != null) socket.send({ type: "web_tab_update", wcId: wcIdRef.current, title: e.title });
+    };
     const onNavigate = (e: any) => {
       if (!e.url) return;
       setEditing((editing) => { if (!editing) setAddress(e.url); return editing; });
-      onPatch({ url: e.url });
+      onUpdate(tab.id, { url: e.url });
+      if (wcIdRef.current != null) socket.send({ type: "web_tab_update", wcId: wcIdRef.current, url: e.url });
     };
     const onStart = () => setLoading(true);
     const onStop = () => setLoading(false);
+    view.addEventListener("dom-ready", onDomReady);
     view.addEventListener("page-title-updated", onTitle);
     view.addEventListener("did-navigate", onNavigate);
     view.addEventListener("did-navigate-in-page", onNavigate);
     view.addEventListener("did-start-loading", onStart);
     view.addEventListener("did-stop-loading", onStop);
+    window.addEventListener(RE_REGISTER_EVENT, registerToServer); // server 重启后重新注册
     return () => {
+      view.removeEventListener("dom-ready", onDomReady);
       view.removeEventListener("page-title-updated", onTitle);
       view.removeEventListener("did-navigate", onNavigate);
       view.removeEventListener("did-navigate-in-page", onNavigate);
       view.removeEventListener("did-start-loading", onStart);
       view.removeEventListener("did-stop-loading", onStop);
+      window.removeEventListener(RE_REGISTER_EVENT, registerToServer);
+      if (wcIdRef.current != null) {
+        unregisterWebview(wcIdRef.current);
+        socket.send({ type: "web_tab_unregister", wcId: wcIdRef.current });
+        wcIdRef.current = null;
+      }
     };
-  }, [onPatch]);
+  }, [onUpdate, socket, tab.id]);
 
   const go = () => {
     const url = normalizeInput(address);
