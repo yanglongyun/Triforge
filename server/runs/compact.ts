@@ -74,8 +74,10 @@ export const maybeCompact = async ({ agentId, settings, signal, emit }) => {
   if (totalTokensOf(latestUsage(agentId)) < threshold) return null;
 
   const latest = getLatestCompaction(agentId);
-  const rows = listRows(agentId, { afterId: Number(latest?.end_message_id || 0) })
-    .filter((row) => row.meta?.kind !== "compaction");
+  // 旧摘要行**不过滤**:多代压缩时它会被折进新摘要(链式传承)。
+  // 从前把它 filter 掉,候选切片越过它的 id 后,新窗口起点在它之后 ——
+  // 最老一段的知识既没进新摘要、也不再进上下文,无声蒸发。
+  const rows = listRows(agentId, { afterId: Number(latest?.end_message_id || 0) });
   const at = splitAt(rows);
   if (at < 2) return null;
 
