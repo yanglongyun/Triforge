@@ -59,6 +59,8 @@ export type WebTab = {
   url: string;
   /** browser open 的关联令牌:webview 注册时带上,server 以此兑现「打开标签」请求。 */
   token?: string;
+  /** 页面上报的真实 favicon 地址(page-favicon-updated),标签栏优先用它。 */
+  favicon?: string;
 };
 
 export type WorkspaceTab = Node | ProcessTab | TerminalTab | GitTab | GitDiffTab | SettingsTab | ActivityTab | WebTab;

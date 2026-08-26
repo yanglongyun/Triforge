@@ -27,6 +27,7 @@ import { getProcess, listProcesses, startProcess, stopProcess } from "../process
 import { pickDirectory } from "../directoryPicker.js";
 import { syncWatchers } from "../watcher.js";
 import * as files from "../files.js";
+import { serveFavicon } from "../favicons.js";
 
 const parseBody = async (req) => {
   const chunks = [];
@@ -77,6 +78,11 @@ const handleApi = async (req, res) => {
       const id = decodeURIComponent(path.slice("/api/files/".length));
       if (files.serve(id, res)) return;
       return json(res, 404, { ok: false, error: "文件不存在" });
+    }
+
+    // ---- 网站图标(抓取+缓存代理,直连站点自身)----
+    if (path === "/api/favicon" && method === "GET") {
+      return serveFavicon(url.searchParams.get("url"), res);
     }
 
     // ---- agents(会话列表:智能体不在树上,住 SQLite,绑定 workdir)----

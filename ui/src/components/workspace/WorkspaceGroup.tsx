@@ -75,7 +75,7 @@ export function WorkspaceGroup({
   onSettingsSaved?: (settings: Settings) => void;
   onGitChanged?: () => void;
   onOpenGitDiff: (root: string, path: string, staged?: boolean) => void;
-  onUpdateWebTab: (id: string, patch: Partial<Pick<WebTab, "title" | "url">>) => void;
+  onUpdateWebTab: (id: string, patch: Partial<Pick<WebTab, "title" | "url" | "favicon">>) => void;
 }) {
   const tab = activeTabOf(group);
   const webTabs = group.tabs.filter(isWebTab);

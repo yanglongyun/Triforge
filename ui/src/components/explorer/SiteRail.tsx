@@ -2,7 +2,7 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import type { Site } from "../../api";
 import { api } from "../../api";
-import { ContextMenu, type MenuItem } from "../ui";
+import { ContextMenu, Favicon, type MenuItem } from "../ui";
 import { Copy, ExternalLink, Globe, Link, Pencil, Plus, Trash2 } from "lucide-react";
 
 export function SiteRail({
@@ -118,7 +118,7 @@ export function SiteRail({
           className="group flex items-center gap-1.5 py-[4px] pl-3 pr-2 cursor-pointer select-none text-text hover:bg-bg-hover"
           title={site.url}
         >
-          <Globe size={14} className="shrink-0 text-accent" />
+          <Favicon url={site.url} size={14} />
           {renamingId === site.id ? (
             <input
               autoFocus

@@ -1,7 +1,7 @@
 import { useRef, useState } from "react";
 import { iconFor, colorFor } from "../explorer/NodeRow";
 import { X, Menu, Circle, GitBranch, GitCompare, Globe, MonitorPlay, PanelRight, Radio, Settings, Terminal } from "lucide-react";
-import { ContextMenu, type MenuItem } from "../ui";
+import { ContextMenu, Favicon, type MenuItem } from "../ui";
 import type { WorkspaceGroupId, WorkspaceTab } from "./types";
 
 const tabIconFor = (tab: WorkspaceTab) =>
@@ -258,7 +258,11 @@ export function TabBar({
             ].join(" ")}
           >
             <span className="relative shrink-0">
-              <Icon size={13} className={active ? tabColorFor(t) : "opacity-70"} />
+              {t.kind === "web" ? (
+                <Favicon url={t.url} override={t.favicon} size={13} className={active ? "" : "opacity-70"} />
+              ) : (
+                <Icon size={13} className={active ? tabColorFor(t) : "opacity-70"} />
+              )}
               {running && (
                 <span className="absolute -top-0.5 -right-0.5 w-1.5 h-1.5 rounded-full bg-accent animate-pulse" />
               )}
@@ -335,7 +339,11 @@ function DragPreview({ x, y, tab }: { x: number; y: number; tab: WorkspaceTab })
       className="fixed z-[70] pointer-events-none flex h-8 max-w-[240px] items-center gap-1.5 rounded border border-border-strong bg-bg px-2 text-[13px] text-text shadow-lg"
       style={{ left: x + 10, top: y + 8 }}
     >
-      <Icon size={13} className={tabColorFor(tab)} />
+      {tab.kind === "web" ? (
+        <Favicon url={tab.url} override={tab.favicon} size={13} />
+      ) : (
+        <Icon size={13} className={tabColorFor(tab)} />
+      )}
       <span className="truncate">{tab.title}</span>
     </div>
   );

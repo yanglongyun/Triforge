@@ -21,7 +21,7 @@ export function WebPanel({ tab, socket, onUpdate }: {
   tab: WebTab;
   socket: Socket;
   /** 必须是恒定引用(useCallback):注册 effect 依赖它,抖了 webview 会掉册。 */
-  onUpdate: (id: string, patch: Partial<Pick<WebTab, "title" | "url">>) => void;
+  onUpdate: (id: string, patch: Partial<Pick<WebTab, "title" | "url" | "favicon">>) => void;
 }) {
   const viewRef = useRef<HTMLElement | null>(null);
   const wcIdRef = useRef<number | null>(null);
@@ -68,7 +68,12 @@ export function WebPanel({ tab, socket, onUpdate }: {
     };
     const onStart = () => setLoading(true);
     const onStop = () => setLoading(false);
+    const onFavicon = (e: any) => {
+      const icon = Array.isArray(e.favicons) ? String(e.favicons[0] || "") : "";
+      if (icon) onUpdate(tab.id, { favicon: icon }); // 页面自己上报的真实图标,标签栏优先用
+    };
     view.addEventListener("dom-ready", onDomReady);
+    view.addEventListener("page-favicon-updated", onFavicon);
     view.addEventListener("page-title-updated", onTitle);
     view.addEventListener("did-navigate", onNavigate);
     view.addEventListener("did-navigate-in-page", onNavigate);
@@ -77,6 +82,7 @@ export function WebPanel({ tab, socket, onUpdate }: {
     window.addEventListener(RE_REGISTER_EVENT, registerToServer); // server 重启后重新注册
     return () => {
       view.removeEventListener("dom-ready", onDomReady);
+      view.removeEventListener("page-favicon-updated", onFavicon);
       view.removeEventListener("page-title-updated", onTitle);
       view.removeEventListener("did-navigate", onNavigate);
       view.removeEventListener("did-navigate-in-page", onNavigate);

@@ -137,8 +137,8 @@ export function useTabGroups({ canCloseTab = () => true, onTabClosed = () => {} 
     openTab(webTab(url, title, opts.token), opts);
   }, [openTab]);
 
-  /** 网页标签的标题/地址跟着页面走(page-title-updated / did-navigate)。无变化返回 prev,别造渲染。 */
-  const updateWebTab = useCallback((id: string, patch: Partial<Pick<WebTab, "title" | "url">>) => {
+  /** 网页标签的标题/地址/图标跟着页面走(page-title-updated / did-navigate / page-favicon-updated)。无变化返回 prev,别造渲染。 */
+  const updateWebTab = useCallback((id: string, patch: Partial<Pick<WebTab, "title" | "url" | "favicon">>) => {
     setGroups((prev) => {
       let changed = false;
       const next = { ...prev };
@@ -147,7 +147,11 @@ export function useTabGroups({ canCloseTab = () => true, onTabClosed = () => {} 
         let groupChanged = false;
         const tabs = group.tabs.map((tab) => {
           if (tab.id !== id || !isWebTab(tab)) return tab;
-          if ((patch.title === undefined || tab.title === patch.title) && (patch.url === undefined || tab.url === patch.url)) return tab;
+          if (
+            (patch.title === undefined || tab.title === patch.title)
+            && (patch.url === undefined || tab.url === patch.url)
+            && (patch.favicon === undefined || tab.favicon === patch.favicon)
+          ) return tab;
           groupChanged = true;
           return { ...tab, ...patch };
         });
