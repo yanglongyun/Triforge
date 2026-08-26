@@ -20,7 +20,7 @@ import {
 } from "./types";
 
 type UseTabGroupsOptions = {
-  canCloseTab?: (tab: WorkspaceTab) => boolean;
+  canCloseTab?: (tab: WorkspaceTab) => boolean | Promise<boolean>;
   onTabClosed?: (tab: WorkspaceTab) => void;
 };
 
@@ -204,12 +204,18 @@ export function useTabGroups({ canCloseTab = () => true, onTabClosed = () => {} 
     setGroups((prev) => ({ ...prev, [groupId]: { ...prev[groupId], tabs } }));
   }, []);
 
-  const closeTabs = useCallback((groupId: WorkspaceGroupId, ids: string[]) => {
-    const group = groupsRef.current[groupId];
+  const closeTabs = useCallback(async (groupId: WorkspaceGroupId, ids: string[]) => {
+    let group = groupsRef.current[groupId];
     const closeSet = new Set(ids);
-    const tabsToClose = group.tabs.filter((tab) => closeSet.has(tab.id));
+    let tabsToClose = group.tabs.filter((tab) => closeSet.has(tab.id));
     if (!tabsToClose.length) return;
-    if (!tabsToClose.every((tab) => optionsRef.current.canCloseTab(tab))) return;
+    // 逐个询问(未保存确认可能是异步弹窗);任何一个拒绝就整体不关
+    for (const tab of tabsToClose) {
+      if (!(await optionsRef.current.canCloseTab(tab))) return;
+    }
+    group = groupsRef.current[groupId]; // 弹窗期间标签可能变了,重取
+    tabsToClose = group.tabs.filter((tab) => closeSet.has(tab.id));
+    if (!tabsToClose.length) return;
     const nextTabs = group.tabs.filter((tab) => !closeSet.has(tab.id));
     const activeWasClosed = !!group.activeId && closeSet.has(group.activeId);
     const firstClosedIdx = group.tabs.findIndex((tab) => closeSet.has(tab.id));
@@ -330,10 +336,11 @@ export function useTabGroups({ canCloseTab = () => true, onTabClosed = () => {} 
     });
   }, []);
 
-  const closeAll = useCallback(() => {
+  const closeAll = useCallback(async () => {
     const currentTabs = groupOrder.flatMap((id) => groupsRef.current[id].tabs);
-    const closable = currentTabs.every((tab) => optionsRef.current.canCloseTab(tab));
-    if (!closable) return;
+    for (const tab of currentTabs) {
+      if (!(await optionsRef.current.canCloseTab(tab))) return;
+    }
     setGroups({ main: emptyGroup("main"), side: emptyGroup("side") });
     currentTabs.forEach(optionsRef.current.onTabClosed);
     setActiveGroupId("main");

@@ -1,5 +1,6 @@
 import { useEffect, useRef, useState } from "react";
 import { api, type Node } from "../../api";
+import { dialog } from "../ui";
 import type { DropPosition } from "./NodeRow";
 import {
   PointerSensor,
@@ -68,7 +69,7 @@ export function useTreeDnd({
     try {
       await api.moveNode(sourceId, parentId, pos);
     } catch (e: any) {
-      if (/已有同名/.test(e?.message || "") && confirm(`${e.message}。覆盖吗?(被覆盖的会进废纸篓)`)) {
+      if (/已有同名/.test(e?.message || "") && (await dialog.confirm(`${e.message}。覆盖吗?(被覆盖的会进废纸篓)`, { danger: true, confirmText: "覆盖" }))) {
         await api.moveNode(sourceId, parentId, pos, true);
       } else throw e;
     }
@@ -104,7 +105,7 @@ export function useTreeDnd({
       }
       refresh();
     } catch (e: any) {
-      alert(e.message || "move failed");
+      void dialog.alert(e.message || "移动失败");
     }
   };
 

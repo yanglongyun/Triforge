@@ -6,6 +6,7 @@ import { FileText, Folder, Paperclip, Send, Settings, Square, X } from "lucide-r
 
 import type { Attachment, Node } from "../../api";
 import { api } from "../../api";
+import { dialog } from "../ui";
 import { EVENTS } from "../../../../server/shared/events";
 import { MessageStream } from "./MessageStream";
 import { setupStream } from "./stream";
@@ -136,7 +137,7 @@ export function ChatPanel({
       }
       setAttachments((current) => [...current, ...next].slice(0, 10));
     } catch (error: any) {
-      alert(error?.message || "文件上传失败");
+      void dialog.alert(error?.message || "文件上传失败");
     } finally {
       setUploading(false);
       if (fileRef.current) fileRef.current.value = "";

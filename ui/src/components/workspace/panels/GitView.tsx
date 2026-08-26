@@ -2,7 +2,7 @@ import { useEffect, useMemo, useState } from "react";
 import type { ReactNode } from "react";
 import { Check, ChevronRight, Copy, GitBranch, GitCommitHorizontal, GitCompare, GitPullRequest, Minus, Plus, RefreshCw, RotateCcw, UploadCloud } from "lucide-react";
 import { api, type GitBranches, type GitFileStatus, type GitRepositoryStatus } from "../../../api";
-import { ContextMenu, type MenuItem } from "../../ui";
+import { ContextMenu, dialog, type MenuItem } from "../../ui";
 
 const statusText: Record<GitFileStatus["status"], string> = {
   untracked: "U",
@@ -189,8 +189,8 @@ function RepositoryBlock({
   const disabled = !!busy || !root;
   const showDetails = singleRepo || expanded;
 
-  const doDiscard = (file: GitFileStatus) => {
-    if (!confirm(`丢弃「${file.path}」的更改?\n这个操作不可撤销。`)) return;
+  const doDiscard = async (file: GitFileStatus) => {
+    if (!(await dialog.confirm(`丢弃「${file.path}」的更改?\n这个操作不可撤销。`, { danger: true, confirmText: "丢弃" }))) return;
     onRun(`discard:${file.path}`, () => api.gitDiscard({ root, path: file.path }));
   };
   const toggleGroup = (id: string) =>

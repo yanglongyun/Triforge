@@ -3,7 +3,7 @@
 import { useCallback, useEffect, useState } from "react";
 import type { Node } from "../../api";
 import { api } from "../../api";
-import { ContextMenu, type MenuItem } from "../ui";
+import { ContextMenu, dialog, type MenuItem } from "../ui";
 import { Bot, Copy, FolderOpen, Pencil, Pin, PinOff, Plus, Trash2 } from "lucide-react";
 
 type Socket = { send: (m: any) => void; on: (t: string, fn: (p: any) => void) => () => void };
@@ -92,7 +92,7 @@ export function AgentRail({
         "divider",
         { label: "删除", icon: <Trash2 size={13} />, danger: true,
           onClick: async () => {
-            if (!confirm(`删除对话「${agent.title}」?\n全部消息记录会一并删除;工作目录里的文件不受影响。`)) return;
+            if (!(await dialog.confirm(`删除对话「${agent.title}」?\n全部消息记录会一并删除;工作目录里的文件不受影响。`, { danger: true, confirmText: "删除" }))) return;
             await api.deleteAgent(agent.id);
             load();
           } },

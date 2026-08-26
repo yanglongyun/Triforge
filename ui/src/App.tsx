@@ -6,6 +6,7 @@ import { EVENTS } from "../../server/shared/events";
 import { QuickOpen, CommandPalette, type Command } from "./components/command";
 import { NodeTree } from "./components/explorer";
 import { WorkspaceLayout, isSettingsTab, isActivityTab, isNodeTab, useTabGroups } from "./components/workspace";
+import { DialogHost, dialog } from "./components/ui";
 import { FileText, Folder, FolderPlus, Bot, Globe, Search, Settings as SettingsIcon, X, MonitorPlay, PanelRight, Radio } from "lucide-react";
 import type { ManagedProcess } from "./api";
 
@@ -31,7 +32,7 @@ export function App() {
   };
 
   const tabGroups = useTabGroups({
-    canCloseTab: (tab) => tab.kind !== "file" || !dirtyIds.has(tab.id) || confirm("有未保存的修改,确定关闭?"),
+    canCloseTab: (tab) => tab.kind !== "file" || !dirtyIds.has(tab.id) || dialog.confirm("有未保存的修改,确定关闭?", { danger: true, confirmText: "关闭" }),
     onTabClosed: (tab) => { if (tab.kind === "file") onFileSaved(tab.id); },
   });
 
@@ -247,13 +248,17 @@ export function App() {
         setTreeRefresh((n) => n + 1);
         return;
       }
-      const title = window.prompt(`新建${kind === "space" ? "文件夹" : "文件"}的名字:`);
+      const title = await dialog.prompt("", {
+        title: `新建${kind === "space" ? "文件夹" : "文件"}`,
+        placeholder: kind === "space" ? "文件夹名…" : "文件名…",
+        confirmText: "创建",
+      });
       if (!title || !title.trim()) return;
       const r = await api.createNode({ kind, title: title.trim(), parentId });
       openNode(r.node);
       setTreeRefresh((n) => n + 1);
     } catch (e: any) {
-      alert(e.message || "新建失败");
+      void dialog.alert(e.message || "新建失败");
     }
   };
 
@@ -265,8 +270,8 @@ export function App() {
 
   const commands: Command[] = [
     { id: "new-agent", label: "新建对话", icon: <Bot size={14} />, run: () => createAtCurrentTarget("agent") },
-    { id: "open-url", label: "打开网址…", icon: <Globe size={14} />, run: () => {
-      const raw = window.prompt("要打开的网址:");
+    { id: "open-url", label: "打开网址…", icon: <Globe size={14} />, run: async () => {
+      const raw = await dialog.prompt("", { title: "打开网址", placeholder: "example.com", confirmText: "打开" });
       if (raw && raw.trim()) openWebTab(/^[a-z][a-z0-9+.-]*:/i.test(raw.trim()) ? raw.trim() : `https://${raw.trim()}`);
     } },
     { id: "new-space", label: "新建文件夹", icon: <Folder size={14} />, run: () => createAtCurrentTarget("space") },
@@ -333,6 +338,7 @@ export function App() {
 
       {quickOpen && <QuickOpen onPick={(n) => openNode(n)} onClose={() => setQuickOpen(false)} />}
       {cmdOpen && <CommandPalette commands={commands} onClose={() => setCmdOpen(false)} />}
+      <DialogHost />{/* 全局对话框:提示/确认/输入,全产品一套 */}
 
       {/* 移动端遮罩 */}
       {mobileNavOpen && (

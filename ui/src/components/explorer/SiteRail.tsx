@@ -2,7 +2,7 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import type { Site } from "../../api";
 import { api } from "../../api";
-import { ContextMenu, Favicon, type MenuItem } from "../ui";
+import { ContextMenu, Favicon, dialog, type MenuItem } from "../ui";
 import { Copy, ExternalLink, Globe, Link, Pencil, Plus, Trash2 } from "lucide-react";
 
 export function SiteRail({
@@ -49,7 +49,7 @@ export function SiteRail({
       onOpenUrl(result.item.url, result.item.title); // 存下即打开
       load();
     } catch (e: any) {
-      alert(e?.message || "网址不合法");
+      void dialog.alert(e?.message || "网址不合法");
     }
   };
 
@@ -71,17 +71,17 @@ export function SiteRail({
         { label: "重命名", icon: <Pencil size={13} />, onClick: () => { setRenamingId(site.id); setRenameDraft(site.title); } },
         { label: "修改网址", icon: <Link size={13} />,
           onClick: async () => {
-            const next = window.prompt("网址:", site.url);
+            const next = await dialog.prompt("", { title: `修改网址 — ${site.title}`, defaultValue: site.url, placeholder: "example.com" });
             if (!next || !next.trim()) return;
             try { await api.updateSite(site.id, { url: next.trim() }); load(); }
-            catch (err: any) { alert(err?.message || "网址不合法"); }
+            catch (err: any) { void dialog.alert(err?.message || "网址不合法"); }
           } },
         { label: "复制链接", icon: <Copy size={13} />, onClick: () => { navigator.clipboard.writeText(site.url).catch(() => {}); } },
         { label: "在系统浏览器打开", icon: <ExternalLink size={13} />, onClick: () => { window.open(site.url, "_blank"); } },
         "divider",
         { label: "删除", icon: <Trash2 size={13} />, danger: true,
           onClick: async () => {
-            if (!confirm(`从网站列表删除「${site.title}」?`)) return;
+            if (!(await dialog.confirm(`从网站列表删除「${site.title}」?`, { danger: true, confirmText: "删除" }))) return;
             await api.deleteSite(site.id);
             load();
           } },

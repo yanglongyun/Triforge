@@ -2,6 +2,7 @@ import { useEffect, useMemo, useState } from "react";
 import type { ReactNode } from "react";
 import { Copy, GitCompare, Minus, Plus, RefreshCw, RotateCcw } from "lucide-react";
 import { api, type GitFileStatus } from "../../../api";
+import { dialog } from "../../ui";
 import type { GitDiffTab } from "../types";
 
 type GitDiffPanelProps = {
@@ -75,7 +76,7 @@ export function GitDiffPanel({ tab, refreshKey = 0, onChanged }: GitDiffPanelPro
   };
 
   const discard = () => {
-    if (!confirm(`丢弃「${tab.path}」的更改?\n这个操作不可撤销。`)) return;
+    if (!(await dialog.confirm(`丢弃「${tab.path}」的更改?\n这个操作不可撤销。`, { danger: true, confirmText: "丢弃" }))) return;
     runAction("discard", () => api.gitDiscard({ root: tab.root, path: tab.path }));
   };
 

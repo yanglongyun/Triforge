@@ -180,7 +180,7 @@ export function NodeTree({
     const label = rawIds.length === 1
       ? `「${nodesRef.current.get(rawIds[0])?.title || rawIds[0].split("/").pop()}」`
       : `选中的 ${rawIds.length} 项`;
-    if (!confirm(`删除${label}?文件夹内的内容会一起删除。${hint}`)) return;
+    if (!(await dialog.confirm(`删除${label}?文件夹内的内容会一起删除。${hint}`, { danger: true, confirmText: "删除" }))) return;
     for (const id of workspaces) await api.removeWorkspace(id).catch(() => {});
     for (const id of normal) await api.deleteNode(id).catch(() => {});
     if (rawIds.includes(selectedIdRef.current)) onSelect(null);
@@ -211,12 +211,12 @@ export function NodeTree({
       if (clip.cut) {
         try { await api.moveNode(id, targetDir); }
         catch (e: any) {
-          if (/已有同名/.test(e?.message || "") && confirm(`${e.message}。覆盖吗?(被覆盖的会进废纸篓)`)) {
-            await api.moveNode(id, targetDir, undefined, true).catch((err: any) => alert(err?.message || "移动失败"));
-          } else if (!/已有同名/.test(e?.message || "")) alert(e?.message || "移动失败");
+          if (/已有同名/.test(e?.message || "") && (await dialog.confirm(`${e.message}。覆盖吗?(被覆盖的会进废纸篓)`, { danger: true, confirmText: "覆盖" }))) {
+            await api.moveNode(id, targetDir, undefined, true).catch((err: any) => void dialog.alert(err?.message || "移动失败"));
+          } else if (!/已有同名/.test(e?.message || "")) void dialog.alert(e?.message || "移动失败");
         }
       } else {
-        await api.copyNode(id, targetDir).catch((e: any) => alert(e.message || "复制失败"));
+        await api.copyNode(id, targetDir).catch((e: any) => void dialog.alert(e.message || "复制失败"));
       }
     }
     if (clip.cut) { clipboardRef.current = null; setCutIds(new Set()); }
@@ -278,7 +278,7 @@ export function NodeTree({
     }
     if (parentId) setExpanded(parentId, true);
     refresh();
-    if (failed) alert(`导入完成:${done} 个成功,${failed} 个失败或超限(单文件 ≤20MB,单次 ≤200 个 / 100MB)`);
+    if (failed) void dialog.alert(`导入完成:${done} 个成功,${failed} 个失败或超限(单文件 ≤20MB,单次 ≤200 个 / 100MB)`);
   };
 
   // ── Git 状态标记:文件按状态染色,脏目录点标 ──
@@ -565,10 +565,10 @@ export function NodeTree({
       await api.updateNode(id, { title });
     } catch (e: any) {
       // 重名:确认后覆盖(旧的进废纸篓),否则放弃
-      if (/已有同名/.test(e?.message || "") && confirm(`${e.message}。覆盖吗?(被覆盖的会进废纸篓)`)) {
-        await api.updateNode(id, { title, overwrite: true }).catch((err: any) => alert(err?.message || "重命名失败"));
+      if (/已有同名/.test(e?.message || "") && (await dialog.confirm(`${e.message}。覆盖吗?(被覆盖的会进废纸篓)`, { danger: true, confirmText: "覆盖" }))) {
+        await api.updateNode(id, { title, overwrite: true }).catch((err: any) => void dialog.alert(err?.message || "重命名失败"));
       } else if (!/已有同名/.test(e?.message || "")) {
-        alert(e?.message || "重命名失败");
+        void dialog.alert(e?.message || "重命名失败");
       }
     }
     refresh();
@@ -683,10 +683,10 @@ export function NodeTree({
       { label: node.workspace ? "移除工作区" : "删除", icon: <Trash2 size={13} />, danger: true,
         onClick: async () => {
           if (node.workspace) {
-            if (!confirm(`从 Workbench 移除工作区「${node.title}」?\n不会删除磁盘文件。`)) return;
+            if (!(await dialog.confirm(`从 Workbench 移除工作区「${node.title}」?\n不会删除磁盘文件。`, { danger: true, confirmText: "移除" }))) return;
             await api.removeWorkspace(node.id);
           } else {
-            if (!confirm(`删除「${node.title}」?${node.kind === "space" ? "\n里面所有内容也会一起删除。" : ""}`)) return;
+            if (!(await dialog.confirm(`删除「${node.title}」?${node.kind === "space" ? "\n里面所有内容也会一起删除。" : ""}`, { danger: true, confirmText: "删除" }))) return;
             await api.deleteNode(node.id);
           }
           if (selectedId === node.id) onSelect(null);
