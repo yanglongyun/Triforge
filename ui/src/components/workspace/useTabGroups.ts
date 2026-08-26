@@ -133,9 +133,6 @@ export function useTabGroups({ canCloseTab = () => true, onTabClosed = () => {} 
     openTab(activityTab(), opts);
   }, [openTab]);
 
-  const openWeb = useCallback((url: string, title?: string, opts: { groupId?: WorkspaceGroupId; side?: boolean; token?: string } = {}) => {
-    openTab(webTab(url, title, opts.token), opts);
-  }, [openTab]);
 
   /** 网页标签的标题/地址/图标跟着页面走(page-title-updated / did-navigate / page-favicon-updated)。无变化返回 prev,别造渲染。 */
   const updateWebTab = useCallback((id: string, patch: Partial<Pick<WebTab, "title" | "url" | "favicon">>) => {
@@ -179,6 +176,29 @@ export function useTabGroups({ canCloseTab = () => true, onTabClosed = () => {} 
     }
     return false;
   }, [activateTab]);
+
+  /**
+   * 打开网页标签。同站已开就聚焦不重复开:先精确 URL(忽略尾斜杠),再同源(host)。
+   * 返回被聚焦的已有标签(null = 新开了一个)—— AI 发起的 open 靠它兑现 token。
+   */
+  const openWeb = useCallback((url: string, title?: string, opts: { groupId?: WorkspaceGroupId; side?: boolean; token?: string } = {}): WebTab | null => {
+    const clean = (value: string) => String(value || "").replace(/\/+$/, "");
+    let origin = "";
+    try { origin = new URL(url).origin; } catch { /* 非法就只做精确匹配 */ }
+    const originOf = (value: string) => { try { return new URL(value).origin; } catch { return ""; } };
+    for (const groupId of groupOrder) {
+      const tabs = groupsRef.current[groupId].tabs;
+      const existing =
+        tabs.find((tab): tab is WebTab => isWebTab(tab) && clean(tab.url) === clean(url))
+        || (origin ? tabs.find((tab): tab is WebTab => isWebTab(tab) && originOf(tab.url) === origin) : undefined);
+      if (existing) {
+        activateTab(groupId, existing.id);
+        return existing;
+      }
+    }
+    openTab(webTab(url, title, opts.token), opts);
+    return null;
+  }, [openTab, activateTab]);
 
   const reorderTabs = useCallback((groupId: WorkspaceGroupId, tabs: WorkspaceTab[]) => {
     setGroups((prev) => ({ ...prev, [groupId]: { ...prev[groupId], tabs } }));

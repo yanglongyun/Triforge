@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import { useSocket } from "./ws";
-import { useBrowserHost } from "./lib/webviewHost";
+import { useBrowserHost, wcIdForTab } from "./lib/webviewHost";
 import { api, type GitRepositoryStatus, type Node } from "./api";
 import { EVENTS } from "../../server/shared/events";
 import { QuickOpen, CommandPalette, type Command } from "./components/command";
@@ -139,11 +139,19 @@ export function App() {
   }, [refreshGit, socket, tabGroups.removeNodeTab, tabGroups.updateNodeTab]);
 
   // browser open:智能体要开一个网页标签 —— 按策略落在分屏侧组(左边对话继续流,
-  // 右边看着 agent 操作浏览器),带 token 打开,webview 注册时兑现给 server
+  // 右边看着 agent 操作浏览器),带 token 打开,webview 注册时兑现给 server;
+  // 同站已开则聚焦现有标签,并用它的 wcId 带 token 重注册,工具调用同样兑现
   useEffect(() => {
     const off = socket.on("web_tab_open", (p: any) => {
       if (!p?.url) return;
-      tabGroups.openWeb(String(p.url), undefined, { token: p.token ? String(p.token) : undefined, groupId: "side" });
+      const token = p.token ? String(p.token) : undefined;
+      const existing = tabGroups.openWeb(String(p.url), undefined, { token, groupId: "side" });
+      if (existing && token) {
+        const wcId = wcIdForTab(existing.id);
+        if (wcId != null) {
+          socket.send({ type: "web_tab_register", wcId, tabId: existing.id, url: existing.url, title: existing.title, token });
+        }
+      }
     });
     return off;
   }, [socket, tabGroups.openWeb]);

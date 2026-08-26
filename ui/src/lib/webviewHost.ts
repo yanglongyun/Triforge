@@ -16,6 +16,11 @@ const registry = new Map<number, { el: any; tabId: string }>();
 
 export const registerWebview = (wcId: number, el: any, tabId: string) => { registry.set(wcId, { el, tabId }); };
 export const unregisterWebview = (wcId: number) => { registry.delete(wcId); };
+/** 按工作区标签 id 反查 wcId(browser open 命中已开标签时,拿它带 token 重注册兑现)。 */
+export const wcIdForTab = (tabId: string): number | null => {
+  for (const [wcId, entry] of registry) if (entry.tabId === tabId) return wcId;
+  return null;
+};
 
 /** 服务器重启后注册表清零 —— 广播这个事件让每个 WebPanel 重新注册。 */
 export const RE_REGISTER_EVENT = "workbench:web-reregister";
