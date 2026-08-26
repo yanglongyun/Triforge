@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import { useSocket } from "./ws";
-import { useCdpHost } from "./lib/webviewHost";
+import { useBrowserHost } from "./lib/webviewHost";
 import { api, type GitRepositoryStatus, type Node } from "./api";
 import { EVENTS } from "../../server/shared/events";
 import { QuickOpen, CommandPalette, type Command } from "./components/command";
@@ -11,7 +11,7 @@ import type { ManagedProcess } from "./api";
 
 export function App() {
   const socket = useSocket();
-  useCdpHost(socket); // cdp 工具的执行端:应答 server 广播的网页标签指令(仅 Electron)
+  useBrowserHost(socket); // browser 工具的执行端:应答 server 广播的网页标签指令(仅 Electron)
   const [treeRefresh, setTreeRefresh] = useState(0);
   const treeBumpTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
   const [gitRefreshKey, setGitRefreshKey] = useState(0);
@@ -138,16 +138,17 @@ export function App() {
     return off;
   }, [refreshGit, socket, tabGroups.removeNodeTab, tabGroups.updateNodeTab]);
 
-  // cdp open:智能体要开一个网页标签 —— 带 token 打开,webview 注册时兑现给 server
+  // browser open:智能体要开一个网页标签 —— 按策略落在分屏侧组(左边对话继续流,
+  // 右边看着 agent 操作浏览器),带 token 打开,webview 注册时兑现给 server
   useEffect(() => {
     const off = socket.on("web_tab_open", (p: any) => {
       if (!p?.url) return;
-      tabGroups.openWeb(String(p.url), undefined, { token: p.token ? String(p.token) : undefined });
+      tabGroups.openWeb(String(p.url), undefined, { token: p.token ? String(p.token) : undefined, groupId: "side" });
     });
     return off;
   }, [socket, tabGroups.openWeb]);
 
-  // cdp screenshot:截图前把目标网页标签翻到前台(隐藏的 <webview> 画不出图,capturePage 会挂起)
+  // browser screenshot:截图前把目标网页标签翻到前台(隐藏的 <webview> 画不出图,capturePage 会挂起)
   useEffect(() => {
     const onActivate = (e: Event) => {
       const tabId = String((e as CustomEvent).detail?.tabId || "");

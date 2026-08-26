@@ -30,7 +30,7 @@ export function WebPanel({ tab, socket, onUpdate }: {
   const [loading, setLoading] = useState(false);
 
   // webview 事件:标题/地址跟着页面走,标签栏与地址栏同步;
-  // 同时把自己登记为 cdp 可操作的标签(本地注册表 + server 注册表)
+  // 同时把自己登记为 browser 可操作的标签(本地注册表 + server 注册表)
   useEffect(() => {
     const view = viewRef.current as any;
     if (!view) return;

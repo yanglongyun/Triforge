@@ -1,7 +1,7 @@
 // 过程体系:思考 / 工具各是一行(图标位悬停换 chevron,展开转 90°),
 // 相邻的已完成常规工具收成一行摘要,完成的一轮整体收进「已工作X」折叠条。
 // 运行中的工具标签走扫光;整轮进行中时底部是转圈 + 「正在工作」。
-// agent / cdp 不进分组 —— 多智能体动作和浏览器操作是 Arbor 的招牌,永远单独可见。
+// agent / browser 不进分组 —— 多智能体动作和浏览器操作是 Arbor 的招牌,永远单独可见。
 import { useState, type ReactNode } from "react";
 import {
   ChevronRight, FilePlus2, FileText, Globe, ListTree, Loader2,
@@ -16,8 +16,8 @@ export type TurnEntry = { kind: "think" | "tool" | "text"; row: Row };
 
 const basename = (value: unknown) => String(value ?? "").split("/").filter(Boolean).pop() || "";
 
-/** cdp 各动作的中文标签。 */
-const CDP_LABEL: Record<string, string> = {
+/** browser 各动作的中文标签。 */
+const BROWSER_LABEL: Record<string, string> = {
   list: "查看网页标签",
   open: "打开网页",
   navigate: "网页跳转",
@@ -43,10 +43,11 @@ const toolMeta = (row: Row): { icon: ReactNode; label: string; pill: string; wid
       return { icon: <Pencil size={13} />, label: "修改", pill: basename(args.path) || summary, wide: false };
     case "write":
       return { icon: <FilePlus2 size={14} />, label: "写入", pill: basename(args.path) || summary, wide: false };
-    case "cdp": {
+    case "browser":
+    case "cdp": { // cdp = 改名前的历史行
       const action = String(args.action ?? "");
       const pill = summary || String(args.url ?? args.selector ?? args.code ?? "");
-      return { icon: <Globe size={14} />, label: CDP_LABEL[action] || "操作网页", pill, wide: true };
+      return { icon: <Globe size={14} />, label: BROWSER_LABEL[action] || "操作网页", pill, wide: true };
     }
     case "agent":
       return args.agent_id
@@ -280,7 +281,7 @@ export function TurnFold({ durationMs, children }: { durationMs: number | null; 
 /* ── 有序渲染一串条目:常规工具做相邻分组,中间文本按 markdown 平铺 ── */
 
 // 多智能体动作与浏览器操作是 Arbor 的招牌,永远单独可见,不收进「执行了 N 步」
-const NEVER_GROUP = new Set(["agent", "cdp", "create_agent", "call_agent"]);
+const NEVER_GROUP = new Set(["agent", "browser", "cdp", "create_agent", "call_agent"]);
 
 export function TurnEntries({ items }: { items: TurnEntry[] }) {
   const nodes: ReactNode[] = [];

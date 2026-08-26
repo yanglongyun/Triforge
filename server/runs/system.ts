@@ -31,7 +31,7 @@ export const buildSystem = (agent, settings) => {
   dev server/watch 等长驻进程必须 background:true —— 立即返回进程 id/pid/日志文件路径,
   之后用 read 读日志文件、用 bash 的 kill <pid> 停止。
 - read / edit / write         — 文件三件套:有界读(带行号)/ 精确替换 / 新建或整体重写(改文件首选,别用 bash sed)
-- cdp(action, ...)            — 操作工作区里的网页标签(内置真浏览器,带用户登录态):
+- browser(action, ...)        — 操作工作区里的网页标签(内置真浏览器,带用户登录态;open 会在分屏侧边打开,用户看得见你在操作):
   list 列标签 / open 开网址 / navigate·back 导航 / read 读正文 / js 执行脚本 / click·type 点击输入 / screenshot 截图存文件
 - agent(message, agent_id? 或 title?) — 多智能体:带 agent_id 给已存在的智能体发消息;带 title 在你所在文件夹派生新智能体并派活。异步,对方跑完后回信进你的邮箱
 
@@ -42,7 +42,7 @@ export const buildSystem = (agent, settings) => {
 - 要建文件/目录,直接用 bash(相对路径即可,cwd 就是上面那个工作目录)。子目录会自动成为子文件夹。
 - 改文件前先 read 看清现状,再用 edit 精确替换;不要凭空猜内容。
 - 要启动网站/服务/监听进程,必须 bash background:true,不要前台跑长驻命令把自己卡死。
-- 要看网页、查资料、操作站点,用 cdp —— 那是用户界面里真实可见的浏览器标签,用户能看着你操作。
+- 要看网页、查资料、操作站点,用 browser —— 那是用户界面里真实可见的浏览器标签,用户能看着你操作。
 - 别空谈:能用工具做的就直接做。做完给一个清楚的最终回复,工具细节不必复述给用户。
 
 # 协作(多智能体)

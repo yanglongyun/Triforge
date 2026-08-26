@@ -1,7 +1,7 @@
 // @ts-nocheck
-// 浏览器宿主:cdp 工具的服务端一半。
+// 浏览器宿主:browser 工具的服务端一半。
 // 真正的浏览器是 UI 里的 <webview>(Electron 渲染进程)—— 它通过现有 ws 注册自己的
-// 网页标签(wcId + 地址 + 标题),cdp 指令从这里广播出去、拥有该标签的窗口执行后应答。
+// 网页标签(wcId + 地址 + 标题),browser 指令从这里广播出去、拥有该标签的窗口执行后应答。
 // server 始终不直接摸 webContents:主进程/渲染进程的事留在壳里,这里只做登记与转发。
 import { randomUUID } from "crypto";
 import { emit } from "./bus.js";
@@ -10,7 +10,7 @@ import { emit } from "./bus.js";
 const tabs = new Map();
 /** 声明过自己是宿主(Electron 壳里的 UI)的 ws client 集合。 */
 const hosts = new Set();
-/** 在途的 cdp 请求:id → {resolve, timer}。应答走 resolveCdp。 */
+/** 在途的 browser 请求:id → {resolve, timer}。应答走 resolveBrowserResult。 */
 const pending = new Map();
 /** 在途的「打开标签」:token → {resolve, timer}。新 webview 注册时若带 token 即兑现。 */
 const pendingOpens = new Map();
@@ -62,29 +62,29 @@ export const unregisterTab = (payload) => { tabs.delete(Number(payload.wcId)); }
 export const listTabs = () =>
   Array.from(tabs.values()).map(({ wcId, url, title }) => ({ id: wcId, url, title }));
 
-/** UI 应答 cdp_response → 兑现在途请求。 */
-export const resolveCdp = (payload) => {
+/** UI 应答 browser_response → 兑现在途请求。 */
+export const resolveBrowserResult = (payload) => {
   const waiter = pending.get(String(payload.id || ""));
   if (!waiter) return;
   pending.delete(String(payload.id));
   clearTimeout(waiter.timer);
   if (payload.ok) waiter.resolve(payload.result);
-  else waiter.reject(new Error(String(payload.error || "cdp 执行失败")));
+  else waiter.reject(new Error(String(payload.error || "浏览器执行失败")));
 };
 
-/** 向宿主发一条 cdp 指令并等应答。tab 必须已注册;超时按操作类型给。 */
-export const cdpRequest = (wcId, op, params = {}, timeoutMs = 15_000) => {
+/** 向宿主发一条 browser 指令并等应答。tab 必须已注册;超时按操作类型给。 */
+export const browserRequest = (wcId, op, params = {}, timeoutMs = 15_000) => {
   const tab = tabs.get(Number(wcId));
   if (!tab) throw new Error(`标签不存在:${wcId}(用 action=list 查看当前网页标签)`);
   const id = randomUUID();
   return new Promise((resolve, reject) => {
     const timer = setTimeout(() => {
       pending.delete(id);
-      reject(new Error(`cdp ${op} 超时(${Math.round(timeoutMs / 1000)}s)`));
+      reject(new Error(`browser ${op} 超时(${Math.round(timeoutMs / 1000)}s)`));
     }, timeoutMs);
     pending.set(id, { resolve, reject, timer });
     // 广播:拥有该 wcId 的窗口执行并应答,其余窗口忽略
-    emit({ type: "cdp_request", id, wcId: Number(wcId), op, params });
+    emit({ type: "browser_request", id, wcId: Number(wcId), op, params });
   });
 };
 

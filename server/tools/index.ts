@@ -6,11 +6,11 @@
 // 六个工具,一个不多:
 //   bash(background?)  — 命令与后台进程(读日志用 read 日志文件,停止用 kill)
 //   read / edit / write — 文件三件套
-//   cdp                — 操作网页标签(Electron <webview>,真登录态)
+//   browser            — 操作网页标签(Electron <webview>,真登录态,分屏可见)
 //   agent              — 多智能体(发消息 / 派生)
 import { bash, bashDef } from "./bash.js";
 import { edit, editDef, read, readDef, write, writeDef } from "./files.js";
-import { cdp, cdpDef } from "./cdp.js";
+import { browser, browserDef } from "./browser.js";
 import { agent, agentDef } from "./agent.js";
 
 export const tools = [
@@ -18,7 +18,7 @@ export const tools = [
   readDef,
   editDef,
   writeDef,
-  cdpDef,
+  browserDef,
   agentDef,
 ];
 
@@ -27,7 +27,7 @@ const IMPLS = {
   read,
   edit,
   write,
-  cdp,
+  browser,
   agent,
 };
 

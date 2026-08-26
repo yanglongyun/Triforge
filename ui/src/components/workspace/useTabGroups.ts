@@ -165,7 +165,7 @@ export function useTabGroups({ canCloseTab = () => true, onTabClosed = () => {} 
     setActiveGroupId(groupId);
   }, []);
 
-  /** 不知道在哪个组时按 id 激活(cdp 截图前把网页标签翻到前台用)。 */
+  /** 不知道在哪个组时按 id 激活(browser 截图前把网页标签翻到前台用)。 */
   const activateTabById = useCallback((id: string) => {
     for (const groupId of groupOrder) {
       if (groupsRef.current[groupId].tabs.some((tab) => tab.id === id)) {

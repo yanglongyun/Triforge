@@ -12,7 +12,7 @@ import { appendItem } from "./repo/messages.js";
 import { touchAgent } from "./repo/agents.js";
 import { emit } from "./bus.js";
 import { resizeTerminal, startTerminal, stopAllTerminals, stopTerminal, writeTerminal } from "./terminals.js";
-import { registerHost, registerTab, resolveCdp, unregisterClient, unregisterTab, updateTab } from "./browserHost.js";
+import { registerHost, registerTab, resolveBrowserResult, unregisterClient, unregisterTab, updateTab } from "./browserHost.js";
 
 const clients = new Set();
 
@@ -50,12 +50,12 @@ const handleConnection = (ws) => {
     if (type === "terminal_resize") { resizeTerminal(client, payload); return; }
     if (type === "terminal_stop") { stopTerminal(client, payload.terminalId, sendToClient); return; }
 
-    // ── 浏览器宿主(cdp 工具的执行端:Electron 壳里的 UI)──
+    // ── 浏览器宿主(browser 工具的执行端:Electron 壳里的 UI)──
     if (type === "web_host_hello") { registerHost(client); return; }
     if (type === "web_tab_register") { registerTab(client, payload); return; }
     if (type === "web_tab_update") { updateTab(payload); return; }
     if (type === "web_tab_unregister") { unregisterTab(payload); return; }
-    if (type === "cdp_response") { resolveCdp(payload); return; }
+    if (type === "browser_response") { resolveBrowserResult(payload); return; }
 
     if (type === "send") {
       if (!agentId) { sendJson(ws, { type: "error", error: "missing agentId" }); return; }

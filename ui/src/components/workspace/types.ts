@@ -57,7 +57,7 @@ export type WebTab = {
   kind: "web";
   title: string;
   url: string;
-  /** cdp open 的关联令牌:webview 注册时带上,server 以此兑现「打开标签」请求。 */
+  /** browser open 的关联令牌:webview 注册时带上,server 以此兑现「打开标签」请求。 */
   token?: string;
 };
 

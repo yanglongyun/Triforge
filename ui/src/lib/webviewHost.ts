@@ -1,7 +1,7 @@
-// 浏览器宿主的渲染进程一半(cdp 工具的执行端)。
+// 浏览器宿主的渲染进程一半(browser 工具的执行端)。
 // <webview> 元素只有渲染进程摸得到 —— executeJavaScript / capturePage / loadURL 都是
 // 元素自带的方法,所以宿主就是 UI 自己:WebPanel 把元素登记进来,server 广播的
-// cdp_request 在这里找到对应标签、执行、应答。不是自己的标签就沉默(别的窗口会答)。
+// browser_request 在这里找到对应标签、执行、应答。不是自己的标签就沉默(别的窗口会答)。
 import { useEffect } from "react";
 
 export const IN_ELECTRON = navigator.userAgent.includes("Electron");
@@ -88,8 +88,8 @@ const exec = async ({ el, tabId }: { el: any; tabId: string }, op: string, param
   }
 };
 
-/** 挂在 App 顶层:声明宿主身份、应答 cdp 指令、断线重连后触发重注册。 */
-export function useCdpHost(socket: Socket) {
+/** 挂在 App 顶层:声明宿主身份、应答 browser 指令、断线重连后触发重注册。 */
+export function useBrowserHost(socket: Socket) {
   useEffect(() => {
     if (!IN_ELECTRON) return;
     socket.send({ type: "web_host_hello" });
@@ -98,14 +98,14 @@ export function useCdpHost(socket: Socket) {
       socket.send({ type: "web_host_hello" });
       window.dispatchEvent(new Event(RE_REGISTER_EVENT));
     });
-    const offRequest = socket.on("cdp_request", async (p: any) => {
+    const offRequest = socket.on("browser_request", async (p: any) => {
       const entry = registry.get(Number(p.wcId));
       if (!entry) return; // 不是这个窗口的标签,拥有它的窗口会应答
       try {
         const result = await exec(entry, String(p.op || ""), p.params || {});
-        socket.send({ type: "cdp_response", id: p.id, ok: true, result });
+        socket.send({ type: "browser_response", id: p.id, ok: true, result });
       } catch (e: any) {
-        socket.send({ type: "cdp_response", id: p.id, ok: false, error: String(e?.message || e) });
+        socket.send({ type: "browser_response", id: p.id, ok: false, error: String(e?.message || e) });
       }
     });
     return () => { offConnected(); offRequest(); };

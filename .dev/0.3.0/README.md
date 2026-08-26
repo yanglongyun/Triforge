@@ -83,6 +83,19 @@ loadURL / getWebContentsId` —— 宿主就是 UI 自己,零新依赖,`desktop/
 - **navigate 误报 ERR_ABORTED**:首次加载被重定向/二次导航顶掉时 loadURL 会 reject,
   页面其实在正常加载 —— 识别为成功返回。
 
+## 补记二:cdp → browser 改名 + AI 开网页默认分屏
+
+- **改名**:`cdp` 是实现细节泄漏(而且我们暴露的是 executeJavaScript 级操作,不是原始
+  CDP 协议),工具、ws 协议(browser_request/response)、UI 渲染层全部改为 **browser**;
+  历史对话里的 cdp 行保留渲染别名,不破相。
+- **分屏策略**:AI(browser open)打开的网页一律落在**分屏侧组**并前置 —— 左边对话
+  继续流,右边看着 agent 操作浏览器;用户自己从网站栏/命令面板开的维持主组不变。
+  这是 app 策略而非模型参数:模型不需要为此做决定。
+- 架构裁决记录(与用户讨论的结论):「开放系统 API」方向成立,但对模型的表面保持
+  少量强类型工具 —— 工具=门面(schema 可靠性 / ctx 身份 / 界面招牌渲染),
+  API=地基(命令面板、HTTP、工具三入口一源)。AI 操作界面的边界:只开不关、
+  不重排用户标签;需要「切标签/开文件给用户看」时再加窄口径 ui 工具,挂命令注册表。
+
 ## 已知限制 / 下一步
 
 - cdp 的 click/type 走 executeJavaScript(DOM 语义),不是 Input.dispatch 的真实
