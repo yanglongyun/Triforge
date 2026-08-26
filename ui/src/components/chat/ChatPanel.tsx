@@ -69,7 +69,7 @@ export function ChatPanel({
   }, [node.id, bump]);
 
   // 草稿按智能体落 localStorage,切走再回来不丢
-  const draftKey = `arbor.draft:${node.id}`;
+  const draftKey = `workbench.draft:${node.id}`;
   useEffect(() => {
     try { setPrompt(localStorage.getItem(draftKey) || ""); } catch { setPrompt(""); }
   }, [node.id]);
@@ -166,7 +166,7 @@ export function ChatPanel({
       {workdir && (
         <div className="shrink-0 flex items-center px-4 md:px-8 py-1.5 border-b border-border bg-bg-raised/60">
           <button
-            onClick={() => window.dispatchEvent(new CustomEvent("arbor:reveal-path", { detail: { path: workdir } }))}
+            onClick={() => window.dispatchEvent(new CustomEvent("workbench:reveal-path", { detail: { path: workdir } }))}
             title={`工作目录:${workdir}\n点击在文件树中定位`}
             className="inline-flex items-center gap-1.5 max-w-full px-2 py-0.5 rounded text-[12px] text-text-dim hover:text-text hover:bg-bg-hover transition-colors"
           >

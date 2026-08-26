@@ -54,12 +54,12 @@ export function NodeTree({
   // 顶部 tab:会话 | 文件 | 网站。VS Code 式切换,跨启动记住。
   type SideTab = "agents" | "files" | "sites";
   const [sideTab, setSideTab] = useState<SideTab>(() => {
-    const saved = localStorage.getItem("arbor.sideTab");
+    const saved = localStorage.getItem("workbench.sideTab");
     return saved === "files" || saved === "sites" ? saved : "agents";
   });
   const switchTab = (tab: SideTab) => {
     setSideTab(tab);
-    localStorage.setItem("arbor.sideTab", tab);
+    localStorage.setItem("workbench.sideTab", tab);
   };
   // 文件夹右键「在此新建对话」→ 切到会话 tab 并带上预设 workdir
   const [agentCreateReq, setAgentCreateReq] = useState<{ workdir?: string } | null>(null);
@@ -68,7 +68,7 @@ export function NodeTree({
   // 文件夹徽标:workdir → 绑定的智能体数
   const [agentDirs, setAgentDirs] = useState<Map<string, number>>(new Map());
   const [sidebarWidth, setSidebarWidth] = useState(() => {
-    const saved = Number(localStorage.getItem("arbor.sidebarWidth") || "");
+    const saved = Number(localStorage.getItem("workbench.sidebarWidth") || "");
     return Number.isFinite(saved) && saved >= 220 && saved <= 420 ? saved : 260;
   });
   const [addWorkspaceOpen, setAddWorkspaceOpen] = useState(false);
@@ -148,8 +148,8 @@ export function NodeTree({
         else if (tries > 12) clearInterval(timer);
       }, 120);
     };
-    window.addEventListener("arbor:reveal-path", onReveal);
-    return () => window.removeEventListener("arbor:reveal-path", onReveal);
+    window.addEventListener("workbench:reveal-path", onReveal);
+    return () => window.removeEventListener("workbench:reveal-path", onReveal);
   }, [roots]);
 
   useEffect(() => {
@@ -183,7 +183,7 @@ export function NodeTree({
       window.removeEventListener("pointerup", onUp);
       document.body.style.cursor = previousCursor;
       document.body.style.userSelect = previousSelect;
-      localStorage.setItem("arbor.sidebarWidth", String(Math.round(currentWidth)));
+      localStorage.setItem("workbench.sidebarWidth", String(Math.round(currentWidth)));
     };
     window.addEventListener("pointermove", onMove);
     window.addEventListener("pointerup", onUp);
@@ -217,8 +217,8 @@ export function NodeTree({
   };
   useEffect(() => {
     const open = () => openAddWorkspace();
-    window.addEventListener("arbor:add-workspace", open);
-    return () => window.removeEventListener("arbor:add-workspace", open);
+    window.addEventListener("workbench:add-workspace", open);
+    return () => window.removeEventListener("workbench:add-workspace", open);
   }, []);
 
   const addWorkspace = async () => {
@@ -333,7 +333,7 @@ export function NodeTree({
       { label: node.workspace ? "移除工作区" : "删除", icon: <Trash2 size={13} />, danger: true,
         onClick: async () => {
           if (node.workspace) {
-            if (!confirm(`从 Arbor 移除工作区「${node.title}」?\n不会删除磁盘文件。`)) return;
+            if (!confirm(`从 Workbench 移除工作区「${node.title}」?\n不会删除磁盘文件。`)) return;
             await api.removeWorkspace(node.id);
           } else {
             if (!confirm(`删除「${node.title}」?${node.kind === "space" ? "\n里面所有内容也会一起删除。" : ""}`)) return;
@@ -415,7 +415,7 @@ export function NodeTree({
         {/* brand */}
         <div className="flex items-center gap-2.5 px-3.5 h-11 border-b border-border">
           <span className="text-[20px] leading-none select-none">🌳</span>
-          <span className="text-[17px] font-semibold text-text flex-1 tracking-tight">Arbor</span>
+          <span className="text-[17px] font-semibold text-text flex-1 tracking-tight">Workbench</span>
           <button onClick={openNewMenu} title="新建"
             className="w-6 h-6 rounded flex items-center justify-center text-text-faint hover:text-accent hover:bg-bg-hover transition-colors">
             <Plus size={16} />

@@ -14,9 +14,9 @@ import { fileURLToPath } from "url";
 import { getDb } from "../db.js";
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
-// ARBOR_HOME:桌面壳/打包产物用它锚定仓库根 —— 打包后 __dirname 不再是 server/repo/
-const HOME = process.env.ARBOR_HOME || path.join(__dirname, "../..");
-const ROOT = path.resolve(process.env.ARBOR_WORKSPACES || path.join(HOME, "workspaces"));
+// WORKBENCH_HOME:桌面壳/打包产物用它锚定仓库根 —— 打包后 __dirname 不再是 server/repo/
+const HOME = process.env.WORKBENCH_HOME || path.join(__dirname, "../..");
+const ROOT = path.resolve(process.env.WORKBENCH_WORKSPACES || path.join(HOME, "workspaces"));
 const SEP = path.sep;
 
 const ensureRoot = () => { fs.mkdirSync(ROOT, { recursive: true }); return ROOT; };
@@ -37,7 +37,7 @@ const ensureDefaultWorkspace = () => {
   `).run(workspaceIdForPath(ROOT), "workspace", ROOT);
   db.prepare(`
     UPDATE workspaces SET title = 'workspace'
-    WHERE path = ? AND title = 'Arbor'
+    WHERE path = ? AND title = 'Workbench'
   `).run(ROOT);
   defaultWorkspaceReady = true;
 };
@@ -315,7 +315,7 @@ const deleteItem = (id) => {
   const hit = locate(id);
   if (!hit) return;
   if (hit.kind === "file") { fs.rmSync(hit.abs, { force: true }); return; }
-  if (isWorkspaceRoot(hit.abs)) throw new Error("工作区根不能删除,请从 Arbor 移除工作区");
+  if (isWorkspaceRoot(hit.abs)) throw new Error("工作区根不能删除,请从 Workbench 移除工作区");
   // space:整目录删;绑在这棵子树上的智能体**不陪葬**——对话不是目录的附属品,
   // 它们的 workdir 塌缩到父目录,会话照常留在会话列表里
   fs.rmSync(hit.abs, { recursive: true, force: true });

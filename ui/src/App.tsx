@@ -154,8 +154,8 @@ export function App() {
       const tabId = String((e as CustomEvent).detail?.tabId || "");
       if (tabId) tabGroups.activateTabById(tabId);
     };
-    window.addEventListener("arbor:web-activate", onActivate);
-    return () => window.removeEventListener("arbor:web-activate", onActivate);
+    window.addEventListener("workbench:web-activate", onActivate);
+    return () => window.removeEventListener("workbench:web-activate", onActivate);
   }, [tabGroups.activateTabById]);
 
   // 后台进程:用于预览面板入口和自动打开第一条可预览服务
@@ -219,7 +219,7 @@ export function App() {
   const addWorkspace = async () => {
     setMobileNavOpen(true);
     setDesktopNavOpen(true);
-    window.dispatchEvent(new Event("arbor:add-workspace"));
+    window.dispatchEvent(new Event("workbench:add-workspace"));
   };
 
   const commands: Command[] = [

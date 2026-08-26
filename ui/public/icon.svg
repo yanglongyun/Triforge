@@ -1,6 +1,6 @@
 <svg width="1024" height="1024" viewBox="0 0 1024 1024" xmlns="http://www.w3.org/2000/svg">
-  <!-- Arbor 图标(0.2.0 定稿 · 双色):绿→蓝对角渐变 = 自然×智能,
-       白色有机树错落生长,顶节点 = 活着的那段对话。 -->
+  <!-- Workbench 图标(0.4.0 改名定稿):沿用双色基因(绿→蓝对角渐变 = 自然×智能),
+       白色版面 = 工作台本身 —— 侧栏 + 主窗格 + 分屏窗格,agent 与人共用的那张桌子。 -->
   <defs>
     <linearGradient id="bg" x1="0" y1="1" x2="1" y2="0">
       <stop offset="0" stop-color="#1ea86c"/>
@@ -13,15 +13,19 @@
   </defs>
   <rect x="96" y="96" width="832" height="832" rx="188" fill="url(#bg)"/>
   <rect x="96" y="96" width="832" height="832" rx="188" fill="url(#sheen)"/>
-  <path d="M 420 806 H 616" stroke="rgba(255,255,255,.34)" stroke-width="22" stroke-linecap="round" fill="none"/>
-  <g stroke="#ffffff" stroke-width="30" stroke-linecap="round" fill="none">
-    <path d="M 520 738 C 500 620 540 460 536 322"/>
-    <path d="M 508 604 C 468 546 418 514 344 474"/>
-    <path d="M 524 490 C 568 452 612 432 672 410"/>
-  </g>
-  <circle cx="520" cy="738" r="44" fill="#ffffff"/>
-  <circle cx="332" cy="466" r="36" fill="#ffffff"/>
-  <circle cx="684" cy="404" r="36" fill="#ffffff"/>
-  <circle cx="536" cy="318" r="84" fill="rgba(255,255,255,.24)"/>
-  <circle cx="536" cy="318" r="50" fill="#ffffff"/>
+
+  <!-- 侧栏:会话列表(三个小节点,最上面那个是活着的对话) -->
+  <rect x="264" y="308" width="112" height="408" rx="40" fill="#ffffff"/>
+  <circle cx="320" cy="384" r="26" fill="#1ea86c" opacity=".85"/>
+  <rect x="298" y="452" width="44" height="18" rx="9" fill="rgba(30,150,110,.35)"/>
+  <rect x="298" y="502" width="44" height="18" rx="9" fill="rgba(30,150,110,.35)"/>
+
+  <!-- 主窗格:对话/文档 -->
+  <rect x="420" y="308" width="340" height="240" rx="40" fill="#ffffff"/>
+  <rect x="464" y="366" width="196" height="20" rx="10" fill="rgba(47,127,240,.4)"/>
+  <rect x="464" y="416" width="252" height="20" rx="10" fill="rgba(47,127,240,.28)"/>
+  <rect x="464" y="466" width="152" height="20" rx="10" fill="rgba(47,127,240,.28)"/>
+
+  <!-- 分屏窗格:agent 正在操作的那半张桌子 -->
+  <rect x="420" y="592" width="340" height="124" rx="40" fill="#ffffff" opacity=".88"/>
 </svg>

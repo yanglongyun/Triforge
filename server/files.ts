@@ -1,7 +1,7 @@
 // @ts-nocheck
-// 附件:图片与文件上传的整套数据链路(与 AGENT 0.0.4 同源,按 arbor 结构落位)。
+// 附件:图片与文件上传的整套数据链路(与 AGENT 0.0.4 同源,按 workbench 结构落位)。
 //
-//   - 上传内容按 SHA-256 存入 $ARBOR_HOME/files;消息与 SQLite 只存元数据
+//   - 上传内容按 SHA-256 存入 $WORKBENCH_HOME/files;消息与 SQLite 只存元数据
 //     (id / 名称 / 路径 / 类型 / 大小),不存 Base64;
 //   - 请求 Responses API 时,**当前这条**用户消息的图片才展开成 input_image,
 //     普通文件作为可读取的本地路径交给模型(read/bash 都能碰);
@@ -13,7 +13,7 @@ import { basename, dirname, extname, join } from "path";
 import { fileURLToPath } from "url";
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
-const HOME = process.env.ARBOR_HOME || join(__dirname, "..");
+const HOME = process.env.WORKBENCH_HOME || join(__dirname, "..");
 const ROOT = join(HOME, "files");
 
 export const MAX_BYTES = 8 * 1024 * 1024;

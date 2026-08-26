@@ -21,7 +21,7 @@ const layout = () => {
       nodeBin: "node",
       serverEntry: join(ROOT, "dist/server.mjs"),
       cwd: ROOT,
-      env: { ARBOR_HOME: ROOT },
+      env: { WORKBENCH_HOME: ROOT },
     };
   }
   const res = process.resourcesPath;
@@ -30,18 +30,18 @@ const layout = () => {
     serverEntry: join(res, "core/server.mjs"),
     cwd: join(res, "core"), // node-pty 从 core/node_modules 解析
     env: {
-      ARBOR_HOME: app.getPath("userData"), // database/ 落在这里(macOS 惯例:应用数据进 Application Support)
+      WORKBENCH_HOME: app.getPath("userData"), // database/ 落在这里(macOS 惯例:应用数据进 Application Support)
       // 工作区是用户要在 Finder 里摸的真实文件树 —— 按「用户文档」惯例放 Documents,
       // 不埋进 Library(对照 Obsidian vault / Logseq graph 的默认位置)
-      ARBOR_WORKSPACES: join(app.getPath("documents"), "Arbor"),
-      ARBOR_UI_DIST: join(res, "core/ui"),
+      WORKBENCH_WORKSPACES: join(app.getPath("documents"), "Workbench"),
+      WORKBENCH_UI_DIST: join(res, "core/ui"),
     },
   };
 };
 
-/** 找一个空闲端口;显式给了 ARBOR_PORT 就用它(比如想连已在跑的 dev 服务)。 */
+/** 找一个空闲端口;显式给了 WORKBENCH_PORT 就用它(比如想连已在跑的 dev 服务)。 */
 const pickPort = () => new Promise((resolve, reject) => {
-  const fixed = Number(process.env.ARBOR_PORT) || 0;
+  const fixed = Number(process.env.WORKBENCH_PORT) || 0;
   if (fixed) { resolve(fixed); return; }
   const probe = createServer();
   probe.once("error", reject);
@@ -55,7 +55,7 @@ const pickPort = () => new Promise((resolve, reject) => {
 const spawnEnv = (port, extra) => ({
   ...process.env,
   PATH: [process.env.PATH, "/opt/homebrew/bin", "/usr/local/bin"].filter(Boolean).join(":"),
-  ARBOR_PORT: String(port),
+  WORKBENCH_PORT: String(port),
   ...extra,
 });
 
@@ -86,7 +86,7 @@ const startServer = async (port) => {
   child.on("exit", (code) => {
     child = null;
     if (!quitting) {
-      dialog.showErrorBox("Arbor", `本地服务意外退出(code ${code})。`);
+      dialog.showErrorBox("Workbench", `本地服务意外退出(code ${code})。`);
       app.quit();
     }
   });
@@ -100,7 +100,7 @@ const createWindow = (port) => {
     minWidth: 900,
     minHeight: 600,
     backgroundColor: "#ffffff",
-    title: "Arbor",
+    title: "Workbench",
     webPreferences: {
       contextIsolation: true,
       nodeIntegration: false,
@@ -137,7 +137,7 @@ app.whenReady().then(async () => {
       if (BrowserWindow.getAllWindows().length === 0) createWindow(port);
     });
   } catch (error) {
-    dialog.showErrorBox("Arbor 启动失败", String(error?.message || error));
+    dialog.showErrorBox("Workbench 启动失败", String(error?.message || error));
     app.quit();
   }
 });

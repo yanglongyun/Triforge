@@ -15,7 +15,7 @@ const emptySettings: Settings = {
 
 const inputClass =
   "w-full border border-border bg-bg px-3 py-2 text-[13px] text-text outline-none transition-colors focus:border-accent";
-const repositoryUrl = "https://github.com/realuckyang/Arbor";
+const repositoryUrl = "https://github.com/realuckyang/Workbench";
 
 export function SettingsPanel({ onSaved }: { onSaved?: (settings: Settings) => void }) {
   const [form, setForm] = useState<Settings>(emptySettings);

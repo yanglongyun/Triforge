@@ -58,6 +58,29 @@ functions/ / compact.js)。arbor 是服务端常驻形态,同一层职责落在
 - HTTP:/api/upload → 201 元数据,/api/files/<id> → 200 image/png;
 - `npm run typecheck` / ui build / server bundle 全绿。
 
+## 补记:压缩切片修正 + 产品改名 Workbench
+
+**压缩摘要事故**:实测出现「整段历史被总结成什么都没发生」的摘要卡。病根在切片边界:
+尾部固定保留 40k 字符,当历史刚超 40k 时,切给摘要的"早期部分"只剩首条用户消息
+(reasoning 行计数但被过滤出材料),摘要模型如实总结出「无工具、无结论」——
+这份**假事实**进入后续上下文,且水位不降,每一轮再切一条零头、再生成一张垃圾卡。修法:
+
+- 尾部保留量自适应:`min(40k, 总量×40%)` —— 压缩发生就必须压掉大头;
+- 材料下限 1500 字符:切出来只是零头就不压(避免误导性摘要);
+- 双场景实测:病例场景直接跳过;5 轮长历史折叠 60%、摘要覆盖全部候选行。
+
+**改名 Workbench**:产品名 / 图标 / name 字段全量换 ——
+
+- package.json:name=workbench、productName=Workbench、appId=dev.woodchange.workbench;
+- 环境变量 ARBOR_* → WORKBENCH_*;数据库 database/workbench.db;界面品牌、
+  桌面壳标题、事件名(workbench:*)、system prompt 全部同步;
+- **图标重设计**:保留绿→蓝双色渐变基因,树换成「工作台版面」——
+  侧栏(绿点=活跃会话)+ 主窗格 + 分屏窗格,即产品本身;
+- 本机数据平移:App Support/arbor → App Support/Workbench(db 改名 + wal/shm 跟随),
+  workspaces.path 与 agents.workdir 里的 ~/Documents/Arbor 改写为 ~/Documents/Workbench,
+  目录同步 mv —— 4 段会话与模型设置无缝带入,实测新包读取正常;
+- 根 README 只做了品牌词替换,叙述仍是 arbor 时代口吻,待正式重写。
+
 ## 已知限制 / 下一步
 
 - modelOptions(reasoning effort、max_output_tokens)内核已支持,设置界面未暴露;

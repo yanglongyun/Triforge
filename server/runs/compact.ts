@@ -12,6 +12,9 @@ import { EVENTS } from "../shared/events.js";
 
 const TAIL_KEEP_CHARS = 40_000;
 const SUMMARY_MIN_CHARS = 80;
+/** 交给摘要的材料至少要有这么多字符 —— 只切出零头时压了也白压,还会生成
+    「历史里什么都没发生」的误导性摘要(它会作为事实进入后续上下文)。 */
+const MATERIAL_MIN_CHARS = 1_500;
 
 const DEFAULT_COMPACT_PROMPT =
   "你负责压缩一段 agent 对话上下文,供后续模型继续工作时使用。" +
@@ -33,11 +36,18 @@ const itemText = (item) => {
   return "";
 };
 
-/** 压缩/保留的分界:尾部至少留 TAIL_KEEP_CHARS,且不把 function_call 和它的输出拆开。 */
+/**
+ * 压缩/保留的分界。不把 function_call 和它的输出拆开。
+ * 尾部保留量自适应:min(TAIL_KEEP_CHARS, 总量的 40%) —— 水位既然已经越线,
+ * 这次压缩就必须真的压掉大头;从前固定留 40k,历史刚超 40k 时切给摘要的只剩
+ * 开头一两行,产出误导性摘要,而且水位不降,每一轮都再来一次。
+ */
 const splitAt = (rows) => {
+  const total = rows.reduce((sum, row) => sum + chars(row), 0);
+  const tailKeep = Math.min(TAIL_KEEP_CHARS, Math.floor(total * 0.4));
   let at = rows.length;
   let size = 0;
-  while (at > 0 && (size < TAIL_KEEP_CHARS || rows.length - at < 2)) {
+  while (at > 0 && (size < tailKeep || rows.length - at < 2)) {
     at -= 1;
     size += chars(rows[at]);
   }
@@ -70,6 +80,10 @@ export const maybeCompact = async ({ agentId, settings, signal, emit }) => {
   if (at < 2) return null;
 
   const candidates = rows.slice(0, at);
+  const body = material(candidates);
+  // 材料太薄(比如只有首条用户消息,reasoning 被滤掉后一片空白)就不压:
+  // 折叠不了多少上下文,却会往历史里塞一份「什么都没发生」的假事实
+  if (body.length < MATERIAL_MIN_CHARS) return null;
   const startMessageId = candidates[0].id;
   const endMessageId = candidates[candidates.length - 1].id;
 
@@ -82,7 +96,7 @@ export const maybeCompact = async ({ agentId, settings, signal, emit }) => {
       model: settings.model,
       errorMaxChars: 4000,
       instructions: String(settings.compactPrompt || "").trim() || DEFAULT_COMPACT_PROMPT,
-      input: [{ role: "user", content: `请压缩以下消息:\n\n${material(candidates)}` }],
+      input: [{ role: "user", content: `请压缩以下消息:\n\n${body}` }],
       signal,
     });
     if (String(result.text).trim().length >= SUMMARY_MIN_CHARS) summary = String(result.text).trim();

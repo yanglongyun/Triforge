@@ -17,7 +17,7 @@ const resolveShell = () => {
   return "/bin/sh";
 };
 
-const TIMEOUT_MS = Math.max(5000, Number(process.env.ARBOR_SHELL_TIMEOUT_MS) || 120_000);
+const TIMEOUT_MS = Math.max(5000, Number(process.env.WORKBENCH_SHELL_TIMEOUT_MS) || 120_000);
 const RAW_MAX = 200_000; // 收集上限,只是内存护栏;给模型的截断在工具装配层统一做
 
 const wait = (ms) => new Promise((resolve) => setTimeout(resolve, ms));

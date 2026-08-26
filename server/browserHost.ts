@@ -91,7 +91,7 @@ export const browserRequest = (wcId, op, params = {}, timeoutMs = 15_000) => {
 /** 让界面开一个新网页标签,等它的 webview 注册进来,返回标签信息。 */
 export const openTab = (url) =>
   new Promise((resolve, reject) => {
-    if (!hasHost()) { reject(new Error("没有可用的浏览器宿主(需要在 Arbor 桌面壳里运行)")); return; }
+    if (!hasHost()) { reject(new Error("没有可用的浏览器宿主(需要在 Workbench 桌面壳里运行)")); return; }
     const token = randomUUID();
     const timer = setTimeout(() => {
       pendingOpens.delete(token);

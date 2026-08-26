@@ -1,7 +1,7 @@
 // @ts-nocheck
 // 工具装配:定义表(发给模型)与执行映射(注入内核)在这里合拢。
-// 内核(ai/)只认 tools 数组 + executors Map,不知道 Arbor 是什么;
-// Arbor 的外部能力(文件、进程、浏览器、多智能体)全部通过 ctx 闭包进执行器。
+// 内核(ai/)只认 tools 数组 + executors Map,不知道 Workbench 是什么;
+// Workbench 的外部能力(文件、进程、浏览器、多智能体)全部通过 ctx 闭包进执行器。
 //
 // 六个工具,一个不多:
 //   bash(background?)  — 命令与后台进程(读日志用 read 日志文件,停止用 kill)
@@ -43,7 +43,7 @@ export const truncateToolResult = (text, maxChars = 12000) => {
 
 /**
  * 按本次运行的 ctx 生成执行映射。
- * 内核每次调用只带 {signal, cwd, env};Arbor 的能力在这里合并进去,
+ * 内核每次调用只带 {signal, cwd, env};Workbench 的能力在这里合并进去,
  * 结果在这里统一截断 —— 截断只写一处,工具实现不用各自操心。
  */
 export const buildExecutors = (ctx) => {

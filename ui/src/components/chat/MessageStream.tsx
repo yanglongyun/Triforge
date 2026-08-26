@@ -3,7 +3,7 @@
 //     轮内的思考 / 工具 / 中间文本是过程,最后那条正文是结果。
 //   · 轮完成且有最终文本 → 过程整体收进「已工作X」折叠条,最终文本站在外面;
 //   · 轮还在进行中(或没有最终文本,比如中途停掉)→ 平铺,过程依次直播;
-//   · 用户消息右侧灰底气泡;agent 来信 / 子 agent 回信保留 Arbor 的居中卡片;
+//   · 用户消息右侧灰底气泡;agent 来信 / 子 agent 回信保留 Workbench 的居中卡片;
 //     助理最终文本无气泡全宽 markdown,悬停出现复制钮,最后一条常显。
 import { useEffect, useMemo, useRef, useState } from "react";
 import { Check, Copy, FileText, PhoneCall, Sparkles } from "lucide-react";

@@ -1,6 +1,6 @@
 // @ts-nocheck
 // Background process registry for long-running commands/dev servers.
-// Records are intentionally in-memory: they describe this Arbor server process,
+// Records are intentionally in-memory: they describe this Workbench server process,
 // not durable project state.
 import { spawn } from "child_process";
 import { randomUUID } from "crypto";
@@ -15,7 +15,7 @@ const DEFAULT_TAIL = 40_000;
 // 日志同时落文件:bash background 启动后,模型用 read/tail 日志文件看输出,
 // 不需要专门的「读进程日志」工具(6 工具体系的闭环)。
 const __dirname = dirname(fileURLToPath(import.meta.url));
-const HOME = process.env.ARBOR_HOME || join(__dirname, "..");
+const HOME = process.env.WORKBENCH_HOME || join(__dirname, "..");
 const LOG_DIR = join(HOME, "logs", "processes");
 
 const SHELL_CANDIDATES = [process.env.SHELL, "/bin/zsh", "/bin/bash", "/bin/sh"];

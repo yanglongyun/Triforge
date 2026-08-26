@@ -19,7 +19,7 @@ const startServer = async (port = 9506) =>
     server.listen(port, "127.0.0.1", () => {
       migrateOnBoot(); // 历史 .agent.json → SQLite,用户目录从此干净
       startWatcher(); // 工作区文件监听:磁盘上的任何变化 → 树自动刷新
-      console.log(`Arbor running on http://127.0.0.1:${port}`);
+      console.log(`Workbench running on http://127.0.0.1:${port}`);
       resolve(server);
     });
     server.on("error", reject);

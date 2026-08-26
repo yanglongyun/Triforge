@@ -12,7 +12,7 @@ export const browserDef = {
   type: "function",
   name: "browser",
   description:
-    "操作工作区里的网页标签(Arbor 内置真浏览器,带用户的真实登录态)。" +
+    "操作工作区里的网页标签(Workbench 内置真浏览器,带用户的真实登录态)。" +
     "action:list 列出已打开的网页标签(拿 tab_id);open 打开一个网址成新标签(在分屏侧边打开,用户看得见);" +
     "navigate/back 让某个标签跳转/后退;read 读取页面正文(标题+地址+文本);" +
     "js 在页面里执行 JavaScript 并返回结果;click 点击元素(CSS 选择器);type 往输入框填文本;" +
@@ -43,14 +43,14 @@ const fmtTab = (tab) => `[${tab.id}] ${tab.title || "(无标题)"} — ${tab.url
 export const browser = async ({ action, tab_id, url, code, selector, text, path: savePath }, ctx) => {
   const act = String(action || "");
   if (!hasHost() && act !== "list") {
-    return "error: browser 不可用 —— 需要在 Arbor 桌面壳(Electron)里运行,当前没有浏览器宿主。";
+    return "error: browser 不可用 —— 需要在 Workbench 桌面壳(Electron)里运行,当前没有浏览器宿主。";
   }
 
   try {
     switch (act) {
       case "list": {
         const rows = listTabs();
-        if (!rows.length) return hasHost() ? "(当前没有打开的网页标签;用 action=open 打开一个)" : "error: browser 不可用 —— 需要在 Arbor 桌面壳(Electron)里运行。";
+        if (!rows.length) return hasHost() ? "(当前没有打开的网页标签;用 action=open 打开一个)" : "error: browser 不可用 —— 需要在 Workbench 桌面壳(Electron)里运行。";
         return rows.map(fmtTab).join("\n");
       }
       case "open": {
