@@ -29,6 +29,8 @@ export type TreeControls = {
   dropPos: DropPosition | null;
   /** 文件夹徽标:workdir → 绑定的智能体数(「谁住在这」的可见性,污染归零后的替代) */
   agentDirs: Map<string, number>;
+  /** 多选集(Cmd 点选 / Shift 范围选,VS Code 资源管理器同款);高亮与单选同款。 */
+  multiSelectedIds: Set<string>;
 };
 
 // 按扩展名挑文件图标(VSCode 风)
@@ -51,7 +53,7 @@ const colorFor = (kind: Node["kind"]) =>
 export function NodeRow({
   node,
   selectedId,
-  onSelect,
+  onRowClick,
   onContextMenu,
   refreshKey,
   controls,
@@ -59,7 +61,8 @@ export function NodeRow({
 }: {
   node: Node;
   selectedId: string;
-  onSelect: (n: Node) => void;
+  /** 点击交给父级裁决:普通点击=选中(+文件夹展开),Cmd/Shift=多选,行为在 NodeTree。 */
+  onRowClick: (e: React.MouseEvent, n: Node) => void;
   onContextMenu: (e: React.MouseEvent, n: Node) => void;
   refreshKey: number;
   controls: TreeControls;
@@ -104,7 +107,7 @@ export function NodeRow({
     if (isContainer) controls.toggleExpand(node.id);
   };
 
-  const isSelected = selectedId === node.id;
+  const isSelected = selectedId === node.id || controls.multiSelectedIds.has(node.id);
   const Icon = iconFor(node.kind, node.title);
   const iconColor = colorFor(node.kind);
 
@@ -129,10 +132,9 @@ export function NodeRow({
         {...(dragDisabled ? {} : listeners)}
         role={dragDisabled ? "button" : undefined}
         tabIndex={dragDisabled ? 0 : undefined}
-        onClick={() => {
+        onClick={(e) => {
           if (isRenaming) return;
-          onSelect(node);
-          if (isContainer) controls.toggleExpand(node.id);
+          onRowClick(e, node);
         }}
         onContextMenu={(e) => onContextMenu(e, node)}
         className={[
@@ -212,7 +214,7 @@ export function NodeRow({
               key={child.id}
               node={child}
               selectedId={selectedId}
-              onSelect={onSelect}
+              onRowClick={onRowClick}
               onContextMenu={onContextMenu}
               refreshKey={refreshKey}
               controls={controls}

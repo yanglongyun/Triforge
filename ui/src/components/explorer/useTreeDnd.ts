@@ -21,9 +21,12 @@ export type OverInfo = { nodeId: string; pos: DropPosition; node: Node };
 export function useTreeDnd({
   refresh,
   setExpanded,
+  getSelection,
 }: {
   refresh: () => void;
   setExpanded: (id: string, on: boolean) => void;
+  /** 多选拖拽:返回当前多选 id 集(拖的是选中项之一时,整组一起搬)。 */
+  getSelection?: () => string[];
 }) {
   const [activeNode, setActiveNode] = useState<Node | null>(null);
   const activeId = activeNode?.id || null;
@@ -145,9 +148,18 @@ export function useTreeDnd({
       await applyDropToRoot(src);
       return;
     }
-    if (info) {
-      if (info.pos === "into") setExpanded(info.node.id, true);
-      await applyDrop(src, info.node, info.pos);
+    if (!info) return;
+    if (info.pos === "into") setExpanded(info.node.id, true);
+
+    // 多选拖拽:拖的是选中项之一 → 整组一起搬(祖先已选中的后代剔除,id 即路径)
+    const selection = getSelection?.() || [];
+    let batch = selection.length > 1 && selection.includes(src) ? selection : [src];
+    batch = batch.filter((id) => !batch.some((other) => other !== id && id.startsWith(other + "/")));
+    // after 逆序、before 顺序:每次落点都插在 target 旁,迭代后保持原有相对次序
+    const ordered = info.pos === "after" ? [...batch].reverse() : batch;
+    for (const id of ordered) {
+      if (id === info.node.id || info.node.id.startsWith(id + "/")) continue; // 不搬进自己/自己的子孙
+      await applyDrop(id, info.node, info.pos);
     }
   };
 

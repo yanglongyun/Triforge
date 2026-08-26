@@ -85,6 +85,57 @@ export function NodeTree({
   const setExpanded = (id: string, on: boolean) =>
     setExpandedIds((s) => { const n = new Set(s); on ? n.add(id) : n.delete(id); return n; });
 
+  // ── 多选(VS Code 资源管理器同款):Cmd/Ctrl 点选切换,Shift 范围选 ──
+  const [multiSel, setMultiSel] = useState<Set<string>>(new Set());
+  const multiSelRef = useRef(multiSel);
+  multiSelRef.current = multiSel;
+  const anchorRef = useRef<string | null>(null);
+  const clearMulti = useCallback(() => { if (multiSelRef.current.size) setMultiSel(new Set()); }, []);
+  /** 树的可见顺序 = DOM 顺序(data-nid 只有文件树的行在用)。 */
+  const visibleTreeIds = () =>
+    Array.from(document.querySelectorAll("[data-nid]")).map((el) => String(el.getAttribute("data-nid") || ""));
+  /** 剔除「祖先也被选中」的行:id 就是绝对路径,前缀判断即可。 */
+  const pruneNested = (ids: string[]) =>
+    ids.filter((id) => !ids.some((other) => other !== id && id.startsWith(other + "/")));
+
+  const handleRowClick = (e: React.MouseEvent, node: Node) => {
+    if (e.metaKey || e.ctrlKey) {
+      // 点选切换;从单选进入多选时把当前选中项一并带上
+      setMultiSel((prev) => {
+        const next = new Set(prev.size ? prev : selectedId ? [selectedId] : []);
+        next.has(node.id) ? next.delete(node.id) : next.add(node.id);
+        return next;
+      });
+      anchorRef.current = node.id;
+      return;
+    }
+    if (e.shiftKey) {
+      const order = visibleTreeIds();
+      const from = anchorRef.current && order.includes(anchorRef.current)
+        ? anchorRef.current
+        : order.includes(selectedId) ? selectedId : node.id;
+      const a = order.indexOf(from);
+      const b = order.indexOf(node.id);
+      if (a !== -1 && b !== -1) {
+        setMultiSel(new Set(order.slice(Math.min(a, b), Math.max(a, b) + 1)));
+        return;
+      }
+    }
+    // 普通点击:回到单选,文件夹顺带展开/收起
+    anchorRef.current = node.id;
+    clearMulti();
+    handleSelect(node);
+    if (node.kind === "space") toggleExpand(node.id);
+  };
+
+  // Esc 清空多选;切 tab 也清
+  useEffect(() => {
+    const onKey = (e: KeyboardEvent) => { if (e.key === "Escape") clearMulti(); };
+    window.addEventListener("keydown", onKey);
+    return () => window.removeEventListener("keydown", onKey);
+  }, [clearMulti]);
+  useEffect(() => { clearMulti(); }, [sideTab, clearMulti]);
+
   // 创建
   const [creatingUnder, setCreatingUnder] = useState<string | null>(null);
   const [creatingKind, setCreatingKind] = useState<"space" | "file">("space");
@@ -105,8 +156,12 @@ export function NodeTree({
   // 变更后:既刷新根,又冒泡到 App 让 refreshKey 自增 → 所有展开的子节点立即重载
   const refresh = useCallback(() => { load(); onChanged?.(); }, [load, onChanged]);
 
-  // 拖拽:状态 + 落库都在 hook 里
-  const { sensors, activeNode, overInfo, overRoot, dndHandlers } = useTreeDnd({ refresh, setExpanded });
+  // 拖拽:状态 + 落库都在 hook 里(多选时拖任一选中项 = 整组搬)
+  const { sensors, activeNode, overInfo, overRoot, dndHandlers } = useTreeDnd({
+    refresh,
+    setExpanded,
+    getSelection: () => [...multiSelRef.current],
+  });
 
   useEffect(() => { load(); }, [load, refreshKey]);
 
@@ -269,6 +324,40 @@ export function NodeTree({
   const onNodeContext = async (e: React.MouseEvent, node: Node) => {
     e.preventDefault();
     e.stopPropagation();
+
+    // 多选状态下:在选中项上右键 → 批量菜单;在选区外右键 → 退回单选(VS Code 行为)
+    if (multiSel.size > 1) {
+      if (multiSel.has(node.id)) {
+        const ids = pruneNested([...multiSel]);
+        const count = multiSel.size;
+        setMenu({
+          x: e.clientX, y: e.clientY,
+          items: [
+            { label: `复制路径(${count} 项)`, icon: <Copy size={13} />,
+              onClick: async () => {
+                const text = [...multiSel].map((id) => id.replace(/^.*\/workspaces\//, "")).join("\n");
+                try { await navigator.clipboard.writeText(text); } catch { /* 剪贴板不可用就算了 */ }
+              } },
+            "divider",
+            { label: `删除选中的 ${count} 项`, icon: <Trash2 size={13} />, danger: true,
+              onClick: async () => {
+                const workspaces = ids.filter((id) => roots.some((r) => r.id === id && r.workspace));
+                const normal = ids.filter((id) => !workspaces.includes(id));
+                const hint = workspaces.length ? `\n其中 ${workspaces.length} 个是工作区:只从 Workbench 移除,不删磁盘文件。` : "";
+                if (!confirm(`删除选中的 ${count} 项?文件夹内的内容会一起删除。${hint}`)) return;
+                for (const id of workspaces) await api.removeWorkspace(id).catch(() => {});
+                for (const id of normal) await api.deleteNode(id).catch(() => {});
+                if (multiSel.has(selectedId)) onSelect(null);
+                clearMulti();
+                refresh();
+              } },
+          ],
+        });
+        return;
+      }
+      clearMulti(); // 选区外右键:清多选,走单项菜单
+    }
+
     const items: MenuItem[] = [];
     let gitRepo: GitRepositoryStatus | null = null;
     if (node.kind === "space" && onOpenGit) {
@@ -398,6 +487,7 @@ export function NodeTree({
     renamingId, renameDraft, setRenameDraft, commitRename, cancelRename,
     activeId: activeNode?.id || null, overNodeId: overInfo?.nodeId || null, dropPos: overInfo?.pos || null,
     agentDirs,
+    multiSelectedIds: multiSel,
   };
   return (
     <DndContext sensors={sensors} {...dndHandlers}>
@@ -474,7 +564,7 @@ export function NodeTree({
               key={node.id}
               node={node}
               selectedId={selectedId}
-              onSelect={handleSelect}
+              onRowClick={handleRowClick}
               onContextMenu={onNodeContext}
               refreshKey={refreshKey}
               controls={controls}
@@ -544,9 +634,14 @@ export function NodeTree({
         />
       </aside>
 
-      {/* 拖动时跟手指/鼠标的预览 */}
+      {/* 拖动时跟手指/鼠标的预览(多选拖拽带数量角标) */}
       <DragOverlay dropAnimation={null}>
-        {activeNode ? <DragPreview node={activeNode} /> : null}
+        {activeNode ? (
+          <DragPreview
+            node={activeNode}
+            count={multiSel.size > 1 && multiSel.has(activeNode.id) ? multiSel.size : 1}
+          />
+        ) : null}
       </DragOverlay>
     </DndContext>
   );
@@ -573,13 +668,18 @@ function RootDroppable({
   );
 }
 
-function DragPreview({ node }: { node: Node }) {
+function DragPreview({ node, count = 1 }: { node: Node; count?: number }) {
   const Icon = iconFor(node.kind);
   const color = colorFor(node.kind);
   return (
     <div className="flex items-center gap-1.5 px-2 py-1 rounded bg-white border border-accent shadow-lg shadow-black/15 text-[14.5px] cursor-grabbing select-none">
       <Icon size={14} className={color} />
       <span className="truncate max-w-48">{node.title}</span>
+      {count > 1 && (
+        <span className="shrink-0 min-w-5 h-5 px-1 rounded-full bg-accent text-white text-[11px] font-semibold flex items-center justify-center">
+          {count}
+        </span>
+      )}
     </div>
   );
 }
