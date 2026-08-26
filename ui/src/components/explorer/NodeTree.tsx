@@ -5,7 +5,7 @@ import { NodeRow, InlineCreateRow, iconFor, colorFor, type TreeControls } from "
 import { AgentRail } from "./AgentRail";
 import { SiteRail } from "./SiteRail";
 import { ContextMenu, type MenuItem } from "../ui";
-import { Settings, Folder, FolderPlus, FolderOpen, FileText, Bot, Trash2, Pencil, Plus, X, Copy, PanelRight, Terminal, GitBranch, Radio, MessageSquare, Files, Globe, Scissors, ClipboardPaste } from "lucide-react";
+import { Settings, Folder, FolderPlus, FolderOpen, FileText, Bot, Trash2, Pencil, Plus, X, Copy, PanelRight, Terminal, GitBranch, Radio, MessageSquare, Files, Globe, Scissors, ClipboardPaste, FoldVertical } from "lucide-react";
 
 const REVEAL_LABEL = /Mac/i.test(navigator.platform) ? "在 Finder 中显示"
   : /Win/i.test(navigator.platform) ? "在资源管理器中显示" : "在文件管理器中显示";
@@ -208,13 +208,121 @@ export function NodeTree({
     if (!targetDir) return;
     const ids = pruneNested(clip.ids).filter((id) => !(targetDir === id || targetDir.startsWith(id + "/")));
     for (const id of ids) {
-      if (clip.cut) await api.moveNode(id, targetDir).catch((e: any) => alert(e.message || "移动失败"));
-      else await api.copyNode(id, targetDir).catch((e: any) => alert(e.message || "复制失败"));
+      if (clip.cut) {
+        try { await api.moveNode(id, targetDir); }
+        catch (e: any) {
+          if (/已有同名/.test(e?.message || "") && confirm(`${e.message}。覆盖吗?(被覆盖的会进废纸篓)`)) {
+            await api.moveNode(id, targetDir, undefined, true).catch((err: any) => alert(err?.message || "移动失败"));
+          } else if (!/已有同名/.test(e?.message || "")) alert(e?.message || "移动失败");
+        }
+      } else {
+        await api.copyNode(id, targetDir).catch((e: any) => alert(e.message || "复制失败"));
+      }
     }
     if (clip.cut) { clipboardRef.current = null; setCutIds(new Set()); }
     setExpanded(targetDir, true);
     refresh();
   }, [refresh, setExpanded]);
+
+  // ── 外部拖入导入(从 Finder 拖文件/文件夹进树)──
+  // webkitGetAsEntry 递归展开目录;内容经 FileReader 读出走 /api/tree/import 落盘。
+  const traverseEntry = async (entry: any, prefix: string, out: { file: File; rel: string }[]) => {
+    if (!entry || out.length >= 200) return;
+    if (entry.isFile) {
+      await new Promise<void>((done) => entry.file((f: File) => { out.push({ file: f, rel: prefix + f.name }); done(); }, () => done()));
+      return;
+    }
+    if (entry.isDirectory) {
+      const reader = entry.createReader();
+      // readEntries 按批返回(每批至多 100),读空为止
+      for (;;) {
+        const batch: any[] = await new Promise((done) => reader.readEntries((es: any[]) => done(es), () => done([])));
+        if (!batch.length) break;
+        for (const child of batch) await traverseEntry(child, `${prefix}${entry.name}/`, out);
+        if (out.length >= 200) break;
+      }
+    }
+  };
+
+  const onExternalDragOver = (e: React.DragEvent) => {
+    if (e.dataTransfer?.types?.includes("Files")) e.preventDefault(); // 允许 drop
+  };
+  const onExternalDrop = async (e: React.DragEvent) => {
+    if (!e.dataTransfer?.types?.includes("Files")) return;
+    e.preventDefault();
+    e.stopPropagation();
+    // 落点:悬停行是文件夹 → 进它;是文件 → 进它的父级;空白处 → 第一个工作区
+    const rowEl = (e.target as HTMLElement).closest?.("[data-nid]");
+    const node = rowEl ? nodesRef.current.get(String(rowEl.getAttribute("data-nid"))) : null;
+    const parentId = node ? (node.kind === "space" ? node.id : node.parent_id || undefined) : rootsRef.current[0]?.id;
+    const out: { file: File; rel: string }[] = [];
+    for (const item of [...(e.dataTransfer.items || [])]) {
+      const entry = (item as any).webkitGetAsEntry?.();
+      if (entry) await traverseEntry(entry, "", out);
+      else { const f = item.getAsFile?.(); if (f) out.push({ file: f, rel: f.name }); }
+    }
+    if (!out.length) return;
+    let done = 0, failed = 0, bytes = 0;
+    for (const { file, rel } of out.slice(0, 200)) {
+      if (file.size > 20 * 1024 * 1024 || (bytes += file.size) > 100 * 1024 * 1024) { failed += 1; continue; }
+      try {
+        const dataBase64 = await new Promise<string>((resolve, reject) => {
+          const r = new FileReader();
+          r.onerror = () => reject(r.error);
+          r.onload = () => resolve(String(r.result).split(",")[1] || "");
+          r.readAsDataURL(file);
+        });
+        await api.importFile({ parentId, relPath: rel, dataBase64 });
+        done += 1;
+      } catch { failed += 1; }
+    }
+    if (parentId) setExpanded(parentId, true);
+    refresh();
+    if (failed) alert(`导入完成:${done} 个成功,${failed} 个失败或超限(单文件 ≤20MB,单次 ≤200 个 / 100MB)`);
+  };
+
+  // ── Git 状态标记:文件按状态染色,脏目录点标 ──
+  const [gitMarks, setGitMarks] = useState<{ files: Map<string, string>; dirs: Set<string> }>({ files: new Map(), dirs: new Set() });
+  useEffect(() => {
+    if (sideTab !== "files") return;
+    let stale = false;
+    api.gitStatus().then((r) => {
+      if (stale) return;
+      const files = new Map<string, string>();
+      const dirs = new Set<string>();
+      // git 会 C-quote 带空格/非 ASCII 的路径("sub/d copy.txt"),先反引号
+      const unquote = (p: string) => (p.startsWith('"') && p.endsWith('"') ? p.slice(1, -1).replace(/\\(.)/g, "$1") : p);
+      const mark = (abs: string, status: string) => {
+        // git 解析 symlink 后是 /private/tmp,树节点可能是 /tmp —— 两种键都登记
+        for (const key of new Set([abs, abs.replace(/^\/private\/(tmp|var)\//, "/$1/")])) {
+          files.set(key, status);
+          let dir = key;
+          while (dir.includes("/") && dir.length > 2) {
+            dir = dir.slice(0, dir.lastIndexOf("/"));
+            if (!dir) break;
+            dirs.add(dir);
+          }
+        }
+      };
+      for (const repository of r.repositories || []) {
+        const base = repository.root || repository.workspacePath;
+        for (const f of repository.files || []) mark(`${base}/${unquote(f.path)}`, f.status);
+      }
+      setGitMarks({ files, dirs });
+    }).catch(() => {});
+    return () => { stale = true; };
+  }, [refreshKey, sideTab]);
+
+  // ── 文件名筛选(输入即筛,基于全量节点清单的扁平结果)──
+  const [filterQ, setFilterQ] = useState("");
+  const [allNodes, setAllNodes] = useState<Node[]>([]);
+  useEffect(() => {
+    if (!filterQ.trim()) return;
+    api.listAllNodes().then((r) => setAllNodes(r.nodes || [])).catch(() => {});
+  }, [!!filterQ.trim(), refreshKey]);
+  const filterMatches = filterQ.trim()
+    ? allNodes.filter((n) => n.title.toLowerCase().includes(filterQ.trim().toLowerCase())).slice(0, 100)
+    : [];
 
   // 每渲染刷新一次的「最新函数」出口,键盘 handler 通过它调用,不吃过期闭包
   const keyApiRef = useRef({ handleSelect: (_n: Node | null) => {}, startRename: (_n: Node) => {}, toggleExpand: (_id: string) => {}, setExpanded: (_id: string, _on: boolean) => {} });
@@ -453,7 +561,16 @@ export function NodeTree({
     const title = renameDraft.trim();
     setRenamingId(null);
     if (!id || !title) return;
-    await api.updateNode(id, { title });
+    try {
+      await api.updateNode(id, { title });
+    } catch (e: any) {
+      // 重名:确认后覆盖(旧的进废纸篓),否则放弃
+      if (/已有同名/.test(e?.message || "") && confirm(`${e.message}。覆盖吗?(被覆盖的会进废纸篓)`)) {
+        await api.updateNode(id, { title, overwrite: true }).catch((err: any) => alert(err?.message || "重命名失败"));
+      } else if (!/已有同名/.test(e?.message || "")) {
+        alert(e?.message || "重命名失败");
+      }
+    }
     refresh();
   };
   const cancelRename = () => { setRenamingId(null); setRenameDraft(""); };
@@ -637,6 +754,7 @@ export function NodeTree({
     multiSelectedIds: multiSel,
     cutIds,
     registerNode,
+    gitMarks,
   };
   return (
     <DndContext sensors={sensors} {...dndHandlers}>
@@ -705,7 +823,55 @@ export function NodeTree({
             onCreateHandled={() => setSiteCreateReq(false)}
           />
         ) : (
-        <RootDroppable highlight={overRoot} onContextMenu={onBlankContext}>
+        <>
+        {/* 筛选 + 折叠全部 */}
+        <div className="shrink-0 flex items-center gap-1 px-2 py-1.5 border-b border-border">
+          <input
+            value={filterQ}
+            onChange={(e) => setFilterQ(e.target.value)}
+            onKeyDown={(e) => { if (e.key === "Escape") { setFilterQ(""); (e.target as HTMLInputElement).blur(); } }}
+            placeholder="筛选文件名…"
+            spellCheck={false}
+            className="flex-1 min-w-0 h-6 px-2 rounded bg-bg-inset text-[12px] text-text placeholder:text-text-faint outline-none focus:ring-1 ring-accent/40"
+          />
+          {filterQ && (
+            <button onClick={() => setFilterQ("")} title="清除筛选"
+              className="w-5 h-5 rounded flex items-center justify-center text-text-faint hover:text-text hover:bg-bg-hover">
+              <X size={12} />
+            </button>
+          )}
+          <button
+            onClick={() => setExpandedIds(new Set())}
+            title="折叠全部"
+            className="w-5 h-5 rounded flex items-center justify-center text-text-faint hover:text-text hover:bg-bg-hover"
+          >
+            <FoldVertical size={13} />
+          </button>
+        </div>
+
+        {filterQ.trim() ? (
+          <div className="flex-1 overflow-y-auto py-1">
+            {filterMatches.map((node) => (
+              <div
+                key={node.id}
+                onClick={() => {
+                  if (node.kind === "space") {
+                    setFilterQ("");
+                    window.dispatchEvent(new CustomEvent("workbench:reveal-path", { detail: { path: node.id } }));
+                  } else handleSelect(node);
+                }}
+                className="flex items-center gap-1.5 py-[3px] px-2 cursor-pointer select-none hover:bg-bg-hover"
+                title={node.id}
+              >
+                {(() => { const Icon = iconFor(node.kind, node.title); return <Icon size={14} className={`shrink-0 ${colorFor(node.kind)}`} />; })()}
+                <span className="shrink-0 truncate max-w-[55%] text-[13.5px] text-text">{node.title}</span>
+                <span className="flex-1 min-w-0 truncate text-[11px] text-text-faint font-mono">{node.id.replace(/^.*\/workspaces\//, "").replace(/\/[^/]*$/, "")}</span>
+              </div>
+            ))}
+            {!filterMatches.length && <div className="px-3 py-6 text-center text-[12.5px] text-text-faint">没有匹配的文件</div>}
+          </div>
+        ) : (
+        <RootDroppable highlight={overRoot} onContextMenu={onBlankContext} onNativeDragOver={onExternalDragOver} onNativeDrop={onExternalDrop}>
           {creatingUnder === "" && <InlineCreateRow depth={0} controls={controls} />}
 
           {roots.map((node) => (
@@ -735,6 +901,8 @@ export function NodeTree({
             </div>
           )}
         </RootDroppable>
+        )}
+        </>
         )}
 
         {/* footer */}
@@ -800,10 +968,15 @@ function RootDroppable({
   children,
   highlight,
   onContextMenu,
+  onNativeDragOver,
+  onNativeDrop,
 }: {
   children: React.ReactNode;
   highlight: boolean;
   onContextMenu: (e: React.MouseEvent) => void;
+  /** 外部文件拖入(Finder → 树):dnd-kit 是指针拖拽,与原生 drag 事件不冲突。 */
+  onNativeDragOver?: (e: React.DragEvent) => void;
+  onNativeDrop?: (e: React.DragEvent) => void;
 }) {
   const { setNodeRef } = useDroppable({ id: ROOT_ID });
   return (
@@ -811,6 +984,8 @@ function RootDroppable({
       ref={setNodeRef}
       className={`flex-1 overflow-y-auto ${highlight ? "bg-accent-soft" : ""}`}
       onContextMenu={onContextMenu}
+      onDragOver={onNativeDragOver}
+      onDrop={onNativeDrop}
     >
       {children}
     </div>

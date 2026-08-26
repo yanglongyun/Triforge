@@ -3,7 +3,7 @@
 // 为什么用系统 node 而不是 Electron 自带的 Node:node-pty 是原生模块,按系统 node
 // 的 ABI 编译;塞进 Electron 的 Node 要 electron-rebuild 整一轮。开发期直接用系统
 // node 零 ABI 纠纷;正式打包时再换成随包 node + rebuild(见 dev/ 版本文档)。
-import { app, BrowserWindow, dialog, shell } from "electron";
+import { app, BrowserWindow, Menu, dialog, shell } from "electron";
 import { spawn } from "node:child_process";
 import { createServer } from "node:net";
 import { dirname, join } from "node:path";
@@ -128,8 +128,35 @@ app.on("web-contents-created", (_event, contents) => {
   });
 });
 
+// 应用菜单:⌘W 让给「关闭标签页」(转发进页面,渲染层关工作区标签),⌘⇧W 才关窗口。
+// 无 preload/IPC 通道,用 executeJavaScript 派事件 —— 页面监听 workbench:close-tab。
+const buildMenu = () => {
+  Menu.setApplicationMenu(Menu.buildFromTemplate([
+    { role: "appMenu" },
+    {
+      label: "文件",
+      submenu: [
+        {
+          label: "关闭标签页",
+          accelerator: "CmdOrCtrl+W",
+          click: () => {
+            BrowserWindow.getFocusedWindow()?.webContents
+              .executeJavaScript("window.dispatchEvent(new Event('workbench:close-tab'))")
+              .catch(() => {});
+          },
+        },
+        { label: "关闭窗口", accelerator: "Shift+CmdOrCtrl+W", role: "close" },
+      ],
+    },
+    { role: "editMenu" },
+    { role: "viewMenu" },
+    { role: "windowMenu" },
+  ]));
+};
+
 app.whenReady().then(async () => {
   try {
+    buildMenu();
     const port = await pickPort();
     await startServer(port);
     createWindow(port);

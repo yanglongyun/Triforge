@@ -131,6 +131,11 @@ const handleApi = async (req, res) => {
       try { return json(res, 201, { ok: true, item: tree.copy(body.id, body.parentId || null) }); }
       catch (error) { return json(res, 400, { ok: false, error: error.message }); }
     }
+    if (path === "/api/tree/import" && method === "POST") {
+      const body = await parseBody(req);
+      try { return json(res, 201, { ok: true, item: tree.importFile(body) }); }
+      catch (error) { return json(res, 400, { ok: false, error: error.message }); }
+    }
 
     if (path === "/api/tree") {
       if (method === "GET") {

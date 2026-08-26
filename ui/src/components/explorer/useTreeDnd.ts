@@ -63,6 +63,17 @@ export function useTreeDnd({
     return max + 1;
   };
 
+  /** 移动 + 重名覆盖确认:服务端默认拒绝同名,确认后带 overwrite 重试(旧的进废纸篓)。 */
+  const moveWithConfirm = async (sourceId: string, parentId: string | null, pos?: number) => {
+    try {
+      await api.moveNode(sourceId, parentId, pos);
+    } catch (e: any) {
+      if (/已有同名/.test(e?.message || "") && confirm(`${e.message}。覆盖吗?(被覆盖的会进废纸篓)`)) {
+        await api.moveNode(sourceId, parentId, pos, true);
+      } else throw e;
+    }
+  };
+
   const applyDrop = async (sourceId: string, target: Node, position: DropPosition) => {
     if (sourceId === target.id) return;
     if (target.workspace && position !== "into") return;
@@ -70,7 +81,7 @@ export function useTreeDnd({
       if (position === "into") {
         if (target.kind !== "space") return;
         const pos = await nextPosUnder(target.id);
-        await api.moveNode(sourceId, target.id, pos);
+        await moveWithConfirm(sourceId, target.id, pos);
       } else {
         const parentId = target.parent_id;
         const siblingsList = parentId
@@ -89,7 +100,7 @@ export function useTreeDnd({
           const nextPos = next ? Number(next.position) || (targetPos + 1) : targetPos + 1;
           newPos = (targetPos + nextPos) / 2;
         }
-        await api.moveNode(sourceId, parentId, newPos);
+        await moveWithConfirm(sourceId, parentId, newPos);
       }
       refresh();
     } catch (e: any) {

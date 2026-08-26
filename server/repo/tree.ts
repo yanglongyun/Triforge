@@ -282,9 +282,16 @@ const createItem = ({ kind, parentId = null, title, system = null, content = nul
   throw new Error(`未知类型: ${kind}`);
 };
 
-const updateItem = (id, { title, system, content } = {}) => {
+const updateItem = (id, { title, system, content, overwrite = false } = {}) => {
   const hit = locate(id);
   if (!hit) throw new Error(`not found: ${id}`);
+
+  // 改名撞上同名:默认报错;overwrite=true 时旧的进废纸篓,不静默覆盖
+  const renameGuard = (next) => {
+    if (!fs.existsSync(next)) return;
+    if (!overwrite) throw new Error(`目标已有同名:${path.basename(next)}`);
+    trashItem(next);
+  };
 
   if (hit.kind === "space" && isWorkspaceRoot(hit.abs)) {
     if (title !== undefined) {
@@ -298,7 +305,7 @@ const updateItem = (id, { title, system, content } = {}) => {
     if (content !== undefined) fs.writeFileSync(abs, content == null ? "" : String(content));
     if (title !== undefined) {
       const next = path.join(path.dirname(abs), sanitize(title));
-      if (next !== abs) { fs.renameSync(abs, next); abs = next; }
+      if (next !== abs) { renameGuard(next); fs.renameSync(abs, next); abs = next; }
     }
     return fileItem(abs, true);
   }
@@ -306,19 +313,39 @@ const updateItem = (id, { title, system, content } = {}) => {
   let abs = hit.abs;
   if (title !== undefined) {
     const next = path.join(path.dirname(abs), sanitize(title));
-    if (next !== abs) { fs.renameSync(abs, next); reprefixAgents(abs, next); abs = next; }
+    if (next !== abs) { renameGuard(next); fs.renameSync(abs, next); reprefixAgents(abs, next); abs = next; }
   }
   return spaceItem(abs);
+};
+
+/** 删除走废纸篓:macOS 移入 ~/.Trash(重名加时间戳),跨卷/失败或非 mac 退回永久删。 */
+const trashItem = (abs) => {
+  if (process.platform === "darwin") {
+    try {
+      const trash = path.join(process.env.HOME || "", ".Trash");
+      fs.mkdirSync(trash, { recursive: true });
+      let dest = path.join(trash, path.basename(abs));
+      if (fs.existsSync(dest)) {
+        const stamp = new Date().toISOString().replace(/[-:]/g, "").replace(/\..+/, "").replace("T", "-");
+        const parsed = path.parse(path.basename(abs));
+        dest = path.join(trash, `${parsed.name} ${stamp}${parsed.ext}`);
+      }
+      fs.renameSync(abs, dest);
+      return true;
+    } catch { /* 跨卷 EXDEV / 权限 → 永久删兜底 */ }
+  }
+  fs.rmSync(abs, { recursive: true, force: true });
+  return false;
 };
 
 const deleteItem = (id) => {
   const hit = locate(id);
   if (!hit) return;
-  if (hit.kind === "file") { fs.rmSync(hit.abs, { force: true }); return; }
+  if (hit.kind === "file") { trashItem(hit.abs); return; }
   if (isWorkspaceRoot(hit.abs)) throw new Error("工作区根不能删除,请从 Workbench 移除工作区");
-  // space:整目录删;绑在这棵子树上的智能体**不陪葬**——对话不是目录的附属品,
+  // space:整目录进废纸篓;绑在这棵子树上的智能体**不陪葬**——对话不是目录的附属品,
   // 它们的 workdir 塌缩到父目录,会话照常留在会话列表里
-  fs.rmSync(hit.abs, { recursive: true, force: true });
+  trashItem(hit.abs);
   collapseAgents(hit.abs, path.dirname(hit.abs));
 };
 
@@ -355,7 +382,8 @@ const copyItem = (id, targetParentId = null) => {
 };
 
 // 移到某空间下(newParentId 必须是空间或 null=根)。position 忽略(按名排序)。
-const moveItem = (id, newParentId, _position = undefined) => {
+// 目标已有同名:默认报错,overwrite=true 时把旧的送进废纸篓再落位(不静默覆盖)。
+const moveItem = (id, newParentId, _position = undefined, overwrite = false) => {
   const hit = locate(id);
   if (!hit) throw new Error(`not found: ${id}`);
   if (hit.kind === "space" && isWorkspaceRoot(hit.abs)) throw new Error("工作区根不能移动");
@@ -371,11 +399,32 @@ const moveItem = (id, newParentId, _position = undefined) => {
   }
   const next = path.join(targetDir, path.basename(hit.abs));
   if (next !== hit.abs) {
+    if (fs.existsSync(next)) {
+      if (!overwrite) throw new Error(`目标已有同名:${path.basename(next)}`);
+      trashItem(next);
+    }
     fs.renameSync(hit.abs, next);
     if (hit.kind === "space") reprefixAgents(hit.abs, next); // 子树上的智能体跟着搬家
   }
   if (hit.kind === "space") return spaceItem(next);
   return fileItem(next, true);
+};
+
+/** 外部拖入导入:把浏览器读到的文件内容落到 parentId 目录下(relPath 可带子目录)。 */
+const importFile = ({ parentId = null, relPath, dataBase64 }) => {
+  let baseDir;
+  if (parentId) {
+    const hit = locate(parentId);
+    if (!hit || hit.kind !== "space") throw new Error("目标必须是一个文件夹");
+    baseDir = hit.abs;
+  } else baseDir = workspacePaths()[0] || ensureRoot();
+  const rel = String(relPath || "").split("/").map((seg) => sanitize(seg)).filter(Boolean);
+  if (!rel.length) throw new Error("文件名为空");
+  const dir = path.join(baseDir, ...rel.slice(0, -1));
+  fs.mkdirSync(dir, { recursive: true });
+  const dest = uniqueDest(dir, rel[rel.length - 1]);
+  fs.writeFileSync(dest, Buffer.from(String(dataBase64 || ""), "base64"));
+  return fileItem(dest, true);
 };
 
 const ancestry = (id) => {
@@ -422,7 +471,7 @@ const listWorkspaces = () => workspaceRows();
 
 export {
   ROOT, ensureRoot, IGNORE_DIRS, isAllowedPath,
-  listChildren, listAll, getItem, createItem, updateItem, deleteItem, moveItem, copyItem, ancestry,
+  listChildren, listAll, getItem, createItem, updateItem, deleteItem, moveItem, copyItem, importFile, ancestry,
   resolveFileAbs, pathForId, agentContext,
   listWorkspaces, addWorkspace, removeWorkspace, isWorkspaceRoot, terminalCwd,
 };

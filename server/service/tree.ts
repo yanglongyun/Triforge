@@ -16,18 +16,25 @@ const create = ({ kind, parentId = null, title = "", content = null } = {}) => {
   return item;
 };
 
-// 改名/改内容 + 移动(都可选),最后返回最新项
-const update = (id, { title, content, parentId, position } = {}) => {
+// 改名/改内容 + 移动(都可选),最后返回最新项;overwrite 透传给重名守卫
+const update = (id, { title, content, parentId, position, overwrite } = {}) => {
+  let moved = null;
   if (title !== undefined || content !== undefined) {
-    repo.updateItem(id, { title, content });
+    moved = repo.updateItem(id, { title, content, overwrite });
   }
   if (parentId !== undefined || position !== undefined) {
-    const cur = repo.getItem(id);
-    const target = parentId !== undefined ? parentId : cur?.parent_id;
-    repo.moveItem(id, target, position);
+    const currentId = moved?.id || id; // 改名后 id(路径)已变
+    const cur = repo.getItem(currentId);
+    moved = repo.moveItem(currentId, parentId !== undefined ? parentId : cur?.parent_id, position, overwrite);
   }
-  const item = getItem(id);
+  const item = getItem(moved?.id || id);
   emit({ type: "tree_changed", item, reason: "updated" });
+  return item;
+};
+
+const importFile = (body = {}) => {
+  const item = repo.importFile(body);
+  emit({ type: "tree_changed", item, reason: "imported" });
   return item;
 };
 
@@ -69,4 +76,4 @@ const terminalCwd = (id) => {
   return repo.terminalCwd(id);
 };
 
-export { listChildren, listAll, getItem, create, update, remove, copy, ancestry, search, fileRawAbs, pathForId, listWorkspaces, addWorkspace, removeWorkspace, terminalCwd };
+export { listChildren, listAll, getItem, create, update, remove, copy, importFile, ancestry, search, fileRawAbs, pathForId, listWorkspaces, addWorkspace, removeWorkspace, terminalCwd };

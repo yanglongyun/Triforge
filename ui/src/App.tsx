@@ -195,6 +195,39 @@ export function App() {
     return () => window.removeEventListener("keydown", onKey);
   }, []);
 
+  // 标签页快捷键:⌘W 关标签(Electron 由菜单转发 workbench:close-tab)、
+  // Ctrl(+Shift)+Tab / ⌘⇧[ ] 在当前分组内循环切换
+  useEffect(() => {
+    const cycleTab = (dir: number) => {
+      const group = tabGroups.activeGroup;
+      if (!group.tabs.length) return;
+      const idx = Math.max(0, group.tabs.findIndex((t) => t.id === group.activeId));
+      const next = group.tabs[(idx + dir + group.tabs.length) % group.tabs.length];
+      if (next) tabGroups.activateTab(group.id, next.id);
+    };
+    const closeActiveTab = () => {
+      const id = tabGroups.activeGroup.activeId;
+      if (id) tabGroups.closeTab(tabGroups.activeGroupId, id);
+    };
+    const onKey = (e: KeyboardEvent) => {
+      if (e.key === "Tab" && e.ctrlKey) { e.preventDefault(); cycleTab(e.shiftKey ? -1 : 1); return; }
+      if ((e.metaKey || e.ctrlKey) && e.shiftKey && ["[", "]", "{", "}"].includes(e.key)) {
+        e.preventDefault();
+        cycleTab(e.key === "]" || e.key === "}" ? 1 : -1);
+        return;
+      }
+      // dev 纯浏览器里 ⌘W 被浏览器保留,拦不住;Electron 走菜单转发,这里兜非 mac 的 Ctrl+W
+      if (e.ctrlKey && !e.metaKey && !e.shiftKey && e.key.toLowerCase() === "w") { e.preventDefault(); closeActiveTab(); return; }
+    };
+    const onCloseTab = () => closeActiveTab();
+    window.addEventListener("keydown", onKey);
+    window.addEventListener("workbench:close-tab", onCloseTab);
+    return () => {
+      window.removeEventListener("keydown", onKey);
+      window.removeEventListener("workbench:close-tab", onCloseTab);
+    };
+  }, [tabGroups.activeGroup, tabGroups.activeGroupId, tabGroups.activateTab, tabGroups.closeTab]);
+
   // 在当前选中工作区/文件夹里新建(命令面板用)。
   // 对话零打扰直接建(默认「未命名对话」,首条消息后系统自动取名);文件类名字走 prompt
   const createAtCurrentTarget = async (kind: "space" | "agent" | "file") => {

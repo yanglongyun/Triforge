@@ -35,6 +35,17 @@ export type TreeControls = {
   cutIds: Set<string>;
   /** 行注册表:渲染时登记 Node 对象,键盘操作按 id 反查。 */
   registerNode: (n: Node) => void;
+  /** Git 标记:files = absPath→status(文件染色+字母),dirs = 含变更的目录(点标)。 */
+  gitMarks: { files: Map<string, string>; dirs: Set<string> };
+};
+
+/** Git 状态 → 颜色与字母(VS Code 习惯:U 新增绿 / M 修改橙 / A 已暂存绿 / C 冲突红)。 */
+const gitBadge = (status?: string): { color: string; letter: string } | null => {
+  if (!status) return null;
+  if (status === "untracked") return { color: "text-success", letter: "U" };
+  if (status === "conflict") return { color: "text-danger", letter: "C" };
+  if (status === "staged") return { color: "text-success", letter: "A" };
+  return { color: "text-warning", letter: "M" }; // modified / staged+modified / changed
 };
 
 // 按扩展名挑文件图标(VSCode 风)
@@ -115,6 +126,8 @@ export function NodeRow({
   const isSelected = selectedId === node.id || controls.multiSelectedIds.has(node.id);
   const Icon = iconFor(node.kind, node.title);
   const iconColor = colorFor(node.kind);
+  const badge = !isContainer ? gitBadge(controls.gitMarks.files.get(node.id)) : null;
+  const dirDirty = isContainer && controls.gitMarks.dirs.has(node.id);
 
   const showInputHere = isContainer && controls.creatingUnder === node.id;
 
@@ -167,6 +180,14 @@ export function NodeRow({
         {isRenaming ? (
           <input
             autoFocus
+            ref={(el) => {
+              // 打开即选中文件名主体(不含扩展名),VS Code 同款
+              if (el && !el.dataset.sel) {
+                el.dataset.sel = "1";
+                const dot = el.value.lastIndexOf(".");
+                el.setSelectionRange(0, dot > 0 ? dot : el.value.length);
+              }
+            }}
             value={controls.renameDraft}
             onChange={(e) => controls.setRenameDraft(e.target.value)}
             onKeyDown={(e) => {
@@ -179,8 +200,11 @@ export function NodeRow({
             className="flex-1 min-w-0 bg-white border border-accent rounded px-1 -mx-1 py-px text-[14px] text-text outline-none"
           />
         ) : (
-          <span className="flex-1 min-w-0 truncate text-[14.5px]">{node.title}</span>
+          <span className={`flex-1 min-w-0 truncate text-[14.5px] ${badge?.color || ""}`}>{node.title}</span>
         )}
+
+        {badge && <span className={`shrink-0 text-[11px] font-semibold ${badge.color}`}>{badge.letter}</span>}
+        {dirDirty && <span className="shrink-0 w-1.5 h-1.5 rounded-full bg-warning/70" title="目录内有未提交变更" />}
 
         {isContainer && (controls.agentDirs.get(node.id) || 0) > 0 && (
           <span

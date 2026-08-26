@@ -161,12 +161,14 @@ export const api = {
     request<{ item: Node }>(`/api/tree/get?id=${encodeURIComponent(id)}`).then(one),
   createNode: (opts: { kind: "space" | "file"; title: string; parentId?: string; content?: string }) =>
     request<{ item: Node }>("/api/tree", { method: "POST", ...jsonBody(opts) }).then(one),
-  updateNode: (id: string, patch: { title?: string; content?: string; parentId?: string | null }) =>
+  updateNode: (id: string, patch: { title?: string; content?: string; parentId?: string | null; overwrite?: boolean }) =>
     request<{ item: Node }>(`/api/tree?id=${encodeURIComponent(id)}`, { method: "PATCH", ...jsonBody(patch) }).then(one),
-  moveNode: (id: string, newParentId: string | null, position?: number) =>
-    request<{ item: Node }>(`/api/tree?id=${encodeURIComponent(id)}`, { method: "PATCH", ...jsonBody({ parentId: newParentId, position }) }).then(one),
+  moveNode: (id: string, newParentId: string | null, position?: number, overwrite?: boolean) =>
+    request<{ item: Node }>(`/api/tree?id=${encodeURIComponent(id)}`, { method: "PATCH", ...jsonBody({ parentId: newParentId, position, overwrite }) }).then(one),
   copyNode: (id: string, parentId?: string | null) =>
     request<{ item: Node }>("/api/tree/copy", { method: "POST", ...jsonBody({ id, parentId }) }).then(one),
+  importFile: (opts: { parentId?: string | null; relPath: string; dataBase64: string }) =>
+    request<{ item: Node }>("/api/tree/import", { method: "POST", ...jsonBody(opts) }).then(one),
   deleteNode: (id: string) =>
     request<{ ok: boolean }>(`/api/tree?id=${encodeURIComponent(id)}`, { method: "DELETE" }),
   ancestry: (id: string) =>
