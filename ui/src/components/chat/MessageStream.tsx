@@ -6,7 +6,7 @@
 //   · 用户消息右侧灰底气泡;agent 来信 / 子 agent 回信保留 Arbor 的居中卡片;
 //     助理最终文本无气泡全宽 markdown,悬停出现复制钮,最后一条常显。
 import { useEffect, useMemo, useRef, useState } from "react";
-import { Check, Copy, PhoneCall, Sparkles } from "lucide-react";
+import { Check, Copy, FileText, PhoneCall, Sparkles } from "lucide-react";
 
 import { renderMarkdown } from "../../lib/markdown";
 import { TurnEntries, TurnFold, Working, type TurnEntry } from "./Process";
@@ -247,10 +247,39 @@ function ChatRow({ row, always }: { row: Row; always: boolean }) {
       );
     }
     return (
-      <div className="flex justify-end pb-3 pt-1">
-        <div className="max-w-[85%] rounded-[14px] rounded-br-[4px] px-4 py-2.5 text-[15px] bg-bg-panel text-text leading-relaxed whitespace-pre-wrap break-words select-text cursor-text">
-          {row.content}
-        </div>
+      <div className="flex flex-col items-end gap-1.5 pb-3 pt-1">
+        {/* 附件:图片缩略图(点击原图),文件是可下载的芯片 */}
+        {!!row.attachments?.length && (
+          <div className="flex flex-wrap gap-2 justify-end max-w-[85%]">
+            {row.attachments.map((file) => file.mimeType.startsWith("image/") ? (
+              <img
+                key={file.id}
+                src={file.url}
+                alt={file.name}
+                title={file.name}
+                onClick={() => window.open(file.url, "_blank")}
+                className="max-h-44 max-w-full rounded-xl border border-border cursor-zoom-in object-contain bg-white"
+              />
+            ) : (
+              <a
+                key={file.id}
+                href={file.url}
+                target="_blank"
+                rel="noreferrer"
+                download={file.name}
+                className="inline-flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg bg-white border border-border text-[12.5px] text-text-dim hover:text-text hover:border-accent/50 transition-colors max-w-[260px]"
+              >
+                <FileText size={13} className="shrink-0 text-accent" />
+                <span className="truncate">{file.name}</span>
+              </a>
+            ))}
+          </div>
+        )}
+        {!!row.content && (
+          <div className="max-w-[85%] rounded-[14px] rounded-br-[4px] px-4 py-2.5 text-[15px] bg-bg-panel text-text leading-relaxed whitespace-pre-wrap break-words select-text cursor-text">
+            {row.content}
+          </div>
+        )}
       </div>
     );
   }
@@ -264,15 +293,16 @@ function ChatRow({ row, always }: { row: Row; always: boolean }) {
     );
   }
 
-  // chip:系统留痕
+  // chip:系统留痕 / 瞬态提示
   const bad = row.code === "error";
+  const warn = row.code === "incomplete";
   return (
     <span className={[
       "self-center my-2 px-3 py-1 rounded-full text-[11.5px] font-medium max-w-full truncate",
-      bad ? "bg-danger/10 text-danger" : "bg-bg-panel text-text-faint",
+      bad ? "bg-danger/10 text-danger" : warn ? "bg-warning/10 text-warning" : "bg-bg-panel text-text-faint",
     ].join(" ")}
     >
-      {row.code === "stopped" ? "已停止" : row.content}
+      {row.code === "stopped" ? "已停止" : row.code === "incomplete" ? `回复未完整:${row.content}` : row.content}
     </span>
   );
 }

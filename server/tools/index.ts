@@ -51,6 +51,11 @@ export const buildExecutors = (ctx) => {
   for (const [name, impl] of Object.entries(IMPLS)) {
     executors.set(name, async (args, kernelCtx = {}) => {
       const result = await impl(args, { ...ctx, signal: kernelCtx.signal });
+      // 带图的结果(read 读图片)整体放行:文本部分照常截断,image 交给内核
+      // (runner 会把它挂到 function_call_output 上,附件层在当前轮展开成 input_image)
+      if (result && typeof result === "object" && result.image) {
+        return { output: truncateToolResult(String(result.output || ""), ctx.toolResultMaxChars), image: result.image };
+      }
       return truncateToolResult(result, ctx.toolResultMaxChars);
     });
   }

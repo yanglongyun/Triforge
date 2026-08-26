@@ -106,6 +106,16 @@ export function setupStream(ports: StreamPorts) {
         completeCall(String(payload.callId || ""), typeof payload.result === "string" ? payload.result : JSON.stringify(payload.result));
         break;
 
+      case EVENTS.RETRY:
+        // 网络抖动,内核在退避重试 —— 落一枚瞬态 chip(不入库,终局对账后自然消失)
+        closeStreaming();
+        pushRow({
+          key: mkKey("c"), kind: "chip", code: "retrying",
+          content: `请求失败,${Math.max(1, Math.round(Number(payload.delayMs || 0) / 1000))}s 后重试(${payload.attempt}/${payload.maxRetries})`,
+          at: Date.now(),
+        });
+        break;
+
       case EVENTS.COMPACT_START:
         closeStreaming();
         pushRow({ key: mkKey("c"), kind: "chip", code: "compacting", content: "正在压缩早期对话…", at: Date.now() });

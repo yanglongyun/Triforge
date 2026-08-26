@@ -1,6 +1,6 @@
 {
   "name": "arbor",
-  "version": "0.3.0",
+  "version": "0.4.0",
   "private": true,
   "type": "module",
   "description": "Arbor — 对话即智能体,树形组织的本地多智能体工作台",

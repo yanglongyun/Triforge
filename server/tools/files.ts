@@ -1,8 +1,20 @@
 // @ts-nocheck
-// 文件三件套:read(有界读,带行号)/ edit(精确替换)/ write(带护栏写)。
+// 文件三件套:read(有界读,带行号,图片交给模型看)/ edit(精确替换)/ write(带护栏写)。
 // 相对路径相对智能体的工作目录(ctx.cwd)解析,和 bash 一致。
+//
+// 正确性口径(与 AGENT 0.0.7 对齐):
+//   - read/edit 统一按 LF 匹配,写回还原原始行尾 —— CRLF 文件的多行替换不再必败;
+//   - edit 按下标切片拼接,不走 String.replace —— new 里的 $&/$`/$'/$n/$$ 不再被
+//     当替换模式解释而静默写错文件;
+//   - read 的行数不把尾随换行切出的空串算作一行。
 import { existsSync, mkdirSync, readFileSync, statSync, writeFileSync } from "fs";
-import { dirname, isAbsolute, resolve } from "path";
+import { dirname, extname, isAbsolute, resolve } from "path";
+import { detectLineEnding, restoreLineEnding, toLf } from "./text.js";
+
+const IMAGE_TYPES = new Map([
+  [".png", "image/png"], [".jpg", "image/jpeg"], [".jpeg", "image/jpeg"],
+  [".gif", "image/gif"], [".webp", "image/webp"],
+]);
 
 const resolvePath = (p, ctx) => {
   const rel = String(p || "");
@@ -34,11 +46,25 @@ export const read = ({ path: p, offset, limit }, ctx) => {
   let stat;
   try { stat = statSync(abs); } catch { return `error: 文件不存在: ${p}`; }
   if (stat.isDirectory()) return `error: ${p} 是目录(列目录用 bash 的 ls)`;
+
+  // 图片:不按文本读,作为图像交给模型查看(当前轮由附件层展开成 input_image)
+  const imageType = IMAGE_TYPES.get(extname(abs).toLowerCase());
+  if (imageType) {
+    if (stat.size > 8 * 1024 * 1024) return `error: 图片过大(${Math.round(stat.size / 1024 / 1024)}MB,上限 8MB)`;
+    return {
+      output: `(图片 ${p},${imageType},${Math.round(stat.size / 1024)} KB —— 已作为图像交给你查看)`,
+      image: { path: abs, mimeType: imageType, size: stat.size },
+    };
+  }
+
   if (stat.size > 5_000_000) return `error: 文件过大(${stat.size} 字节),请用 bash 处理`;
   let buf;
   try { buf = readFileSync(abs); } catch (e) { return `error: ${e.message}`; }
   if (buf.subarray(0, 8192).includes(0)) return `(二进制文件,${stat.size} 字节,无法按文本读)`;
-  const lines = buf.toString("utf8").split("\n");
+  // 按 LF 返回,和 edit 的匹配口径一致,行尾的 \r 不会漏给模型
+  const lines = toLf(buf.toString("utf8")).split("\n");
+  // 以换行结尾的文件会切出一个尾随空串,它不是一行,否则行号整体多 1
+  if (lines.length > 1 && lines[lines.length - 1] === "") lines.pop();
   const start = Math.max(1, Number(offset) || 1);
   const count = Math.min(Number(limit) || 2000, 2000);
   const slice = lines.slice(start - 1, start - 1 + count);
@@ -70,15 +96,30 @@ export const editDef = {
 
 export const edit = ({ path: p, old, new: next, replace_all }, ctx) => {
   if (old == null || old === "") return "error: old(要替换的原文)不能为空";
-  const newStr = next ?? "";
   const abs = resolvePath(p, ctx);
-  let content;
-  try { content = readFileSync(abs, "utf8"); } catch { return `error: 读不到文件: ${p}`; }
-  const occurrences = content.split(old).length - 1;
+  let raw;
+  try { raw = readFileSync(abs, "utf8"); } catch { return `error: 读不到文件: ${p}`; }
+
+  // 匹配前统一归一到 LF(read 给模型的就是 LF),写回前还原原始行尾
+  const ending = detectLineEnding(raw);
+  const content = toLf(raw);
+  const oldStr = toLf(String(old));
+  const newStr = toLf(String(next ?? ""));
+
+  const occurrences = content.split(oldStr).length - 1;
   if (occurrences === 0) return "error: 没找到要替换的内容(old 在文件里不存在)。先用 read 确认原文。";
   if (occurrences > 1 && !replace_all) return `error: old 出现了 ${occurrences} 次,不唯一。请带上更长、唯一的上下文,或设 replace_all=true。`;
-  const updated = replace_all ? content.split(old).join(String(newStr)) : content.replace(old, String(newStr));
-  try { writeFileSync(abs, updated); } catch (e) { return `error: 写回失败 ${e.message}`; }
+
+  // 按下标切片拼接,不走 String.replace —— new 里的 $& / $` / $' / $n / $$ 原样写入
+  let updated;
+  if (replace_all) {
+    updated = content.split(oldStr).join(newStr);
+  } else {
+    const at = content.indexOf(oldStr);
+    updated = content.slice(0, at) + newStr + content.slice(at + oldStr.length);
+  }
+
+  try { writeFileSync(abs, restoreLineEnding(updated, ending)); } catch (e) { return `error: 写回失败 ${e.message}`; }
   ctx.emit?.({ type: "tree_changed", reason: "edit" });
   return `已编辑 ${p}(替换 ${replace_all ? occurrences : 1} 处)`;
 };

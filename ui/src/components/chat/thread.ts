@@ -2,7 +2,7 @@
 //
 // 行是**可变对象**:流式增量直接改字段,再靠 tick 触发重渲染。
 // React 用 key 复用 DOM,原地改内容不重挂(不闪、不丢滚动、不断选中)。
-import type { MessageRow, StoredItem } from "../../api";
+import type { Attachment, MessageRow, StoredItem } from "../../api";
 
 export type Row = {
   key: string;
@@ -14,6 +14,7 @@ export type Row = {
   content?: string;
   source?: "user" | "call" | "call_result" | "compaction";
   from?: string;
+  attachments?: Attachment[];
 
   // assistant:思考与正文同一行(思考先流,正文后到)
   reasoning?: string;
@@ -26,8 +27,8 @@ export type Row = {
   result?: string;
   status?: "running" | "done";
 
-  // chip(系统留痕)
-  code?: "stopped" | "error" | "compacting" | "compacted";
+  // chip(系统留痕 / 瞬态提示)
+  code?: "stopped" | "error" | "incomplete" | "compacting" | "compacted" | "retrying";
 };
 
 let keySeq = 0;
@@ -123,7 +124,7 @@ export const renderRows = (raw: MessageRow[]): Row[] => {
         : kind === "call_result" || meta.source === "call_result" ? "call_result"
         : kind === "call" || meta.source === "call" ? "call"
         : "user";
-      rows.push({ key: mkKey("u"), kind: "user", content: itemText(item), source, from: meta.from, at });
+      rows.push({ key: mkKey("u"), kind: "user", content: itemText(item), source, from: meta.from, attachments: item.attachments || [], at });
       continue;
     }
     if (item.role === "system") {
@@ -132,6 +133,8 @@ export const renderRows = (raw: MessageRow[]): Row[] => {
       if (/^\[stopped\]/.test(text)) rows.push({ key: mkKey("c"), kind: "chip", code: "stopped", content: "", at });
       else if (/^\[error\]/.test(text)) {
         rows.push({ key: mkKey("c"), kind: "chip", code: "error", content: text.replace(/^\[error\]\s*/, ""), at });
+      } else if (/^\[incomplete\]/.test(text)) {
+        rows.push({ key: mkKey("c"), kind: "chip", code: "incomplete", content: text.replace(/^\[incomplete\]\s*/, ""), at });
       }
       // 其余系统条目是给模型看的,不进画面
       continue;

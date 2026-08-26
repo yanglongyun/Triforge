@@ -17,6 +17,7 @@ import { appendItem, listRows } from "../repo/messages.js";
 import { getLatestCompaction } from "../repo/compactions.js";
 import { createCall, markCallDone, markCallError, markCallRunning } from "../repo/calls.js";
 import { getSettings } from "../repo/settings.js";
+import { prepareInput } from "../files.js";
 import { emit } from "../bus.js";
 
 const MAX_ROUNDS = 64;
@@ -59,6 +60,7 @@ const autoTitle = async (agentId, rows, finalText, settings) => {
     title = String(result.text).replace(/\s+/g, " ").trim().slice(0, 32);
   } catch { /* 模型起不出来就机械截断 */ }
   if (!title) title = ask.slice(0, 24);
+  if (!title) title = String(lastUser?.item?.attachments?.[0]?.name || "").slice(0, 24); // 只发了附件没打字
   if (!title) return;
   updateAgent(agentId, { title });
   emit({ type: "agents_changed" });
@@ -152,6 +154,11 @@ const runAgent = async (agentId, { callerId = null } = {}) => {
         emit({ type: EVENTS.CALL_STARTED, agentId });
         return;
       }
+      if (type === "retry") {
+        // 网络抖动/限流,内核在退避重试 —— 透给界面,别让用户以为卡死了
+        emit({ type: EVENTS.RETRY, agentId, attempt: data.attempt, maxRetries: data.maxRetries, delayMs: data.delayMs, message: String(data.error || "") });
+        return;
+      }
       if (!data.item) return; // 内核自己的 done/error 事件,终局由本层广播
       generated.push(data.item);
       appendItem(agentId, data.item, { usage: data.usage || null });
@@ -181,6 +188,7 @@ const runAgent = async (agentId, { callerId = null } = {}) => {
       env: process.env,
       signal,
       emit: emitKernel,
+      prepareInput, // 附件展开/剥除:当前轮的图片才进 input_image,旧轮不带字节
     });
 
     const finalText = result.items
@@ -188,6 +196,13 @@ const runAgent = async (agentId, { callerId = null } = {}) => {
       .map(messageText)
       .join("\n\n")
       .trim();
+
+    // 截断/内容过滤(response.incomplete):落 [incomplete] 留痕 —— 给用户看,也给模型看
+    if (result.stopReason) {
+      const marker = { role: "system", content: `[incomplete] 上一条回复未完整结束:${result.stopReason}` };
+      const row = appendItem(agentId, marker, { meta: { kind: "marker" } });
+      emit({ type: EVENTS.INPUT, agentId, row });
+    }
 
     markCallDone(callId, { result: finalText });
     emit({ type: "call_changed", callId, calleeId: agentId });

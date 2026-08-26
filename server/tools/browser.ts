@@ -95,13 +95,18 @@ export const browser = async ({ action, tab_id, url, code, selector, text, path:
         const dataUrl = await browserRequest(tab_id, "screenshot", {}, 25_000);
         const base64 = String(dataUrl || "").replace(/^data:image\/\w+;base64,/, "");
         if (!base64) return "error: 截图失败(宿主没有返回图像)";
+        const bytes = Buffer.from(base64, "base64");
         const stamp = new Date().toISOString().replace(/[-:]/g, "").replace(/\..+/, "").replace("T", "-");
         const rel = String(savePath || "").trim() || `web-shot-${stamp}.png`;
         const abs = isAbsolute(rel) ? rel : resolve(ctx.cwd || process.cwd(), rel);
         mkdirSync(dirname(abs), { recursive: true });
-        writeFileSync(abs, Buffer.from(base64, "base64"));
+        writeFileSync(abs, bytes);
         ctx.emit?.({ type: "tree_changed", reason: "browser_screenshot" });
-        return `已截图保存到 ${rel}(${Math.round(base64.length * 0.75 / 1024)} KB)。文件在左侧树里,用户可以点开查看。`;
+        // 截图走 image 通道进当前轮上下文 —— 模型看得见画面;文件同时留在树里给用户
+        return {
+          output: `已截图保存到 ${rel}(${Math.round(bytes.length / 1024)} KB),并已作为图像交给你查看;文件在左侧树里,用户也可点开。`,
+          image: { path: abs, mimeType: "image/png", size: bytes.length },
+        };
       }
       default:
         return `error: 未知 action: ${act}`;

@@ -26,6 +26,9 @@ export type SearchResult = { id: string; title: string; matches: SearchMatch[] }
 /** 侧栏「网站」页收藏的链接。 */
 export type Site = { id: string; title: string; url: string; created_at: string };
 
+/** 消息附件(图片/文件):内容寻址存储,消息里只存元数据。 */
+export type Attachment = { id: string; name: string; path: string; mimeType: string; size: number; url: string };
+
 /** 落库的 Responses item(body 解析后):user/system 消息、reasoning、message、function_call、function_call_output。 */
 export type StoredItem = {
   type?: string;
@@ -36,6 +39,7 @@ export type StoredItem = {
   name?: string;
   arguments?: string;
   output?: string;
+  attachments?: Attachment[];
 };
 
 /** 邮箱里的一行:一行一个 item。 */
@@ -178,6 +182,10 @@ export const api = {
     request<{ ok: boolean }>(`/api/agents?id=${encodeURIComponent(id)}`, { method: "DELETE" }),
   markAgentRead: (id: string) =>
     request<{ item: Node }>(`/api/agents/read?id=${encodeURIComponent(id)}`, { method: "POST" }).then(one),
+
+  // ── 附件上传 ──
+  uploadFile: (opts: { name: string; mimeType: string; dataBase64: string }) =>
+    request<{ attachment: Attachment }>("/api/upload", { method: "POST", ...jsonBody(opts) }),
 
   // ── 网站收藏 ──
   listSites: () => request<{ sites: Site[] }>("/api/sites"),

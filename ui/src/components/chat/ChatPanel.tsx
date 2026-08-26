@@ -2,9 +2,9 @@
 // 行数组是可变结构(流式原地改行,tick 触发重渲染),事件按 agentId 认领 ——
 // 同一面板体系下,几个智能体各开各的标签互不干扰,切走的运行在服务端继续转。
 import { useCallback, useEffect, useRef, useState } from "react";
-import { Folder, Send, Settings, Square } from "lucide-react";
+import { FileText, Folder, Paperclip, Send, Settings, Square, X } from "lucide-react";
 
-import type { Node } from "../../api";
+import type { Attachment, Node } from "../../api";
 import { api } from "../../api";
 import { EVENTS } from "../../../../server/shared/events";
 import { MessageStream } from "./MessageStream";
@@ -31,7 +31,10 @@ export function ChatPanel({
   const [viewSeq, setViewSeq] = useState(0);
   const [prompt, setPrompt] = useState("");
   const [configured, setConfigured] = useState(true); // 先假设已配置,避免初次闪现引导
+  const [attachments, setAttachments] = useState<Attachment[]>([]);
+  const [uploading, setUploading] = useState(false);
   const inputRef = useRef<HTMLTextAreaElement>(null);
+  const fileRef = useRef<HTMLInputElement>(null);
   const composingRef = useRef(false);
 
   const bump = useCallback(() => setTick((n) => n + 1), []);
@@ -116,19 +119,45 @@ export function ChatPanel({
     element.style.height = Math.min(element.scrollHeight, 240) + "px";
   }, [prompt]);
 
+  // 附件上传:选择 / 拖拽 / 粘贴共用一条路 —— base64 交给 /api/upload,只留元数据
+  const upload = async (files: FileList | File[]) => {
+    setUploading(true);
+    try {
+      const next: Attachment[] = [];
+      for (const file of Array.from(files)) {
+        const dataBase64 = await new Promise<string>((resolve, reject) => {
+          const reader = new FileReader();
+          reader.onerror = () => reject(reader.error);
+          reader.onload = () => resolve(String(reader.result).split(",")[1] || "");
+          reader.readAsDataURL(file);
+        });
+        const result = await api.uploadFile({ name: file.name || "粘贴的图片.png", mimeType: file.type, dataBase64 });
+        next.push(result.attachment);
+      }
+      setAttachments((current) => [...current, ...next].slice(0, 10));
+    } catch (error: any) {
+      alert(error?.message || "文件上传失败");
+    } finally {
+      setUploading(false);
+      if (fileRef.current) fileRef.current.value = "";
+    }
+  };
+
   const send = () => {
     const text = prompt.trim();
-    if (!text || busy) return;
+    if ((!text && !attachments.length) || busy || uploading) return;
     if (!configured) { onOpenSettings?.(); return; }
+    const files = attachments;
     setPrompt("");
+    setAttachments([]);
     persistDraft("");
     // 乐观入画;服务端广播回来的那份由 reducer 跳过一次
-    pushRow({ key: mkKey("u"), kind: "user", source: "user", content: text, at: Date.now() });
+    pushRow({ key: mkKey("u"), kind: "user", source: "user", content: text, attachments: files, at: Date.now() });
     streamRef.current?.armLocalEcho();
     setBusy(true);
     setViewSeq((n) => n + 1);
     bump();
-    socket.send({ type: "send", agentId: node.id, prompt: text });
+    socket.send({ type: "send", agentId: node.id, prompt: text, attachments: files });
   };
 
   return (
@@ -159,44 +188,86 @@ export function ChatPanel({
             </button>
           </div>
         )}
-        <div className="flex items-end gap-2 rounded-lg border border-border bg-white px-3 py-2 focus-within:border-accent transition-colors">
-          <textarea
-            ref={inputRef}
-            rows={1}
-            className="flex-1 bg-transparent text-[15px] text-text placeholder:text-text-faint outline-none resize-none leading-relaxed py-1 overflow-y-auto"
-            placeholder="发送消息… (Enter 发送 · Shift+Enter 换行)"
-            value={prompt}
-            onChange={(e) => { setPrompt(e.target.value); persistDraft(e.target.value); }}
-            onCompositionStart={() => { composingRef.current = true; }}
-            onCompositionEnd={() => { composingRef.current = false; }}
-            onKeyDown={(e) => {
-              // 中文/日文/韩文 IME 组词期间(选词按 Enter)不触发 send
-              if (composingRef.current || (e.nativeEvent as any).isComposing || e.keyCode === 229) return;
-              if (e.key === "Enter" && !e.shiftKey) {
-                e.preventDefault();
-                send();
-              }
-            }}
-            disabled={busy}
-          />
-          {busy ? (
-            <button
-              title="停止"
-              onClick={() => socket.send({ type: "stop", agentId: node.id })}
-              className="w-8 h-8 rounded flex items-center justify-center text-text-faint hover:text-danger hover:bg-bg-hover transition-colors shrink-0"
-            >
-              <Square size={14} />
-            </button>
-          ) : (
-            <button
-              title="发送"
-              onClick={send}
-              disabled={!prompt.trim()}
-              className="w-8 h-8 rounded flex items-center justify-center bg-accent text-white hover:opacity-85 disabled:opacity-30 disabled:cursor-not-allowed transition-all shrink-0"
-            >
-              <Send size={14} />
-            </button>
+        <div
+          className="flex flex-col gap-1.5 rounded-lg border border-border bg-white px-3 py-2 focus-within:border-accent transition-colors"
+          onDragOver={(e) => e.preventDefault()}
+          onDrop={(e) => { e.preventDefault(); if (e.dataTransfer.files?.length) void upload(e.dataTransfer.files); }}
+        >
+          <input ref={fileRef} hidden type="file" multiple onChange={(e) => { if (e.target.files?.length) void upload(e.target.files); }} />
+
+          {/* 附件托盘:发送前可见可移除 */}
+          {(attachments.length > 0 || uploading) && (
+            <div className="flex flex-wrap items-center gap-1.5">
+              {attachments.map((file) => (
+                <span key={file.id} className="inline-flex items-center gap-1.5 pl-1.5 pr-1 py-1 rounded-md bg-bg-panel text-[12px] text-text-dim max-w-[220px]">
+                  {file.mimeType.startsWith("image/")
+                    ? <img src={file.url} alt="" className="w-5 h-5 rounded object-cover shrink-0" />
+                    : <FileText size={13} className="shrink-0 text-accent" />}
+                  <span className="truncate">{file.name}</span>
+                  <button
+                    title="移除"
+                    onClick={() => setAttachments((items) => items.filter((item) => item.id !== file.id))}
+                    className="shrink-0 w-4 h-4 rounded flex items-center justify-center hover:bg-bg-hover hover:text-text"
+                  >
+                    <X size={11} />
+                  </button>
+                </span>
+              ))}
+              {uploading && <span className="text-[12px] text-text-faint">上传中…</span>}
+            </div>
           )}
+
+          <div className="flex items-end gap-2">
+            <button
+              title="添加图片或文件(也可拖拽 / 粘贴)"
+              onClick={() => fileRef.current?.click()}
+              disabled={busy || uploading}
+              className="w-8 h-8 rounded flex items-center justify-center text-text-faint hover:text-text hover:bg-bg-hover disabled:opacity-40 transition-colors shrink-0"
+            >
+              <Paperclip size={15} />
+            </button>
+            <textarea
+              ref={inputRef}
+              rows={1}
+              className="flex-1 bg-transparent text-[15px] text-text placeholder:text-text-faint outline-none resize-none leading-relaxed py-1 overflow-y-auto"
+              placeholder="发送消息… (Enter 发送 · Shift+Enter 换行)"
+              value={prompt}
+              onChange={(e) => { setPrompt(e.target.value); persistDraft(e.target.value); }}
+              onCompositionStart={() => { composingRef.current = true; }}
+              onCompositionEnd={() => { composingRef.current = false; }}
+              onPaste={(e) => {
+                // 粘贴截图/图片:直接走上传,不进文本
+                if (e.clipboardData?.files?.length) { e.preventDefault(); void upload(e.clipboardData.files); }
+              }}
+              onKeyDown={(e) => {
+                // 中文/日文/韩文 IME 组词期间(选词按 Enter)不触发 send
+                if (composingRef.current || (e.nativeEvent as any).isComposing || e.keyCode === 229) return;
+                if (e.key === "Enter" && !e.shiftKey) {
+                  e.preventDefault();
+                  send();
+                }
+              }}
+              disabled={busy}
+            />
+            {busy ? (
+              <button
+                title="停止"
+                onClick={() => socket.send({ type: "stop", agentId: node.id })}
+                className="w-8 h-8 rounded flex items-center justify-center text-text-faint hover:text-danger hover:bg-bg-hover transition-colors shrink-0"
+              >
+                <Square size={14} />
+              </button>
+            ) : (
+              <button
+                title="发送"
+                onClick={send}
+                disabled={(!prompt.trim() && !attachments.length) || uploading}
+                className="w-8 h-8 rounded flex items-center justify-center bg-accent text-white hover:opacity-85 disabled:opacity-30 disabled:cursor-not-allowed transition-all shrink-0"
+              >
+                <Send size={14} />
+              </button>
+            )}
+          </div>
         </div>
       </div>
     </div>

@@ -7,6 +7,8 @@ export async function complete({
     model,
     instructions = '',
     input,
+    modelOptions,
+    retry,
     errorMaxChars,
     signal,
 }) {
@@ -19,6 +21,8 @@ export async function complete({
         input,
         instructions: String(instructions),
         tools: [],
+        modelOptions,
+        retry,
         signal,
         errorMaxChars,
     });

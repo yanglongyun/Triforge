@@ -13,6 +13,8 @@ export async function runAgent({
     instructions = '',
     input,
     tools = [],
+    modelOptions,
+    retry,
     executors = new Map(),
     maxRounds,
     errorMaxChars,
@@ -20,6 +22,7 @@ export async function runAgent({
     env,
     signal,
     emit = () => {},
+    prepareInput = async (items) => items,
 }) {
     if (!runId || !Array.isArray(input)) throw new Error('runId 和 input 必填');
     if (!Number.isInteger(maxRounds) || maxRounds <= 0) throw new Error('maxRounds 必须是正整数');
@@ -33,9 +36,11 @@ export async function runAgent({
                 url: responsesUrl,
                 apiKey,
                 model,
-                input: [...input, ...generated],
+                input: await prepareInput([...input, ...generated]),
                 instructions: String(instructions),
                 tools,
+                modelOptions,
+                retry,
                 signal,
                 onEvent: emit,
                 errorMaxChars,
@@ -51,8 +56,11 @@ export async function runAgent({
             });
 
             if (!calls.length) {
-                emit(EVENTS.DONE, { runId, status: 'completed', usage: result.usage });
-                return { items: generated, usage: result.usage };
+                // 截断 / 内容过滤走 incomplete。原样透出，别让上层把半截回复当完整结果。
+                const done = { runId, status: result.status || 'completed', usage: result.usage };
+                if (result.stopReason) done.stopReason = result.stopReason;
+                emit(EVENTS.DONE, done);
+                return { items: generated, usage: result.usage, status: done.status, stopReason: result.stopReason || '' };
             }
 
             const outputs = await runTools(calls, executors, {

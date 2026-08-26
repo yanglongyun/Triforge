@@ -20,11 +20,13 @@ export async function runTools(calls = [], toolHandlers, context = {}) {
             if (error?.name === 'AbortError' || context.signal?.aborted) throw error;
             result = { error: error?.message || String(error) };
         }
-        results.push({
+        const item = {
             type: 'function_call_output',
             call_id: String(call.call_id || ''),
             output: typeof result === 'string' ? result : JSON.stringify(result),
-        });
+        };
+        if (result?.image?.path) item.image = result.image;
+        results.push(item);
     }
     return results;
 }

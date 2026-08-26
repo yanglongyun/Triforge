@@ -19,6 +19,8 @@ export const EVENTS = Object.freeze({
   /** 上下文压缩:开始 / 结束。 */
   COMPACT_START: "conversation.compactStart",
   COMPACT_DONE: "conversation.compactDone",
+  /** 模型请求在退避重试:{ attempt, maxRetries, delayMs, message }。 */
+  RETRY: "conversation.retry",
   /** 新消息进邮箱(用户消息 / agent 来信 / 回信 / 压缩摘要):{ row }。 */
   INPUT: "conversation.input",
   /** 终局三态。ERROR 带 { message }。 */

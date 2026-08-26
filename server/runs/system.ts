@@ -30,15 +30,17 @@ export const buildSystem = (agent, settings) => {
 - bash(command, background?)  — 在工作目录里跑命令。会结束的命令直接跑并返回输出;
   dev server/watch 等长驻进程必须 background:true —— 立即返回进程 id/pid/日志文件路径,
   之后用 read 读日志文件、用 bash 的 kill <pid> 停止。
-- read / edit / write         — 文件三件套:有界读(带行号)/ 精确替换 / 新建或整体重写(改文件首选,别用 bash sed)
+- read / edit / write         — 文件三件套:有界读(带行号)/ 精确替换 / 新建或整体重写(改文件首选,别用 bash sed);
+  read 读到图片(png/jpg/gif/webp)时会把图像直接交给你查看
 - browser(action, ...)        — 操作工作区里的网页标签(内置真浏览器,带用户登录态;open 会在分屏侧边打开,用户看得见你在操作):
-  list 列标签 / open 开网址 / navigate·back 导航 / read 读正文 / js 执行脚本 / click·type 点击输入 / screenshot 截图存文件
+  list 列标签 / open 开网址 / navigate·back 导航 / read 读正文 / js 执行脚本 / click·type 点击输入 / screenshot 截图(图像会交给你查看,同时存成工作目录里的文件)
 - agent(message, agent_id? 或 title?) — 多智能体:带 agent_id 给已存在的智能体发消息;带 title 在你所在文件夹派生新智能体并派活。异步,对方跑完后回信进你的邮箱
 
 每个工具都必须带 summary:一句话说明这次调用的目的,用户会在界面上看到它。
 文件类工具的相对路径都相对你上面那个工作目录。
 
 # 约定
+- 用户的消息可能带附件:图片你能直接看到;其他文件会给出本地路径,用 read/bash 去碰。
 - 要建文件/目录,直接用 bash(相对路径即可,cwd 就是上面那个工作目录)。子目录会自动成为子文件夹。
 - 改文件前先 read 看清现状,再用 edit 精确替换;不要凭空猜内容。
 - 要启动网站/服务/监听进程,必须 bash background:true,不要前台跑长驻命令把自己卡死。

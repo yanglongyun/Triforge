@@ -26,6 +26,7 @@ import {
 import { getProcess, listProcesses, startProcess, stopProcess } from "../processes.js";
 import { pickDirectory } from "../directoryPicker.js";
 import { syncWatchers } from "../watcher.js";
+import * as files from "../files.js";
 
 const parseBody = async (req) => {
   const chunks = [];
@@ -65,6 +66,18 @@ const handleApi = async (req, res) => {
 
   try {
     if (path === "/health") return json(res, 200, { ok: true });
+
+    // ---- 附件(图片/文件上传;内容寻址,消息里只存元数据)----
+    if (path === "/api/upload" && method === "POST") {
+      const body = await parseBody(req);
+      try { return json(res, 201, { ok: true, attachment: files.upload(body) }); }
+      catch (error) { return json(res, 400, { ok: false, error: error.message }); }
+    }
+    if (path.startsWith("/api/files/") && method === "GET") {
+      const id = decodeURIComponent(path.slice("/api/files/".length));
+      if (files.serve(id, res)) return;
+      return json(res, 404, { ok: false, error: "文件不存在" });
+    }
 
     // ---- agents(会话列表:智能体不在树上,住 SQLite,绑定 workdir)----
     if (path === "/api/agents") {

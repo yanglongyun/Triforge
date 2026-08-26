@@ -13,6 +13,7 @@ import { touchAgent } from "./repo/agents.js";
 import { emit } from "./bus.js";
 import { resizeTerminal, startTerminal, stopAllTerminals, stopTerminal, writeTerminal } from "./terminals.js";
 import { registerHost, registerTab, resolveBrowserResult, unregisterClient, unregisterTab, updateTab } from "./browserHost.js";
+import { normalizeMany as normalizeAttachments } from "./files.js";
 
 const clients = new Set();
 
@@ -60,8 +61,13 @@ const handleConnection = (ws) => {
     if (type === "send") {
       if (!agentId) { sendJson(ws, { type: "error", error: "missing agentId" }); return; }
       const prompt = String(payload.prompt || "").trim();
-      if (prompt) {
-        const row = appendItem(agentId, { role: "user", content: prompt }, { meta: { kind: "message" } });
+      let attachments = [];
+      try { attachments = normalizeAttachments(payload.attachments); }
+      catch (error) { sendJson(ws, { type: "error", error: String(error?.message || error) }); return; }
+      if (prompt || attachments.length) {
+        const item = { role: "user", content: prompt };
+        if (attachments.length) item.attachments = attachments; // 元数据进 item;请求期由附件层展开/剥除
+        const row = appendItem(agentId, item, { meta: { kind: "message" } });
         touchAgent(agentId); // 浮到最近组顶部
         emit({ type: EVENTS.INPUT, agentId, row });
       }

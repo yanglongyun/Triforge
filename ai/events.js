@@ -4,6 +4,7 @@ export const EVENTS = Object.freeze({
     REASONING: 'reasoning',
     FUNCTION_CALL: 'function_call',
     FUNCTION_CALL_OUTPUT: 'function_call_output',
+    RETRY: 'retry',
     DONE: 'done',
     ERROR: 'error',
 });
