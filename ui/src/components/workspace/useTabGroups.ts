@@ -137,17 +137,26 @@ export function useTabGroups({ canCloseTab = () => true, onTabClosed = () => {} 
     openTab(webTab(url, title, opts.token), opts);
   }, [openTab]);
 
-  /** 网页标签的标题/地址跟着页面走(page-title-updated / did-navigate)。 */
+  /** 网页标签的标题/地址跟着页面走(page-title-updated / did-navigate)。无变化返回 prev,别造渲染。 */
   const updateWebTab = useCallback((id: string, patch: Partial<Pick<WebTab, "title" | "url">>) => {
     setGroups((prev) => {
+      let changed = false;
       const next = { ...prev };
       for (const groupId of groupOrder) {
-        next[groupId] = {
-          ...next[groupId],
-          tabs: next[groupId].tabs.map((tab) => (tab.id === id && isWebTab(tab) ? { ...tab, ...patch } : tab)),
-        };
+        const group = prev[groupId];
+        let groupChanged = false;
+        const tabs = group.tabs.map((tab) => {
+          if (tab.id !== id || !isWebTab(tab)) return tab;
+          if ((patch.title === undefined || tab.title === patch.title) && (patch.url === undefined || tab.url === patch.url)) return tab;
+          groupChanged = true;
+          return { ...tab, ...patch };
+        });
+        if (groupChanged) {
+          next[groupId] = { ...group, tabs };
+          changed = true;
+        }
       }
-      return next;
+      return changed ? next : prev;
     });
   }, []);
 
@@ -155,6 +164,17 @@ export function useTabGroups({ canCloseTab = () => true, onTabClosed = () => {} 
     setGroups((prev) => ({ ...prev, [groupId]: { ...prev[groupId], activeId: id } }));
     setActiveGroupId(groupId);
   }, []);
+
+  /** 不知道在哪个组时按 id 激活(cdp 截图前把网页标签翻到前台用)。 */
+  const activateTabById = useCallback((id: string) => {
+    for (const groupId of groupOrder) {
+      if (groupsRef.current[groupId].tabs.some((tab) => tab.id === id)) {
+        activateTab(groupId, id);
+        return true;
+      }
+    }
+    return false;
+  }, [activateTab]);
 
   const reorderTabs = useCallback((groupId: WorkspaceGroupId, tabs: WorkspaceTab[]) => {
     setGroups((prev) => ({ ...prev, [groupId]: { ...prev[groupId], tabs } }));
@@ -242,16 +262,29 @@ export function useTabGroups({ canCloseTab = () => true, onTabClosed = () => {} 
     closeTabs(groupId, group.tabs.map((tab) => tab.id));
   }, [closeTabs]);
 
-  const updateNodeTab = useCallback((id: string, patch: Node) => {
+  // 无变化必须返回 prev:这个函数被 agents_changed / 运行事件高频调用,曾经的版本
+  // 无条件造新 state → 依赖 activeTab 引用的 effect 重跑 → 再 fetch 再 setState ——
+  // 「fetch+渲染」死循环,四个进程一起烧 CPU 的元凶。
+  const updateNodeTab = useCallback((id: string, patch: Partial<Node>) => {
     setGroups((prev) => {
+      let changed = false;
       const next = { ...prev };
       for (const groupId of groupOrder) {
-        next[groupId] = {
-          ...next[groupId],
-          tabs: next[groupId].tabs.map((tab) => (tab.id === id && isNodeTab(tab) ? { ...tab, ...patch } : tab)),
-        };
+        const group = prev[groupId];
+        let groupChanged = false;
+        const tabs = group.tabs.map((tab) => {
+          if (tab.id !== id || !isNodeTab(tab)) return tab;
+          const keys = Object.keys(patch) as (keyof Node)[];
+          if (keys.every((key) => tab[key] === patch[key])) return tab; // 补丁没带来变化
+          groupChanged = true;
+          return { ...tab, ...patch };
+        });
+        if (groupChanged) {
+          next[groupId] = { ...group, tabs };
+          changed = true;
+        }
       }
-      return next;
+      return changed ? next : prev;
     });
   }, []);
 
@@ -261,6 +294,7 @@ export function useTabGroups({ canCloseTab = () => true, onTabClosed = () => {} 
 
   const pinPreviewTab = useCallback((id: string) => {
     setGroups((prev) => {
+      if (groupOrder.every((groupId) => prev[groupId].previewId !== id)) return prev; // 不是预览标签,别造渲染
       const next = { ...prev };
       for (const groupId of groupOrder) {
         next[groupId] = {
@@ -302,6 +336,7 @@ export function useTabGroups({ canCloseTab = () => true, onTabClosed = () => {} 
     openWeb,
     updateWebTab,
     activateTab,
+    activateTabById,
     reorderTabs,
     closeTabs,
     closeTab,

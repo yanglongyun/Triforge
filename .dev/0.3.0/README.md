@@ -59,6 +59,30 @@ loadURL / getWebContentsId` —— 宿主就是 UI 自己,零新依赖,`desktop/
   screenshot 落文件 / 客户端断开自动出册 —— 全过(顺手修掉 open 返回形状 bug);
 - `npm run typecheck` 全绿;server 单文件重打包后独立拉起,health / processes 正常。
 
+## 补记:CPU 空转事故(同版本内修复)
+
+首次实测(智能体跑 cdp 测试)后,四个进程一起烧:渲染 90% / 网络 Helper 55% /
+主进程 12% / sidecar 15%,run 结束后依旧。取证(/api/runs 空、消息尾正常、逐进程采样)
+定位到 **「fetch+渲染」死循环**,0.2.0 取名功能带入:
+
+- `updateNodeTab` 无条件造新 state(哪怕补丁无变化、哪怕没命中标签);
+- App 的 syncTitles effect 把 `tabGroups.activeTab` 放进依赖;
+- 于是:listAgents 回来 → set() → setState(必然新引用)→ activeTab 引用变 →
+  effect 重跑 → 再 listAgents → …… 全速循环,四个进程的占用全部对上。
+  只在**开着对话标签**时触发 —— 0.2.0 没被发现,首次真实测试就踩响。
+
+修法(和 0.2.0 的 useSocket 病根同一门课:**引用稳定性**):
+- `updateNodeTab` / `updateWebTab` 无变化返回 prev(不造渲染);`pinPreviewTab` 同款守卫;
+- syncTitles effect 改用 activeTabRef 读当前标签,依赖收窄为 [socket, updateNodeTab]。
+
+验证:浏览器里复现原触发场景(开对话标签静置 4s),fetch 计数 0(修复前每秒几十发)。
+
+顺手修掉实测暴露的两个 cdp 真 bug:
+- **screenshot 超时**:display:none 的 <webview> 画不出图,capturePage 挂死 ——
+  截图前广播 arbor:web-activate 把目标标签翻到前台(用户正好看得见 agent 在拍什么),等 450ms 再拍;
+- **navigate 误报 ERR_ABORTED**:首次加载被重定向/二次导航顶掉时 loadURL 会 reject,
+  页面其实在正常加载 —— 识别为成功返回。
+
 ## 已知限制 / 下一步
 
 - cdp 的 click/type 走 executeJavaScript(DOM 语义),不是 Input.dispatch 的真实

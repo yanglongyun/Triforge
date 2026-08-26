@@ -43,9 +43,11 @@ export function App() {
   };
 
   const allTabsRef = useRef(tabGroups.allTabs);
+  const activeTabRef = useRef(tabGroups.activeTab);
   const dirtyRef = useRef<Set<string>>(new Set());
   const autoOpenedProcessesRef = useRef<Set<string>>(new Set());
   allTabsRef.current = tabGroups.allTabs;
+  activeTabRef.current = tabGroups.activeTab;
   dirtyRef.current = dirtyIds;
   const activeNode = tabGroups.activeNode;
   const openNode = (n: Node | null, opts: { preview?: boolean; side?: boolean; groupId?: "main" | "side" } = {}) => {
@@ -104,13 +106,13 @@ export function App() {
       socket.on(EVENTS.ABORTED, (p: any) => set(p.agentId, { status: "idle" })),
       socket.on(EVENTS.ERROR, (p: any) => set(p.agentId, { status: "error" })),
       socket.on(EVENTS.INPUT, (p: any) => {
-        const active = tabGroups.activeTab;
+        const active = activeTabRef.current; // 用 ref 读:activeTab 进依赖会让本 effect 每次 setState 后重跑
         if (active && isNodeTab(active) && active.id === p.agentId) return; // 正看着呢,不算未读
         set(p.agentId, { unread: true });
       }),
     ];
     return () => { offs.forEach((f) => f()); };
-  }, [socket, tabGroups.updateNodeTab, tabGroups.activeTab]);
+  }, [socket, tabGroups.updateNodeTab]);
 
   // 标签与 WS 联动:重命名/删除时同步标签
   useEffect(() => {
@@ -144,6 +146,16 @@ export function App() {
     });
     return off;
   }, [socket, tabGroups.openWeb]);
+
+  // cdp screenshot:截图前把目标网页标签翻到前台(隐藏的 <webview> 画不出图,capturePage 会挂起)
+  useEffect(() => {
+    const onActivate = (e: Event) => {
+      const tabId = String((e as CustomEvent).detail?.tabId || "");
+      if (tabId) tabGroups.activateTabById(tabId);
+    };
+    window.addEventListener("arbor:web-activate", onActivate);
+    return () => window.removeEventListener("arbor:web-activate", onActivate);
+  }, [tabGroups.activateTabById]);
 
   // 后台进程:用于预览面板入口和自动打开第一条可预览服务
   useEffect(() => {

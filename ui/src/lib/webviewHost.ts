@@ -11,19 +11,29 @@ type Socket = {
   on: (t: string, fn: (p: any) => void) => () => void;
 };
 
-/** wcId(webContents id)→ <webview> 元素。 */
-const registry = new Map<number, any>();
+/** wcId(webContents id)→ { el: <webview> 元素, tabId: 工作区标签 id }。 */
+const registry = new Map<number, { el: any; tabId: string }>();
 
-export const registerWebview = (wcId: number, el: any) => { registry.set(wcId, el); };
+export const registerWebview = (wcId: number, el: any, tabId: string) => { registry.set(wcId, { el, tabId }); };
 export const unregisterWebview = (wcId: number) => { registry.delete(wcId); };
 
 /** 服务器重启后注册表清零 —— 广播这个事件让每个 WebPanel 重新注册。 */
 export const RE_REGISTER_EVENT = "arbor:web-reregister";
+/** 截图前把目标标签翻到前台(App 监听):隐藏的 <webview> 画不出图,capturePage 会挂起。 */
+export const ACTIVATE_EVENT = "arbor:web-activate";
 
-const exec = async (el: any, op: string, params: any): Promise<any> => {
+const wait = (ms: number) => new Promise((resolve) => setTimeout(resolve, ms));
+
+const exec = async ({ el, tabId }: { el: any; tabId: string }, op: string, params: any): Promise<any> => {
   switch (op) {
     case "navigate":
-      await el.loadURL(String(params.url || ""));
+      try {
+        await el.loadURL(String(params.url || ""));
+      } catch (e: any) {
+        // ERR_ABORTED = 首次加载被重定向/二次导航顶掉 —— 页面其实在正常加载,不算失败
+        if (!/ERR_ABORTED/i.test(String(e?.message || e))) throw e;
+        return "ok(页面发生了重定向或二次导航,已继续加载)";
+      }
       return "ok";
     case "back":
       el.goBack();
@@ -65,6 +75,9 @@ const exec = async (el: any, op: string, params: any): Promise<any> => {
         return "已输入到 " + target.tagName.toLowerCase();
       })()`);
     case "screenshot": {
+      // 先把标签翻到前台等一拍再拍:display:none 的 webview 没有画面
+      window.dispatchEvent(new CustomEvent(ACTIVATE_EVENT, { detail: { tabId } }));
+      await wait(450);
       const image = await el.capturePage();
       const dataUrl = image && typeof image.toDataURL === "function" ? image.toDataURL() : null;
       if (!dataUrl) throw new Error("当前环境不支持截图");
@@ -86,10 +99,10 @@ export function useCdpHost(socket: Socket) {
       window.dispatchEvent(new Event(RE_REGISTER_EVENT));
     });
     const offRequest = socket.on("cdp_request", async (p: any) => {
-      const el = registry.get(Number(p.wcId));
-      if (!el) return; // 不是这个窗口的标签,拥有它的窗口会应答
+      const entry = registry.get(Number(p.wcId));
+      if (!entry) return; // 不是这个窗口的标签,拥有它的窗口会应答
       try {
-        const result = await exec(el, String(p.op || ""), p.params || {});
+        const result = await exec(entry, String(p.op || ""), p.params || {});
         socket.send({ type: "cdp_response", id: p.id, ok: true, result });
       } catch (e: any) {
         socket.send({ type: "cdp_response", id: p.id, ok: false, error: String(e?.message || e) });

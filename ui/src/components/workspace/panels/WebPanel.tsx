@@ -50,7 +50,7 @@ export function WebPanel({ tab, socket, onUpdate }: {
         const wcId = view.getWebContentsId?.();
         if (typeof wcId === "number") {
           wcIdRef.current = wcId;
-          registerWebview(wcId, view);
+          registerWebview(wcId, view, tab.id);
           registerToServer();
         }
       } catch { /* webview 还没 attach 好,下一次 dom-ready 再来 */ }
