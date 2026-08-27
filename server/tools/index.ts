@@ -31,14 +31,22 @@ const IMPLS = {
   agent,
 };
 
-/** 给模型的结果统一截断:留头留尾,中间标注截掉多少。 */
+/**
+ * 给模型的结果统一截断:留头留尾,中间挖掉。
+ * 标记必须告知**原始规模**(codex 式),并直接教模型自救的路 ——
+ * bash 输出是一次性的,截掉就没了;指引它重跑时重定向到文件再用 read 分段读。
+ * (read 自己按行收口、永不进这里;详见 files.ts。)
+ */
 export const truncateToolResult = (text, maxChars = 12000) => {
   const limit = Math.max(1000, Math.min(50000, Number(maxChars) || 12000));
   const value = String(text || "");
   if (value.length <= limit) return value;
   const head = value.slice(0, Math.floor(limit * 0.7));
   const tail = value.slice(-Math.floor(limit * 0.3));
-  return `${head}\n... [truncated ${value.length - head.length - tail.length} chars] ...\n${tail}`;
+  const totalLines = value.split("\n").length;
+  const cut = value.length - head.length - tail.length;
+  return `${head}\n\n…[已截断:原始输出共 ${value.length} 字符 / ${totalLines} 行,中间省略 ${cut} 字符,开头与结尾已保留。` +
+    `需要完整内容时:重跑命令并重定向到文件(如 cmd > /tmp/out.log 2>&1),再用 read 分段读取]…\n\n${tail}`;
 };
 
 /**

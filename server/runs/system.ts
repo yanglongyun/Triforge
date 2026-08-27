@@ -30,6 +30,8 @@ export const buildSystem = (agent, settings) => {
 - bash(command, background?)  — 在工作目录里跑命令。会结束的命令直接跑并返回输出;
   dev server/watch 等长驻进程必须 background:true —— 立即返回进程 id/pid/日志文件路径,
   之后用 read 读日志文件、用 bash 的 kill <pid> 停止。
+  预计输出很大的命令(测试/构建/大范围 grep),主动重定向到文件再分段 read:
+  超出预算的输出会被截断且不可找回,重定向的文件才是完整的。
 - read / edit / write         — 文件三件套:有界读(带行号)/ 精确替换 / 新建或整体重写(改文件首选,别用 bash sed);
   read 读到图片(png/jpg/gif/webp)时会把图像直接交给你查看
 - browser(action, ...)        — 操作工作区里的网页标签(内置真浏览器,带用户登录态;open 会在分屏侧边打开,用户看得见你在操作):
