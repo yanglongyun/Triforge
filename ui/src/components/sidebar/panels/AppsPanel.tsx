@@ -10,7 +10,6 @@ export function AppsPanel({
   apps,
   pinnedIds,
   onOpenTab,
-  onOpenPanel,
   onTogglePin,
   onRemovePreset,
   onCreateWithAI,
@@ -19,27 +18,22 @@ export function AppsPanel({
   pinnedIds: string[];
   /** 在标签页打开(tab 挂载)。 */
   onOpenTab: (app: AppDef) => void;
-  /** 切到它的侧栏面板(panel 挂载;未钉会先钉上)。 */
-  onOpenPanel: (app: AppDef) => void;
   onTogglePin: (app: AppDef) => void;
   onRemovePreset: (app: AppDef) => void;
   onCreateWithAI: () => void;
 }) {
   const [menu, setMenu] = useState<{ x: number; y: number; items: MenuItem[] } | null>(null);
 
-  const openApp = (app: AppDef) => {
-    if (app.mounts.tab) onOpenTab(app);
-    else if (app.mounts.panel) onOpenPanel(app);
-  };
+  // 点击 = 在标签页打开,永远如此。动作在侧栏、结果在主区域 —— 不改活动栏、不吞掉当前面板。
+  // 「钉到侧栏」是另一件事,只从图钉按钮/右键菜单显式发生。
+  const openApp = (app: AppDef) => onOpenTab(app);
 
   const appMenu = (e: React.MouseEvent, app: AppDef) => {
     e.preventDefault();
     e.stopPropagation();
     const pinned = pinnedIds.includes(app.id);
     const items: MenuItem[] = [];
-    if (app.mounts.tab) {
-      items.push({ label: "在标签页打开", icon: <SquareArrowOutUpRight size={13} />, onClick: () => onOpenTab(app) });
-    }
+    items.push({ label: "在标签页打开", icon: <SquareArrowOutUpRight size={13} />, onClick: () => onOpenTab(app) });
     if (app.mounts.panel) {
       items.push({
         label: pinned ? "从侧栏取下" : "钉到侧栏",
@@ -77,9 +71,20 @@ export function AppsPanel({
             >
               <span className="shrink-0 w-5 text-center text-[15px] leading-none">{app.icon}</span>
               <span className="flex-1 min-w-0 truncate text-[14px]">{app.name}</span>
-              {pinned && <Pin size={11} className="shrink-0 text-text-faint" />}
               {app.source === "workspace" && (
                 <span className="shrink-0 text-[10px] px-1 rounded bg-bg-inset text-text-faint">工作区</span>
+              )}
+              {app.mounts.panel && (
+                <button
+                  onClick={(e) => { e.stopPropagation(); onTogglePin(app); }}
+                  title={pinned ? "从侧栏取下" : "钉到侧栏"}
+                  className={[
+                    "shrink-0 w-5 h-5 rounded flex items-center justify-center hover:bg-bg-inset",
+                    pinned ? "text-accent" : "text-text-faint opacity-0 group-hover:opacity-100 hover:text-text",
+                  ].join(" ")}
+                >
+                  <Pin size={12} className={pinned ? "fill-current" : ""} />
+                </button>
               )}
               <button
                 onClick={(e) => appMenu(e, app)}

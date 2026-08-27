@@ -379,7 +379,6 @@ export function PanelHost({
           apps={apps}
           pinnedIds={pinned}
           onOpenTab={(app) => onOpenApp(app)}
-          onOpenPanel={pinAndShow}
           onTogglePin={togglePin}
           onRemovePreset={removePreset}
           onCreateWithAI={createAppWithAI}

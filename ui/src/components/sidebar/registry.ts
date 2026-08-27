@@ -54,9 +54,12 @@ export const PRESET_APPS: AppDef[] = [
   },
 ];
 
-/** 应用某挂载入口的 iframe 地址。 */
+/** 应用某挂载入口的 iframe 地址。
+ *  标签页是「打开应用」的统一落点:只声明了 panel 的应用(书签、任务这类窄栏视图),
+ *  在标签页里退回用它的 panel 入口渲染 —— 宁可布局空旷,也不让点击落空。
+ *  反向不退回:侧栏窄,tab 版布局塞不进去,没声明 panel 就不能钉。 */
 export const appEntryUrl = (app: AppDef, mount: "panel" | "tab") => {
-  const entry = app.mounts[mount];
+  const entry = app.mounts[mount] || (mount === "tab" ? app.mounts.panel : undefined);
   if (!entry) return null;
   return app.source === "preset" ? `/apps/${app.id}/${entry}` : `/workspace-apps/${app.id}/${entry}`;
 };
