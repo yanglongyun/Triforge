@@ -1,4 +1,3 @@
-// @ts-nocheck
 // 匿名遥测:一台安装一个随机 id,开机打一次 app_open。
 //
 // 三条铁律:
@@ -21,7 +20,7 @@ const installId = () => {
   return id;
 };
 
-const track = (event) => {
+const track = (event: string) => {
   if (process.env.WORKBENCH_PACKAGED !== "1") return;
   try {
     if (getSettings().telemetry === "off") return;

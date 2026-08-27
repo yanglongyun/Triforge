@@ -1,4 +1,3 @@
-// @ts-nocheck
 import fs from "fs";
 import path from "path";
 import { fileURLToPath } from "url";
@@ -9,7 +8,7 @@ const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const HOME = process.env.WORKBENCH_HOME || path.join(__dirname, "..");
 const DB_PATH = path.join(HOME, "database/workbench.db");
 
-let db;
+let db: DatabaseSync | undefined;
 
 const initDb = () => {
   if (db) return db;

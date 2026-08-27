@@ -1,4 +1,3 @@
-// @ts-nocheck
 import fs from "fs";
 import path from "path";
 import { fileURLToPath } from "url";
@@ -11,7 +10,7 @@ const DIST = path.resolve(
   || path.join(process.env.WORKBENCH_HOME || path.join(__dirname, ".."), "ui/dist"),
 );
 
-const MIME = {
+const MIME: Record<string, string> = {
   ".html": "text/html; charset=utf-8",
   ".js": "text/javascript; charset=utf-8",
   ".css": "text/css; charset=utf-8",
@@ -22,9 +21,9 @@ const MIME = {
   ".woff2": "font/woff2",
 };
 
-const isFile = (p) => { try { return fs.statSync(p).isFile(); } catch { return false; } };
+const isFile = (p: string) => { try { return fs.statSync(p).isFile(); } catch { return false; } };
 
-const serve = (res, pathname) => {
+const serve = (res: import("http").ServerResponse, pathname: string) => {
   const index = path.join(DIST, "index.html");
   if (!isFile(index)) {
     res.writeHead(503, { "Content-Type": "text/plain" });

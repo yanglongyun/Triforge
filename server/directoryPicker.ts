@@ -1,10 +1,9 @@
-// @ts-nocheck
 import { execFile, execFileSync } from "child_process";
 import path from "path";
 
-const run = (cmd, args, opts = {}) =>
-  new Promise((resolve, reject) => {
-    execFile(cmd, args, { timeout: 0, maxBuffer: 1024 * 1024, ...opts }, (error, stdout, stderr) => {
+const run = (cmd: string, args: string[], opts: Record<string, unknown> = {}) =>
+  new Promise<string>((resolve, reject) => {
+    execFile(cmd, args, { timeout: 0, maxBuffer: 1024 * 1024, ...opts }, (error: any, stdout, stderr) => {
       if (error) {
         error.stderr = stderr;
         reject(error);
@@ -14,7 +13,7 @@ const run = (cmd, args, opts = {}) =>
     });
   });
 
-const commandExists = (cmd) => {
+const commandExists = (cmd: string) => {
   try {
     execFileSync("which", [cmd], { stdio: "ignore" });
     return true;
@@ -23,7 +22,7 @@ const commandExists = (cmd) => {
   }
 };
 
-const isCancel = (error) => {
+const isCancel = (error: any) => {
   const text = `${error?.message || ""}\n${error?.stderr || ""}`;
   return /cancel|canceled|cancelled|用户取消/i.test(text);
 };

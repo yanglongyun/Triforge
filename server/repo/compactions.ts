@@ -1,7 +1,8 @@
-// @ts-nocheck
 import { getDb } from "../db.js";
 
-const createCompaction = ({ agentId, startMessageId, endMessageId, summary, tokens = 0 }) => {
+const createCompaction = ({ agentId, startMessageId, endMessageId, summary, tokens = 0 }: {
+  agentId: string; startMessageId: number; endMessageId: number; summary: string; tokens?: number;
+}) => {
   const result = getDb().prepare(`
     INSERT INTO compactions (agent_id, start_message_id, end_message_id, summary, tokens)
     VALUES (?, ?, ?, ?, ?)
@@ -9,7 +10,7 @@ const createCompaction = ({ agentId, startMessageId, endMessageId, summary, toke
   return Number(result.lastInsertRowid);
 };
 
-const getLatestCompaction = (agentId) => getDb().prepare(`
+const getLatestCompaction = (agentId: string) => getDb().prepare(`
   SELECT id, agent_id, start_message_id, end_message_id, summary, tokens, created_at
   FROM compactions
   WHERE agent_id = ?

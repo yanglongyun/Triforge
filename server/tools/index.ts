@@ -1,4 +1,3 @@
-// @ts-nocheck
 // 工具装配:定义表(发给模型)与执行映射(注入内核)在这里合拢。
 // 内核(ai/)只认 tools 数组 + executors Map,不知道 Workbench 是什么;
 // Workbench 的外部能力(文件、进程、浏览器、多智能体)全部通过 ctx 闭包进执行器。
@@ -37,7 +36,7 @@ const IMPLS = {
  * bash 输出是一次性的,截掉就没了;指引它重跑时重定向到文件再用 read 分段读。
  * (read 自己按行收口、永不进这里;详见 files.ts。)
  */
-export const truncateToolResult = (text, maxChars = 30000) => {
+export const truncateToolResult = (text: unknown, maxChars = 30000) => {
   const limit = Math.max(1000, Math.min(50000, Number(maxChars) || 30000));
   const value = String(text || "");
   if (value.length <= limit) return value;
@@ -54,11 +53,14 @@ export const truncateToolResult = (text, maxChars = 30000) => {
  * 内核每次调用只带 {signal, cwd, env};Workbench 的能力在这里合并进去,
  * 结果在这里统一截断 —— 截断只写一处,工具实现不用各自操心。
  */
-export const buildExecutors = (ctx) => {
+/** 工具执行上下文:Workbench 的外部能力经此注入,各工具按需取用(刻意宽松)。 */
+export type ToolCtx = Record<string, any> & { toolResultMaxChars?: number; signal?: AbortSignal };
+
+export const buildExecutors = (ctx: ToolCtx) => {
   const executors = new Map();
   for (const [name, impl] of Object.entries(IMPLS)) {
-    executors.set(name, async (args, kernelCtx = {}) => {
-      const result = await impl(args, { ...ctx, signal: kernelCtx.signal });
+    executors.set(name, async (args: unknown, kernelCtx: { signal?: AbortSignal } = {}) => {
+      const result: any = await impl(args as any, { ...ctx, signal: kernelCtx.signal });
       // 带图的结果(read 读图片)整体放行:文本部分照常截断,image 交给内核
       // (runner 会把它挂到 function_call_output 上,附件层在当前轮展开成 input_image)
       if (result && typeof result === "object" && result.image) {

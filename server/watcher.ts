@@ -1,4 +1,3 @@
-// @ts-nocheck
 // 文件系统监听:树的另一半事实来源。
 //
 // 自己的工具(bash/write/…)改文件会手动广播 tree_changed;但 Finder、终端、
@@ -17,7 +16,7 @@ const watchers = new Map(); // root -> fs.FSWatcher
 // 树的刷新是幂等的整树重拉,合并多少事件都不丢信息。
 const INTERVAL_MS = 400;
 let lastFired = 0;
-let timer = null;
+let timer: ReturnType<typeof setTimeout> | null = null;
 
 const fire = () => {
   lastFired = Date.now();
@@ -31,12 +30,12 @@ const schedule = () => {
 };
 
 /** 忽略树本来就不显示的目录(node_modules/.git/…)里的抖动,少刷无谓的一轮。 */
-const ignorable = (filename) => {
+const ignorable = (filename: string | Buffer | null) => {
   if (!filename) return false; // 拿不到路径就宁可刷一次
   return String(filename).split(path.sep).some((part) => IGNORE_DIRS.has(part));
 };
 
-const watchRoot = (root) => {
+const watchRoot = (root: string) => {
   if (watchers.has(root)) return;
   try {
     const watcher = fs.watch(root, { recursive: true }, (_event, filename) => {

@@ -1,4 +1,3 @@
-// @ts-nocheck
 import { getDb } from "../db.js";
 
 const DEFAULTS = {
@@ -22,10 +21,10 @@ const DEFAULTS = {
 };
 
 const getSettings = () => {
-  const rows = getDb().prepare("SELECT key, value FROM settings").all();
+  const rows = getDb().prepare("SELECT key, value FROM settings").all() as { key: string; value: string }[];
   const settings = { ...DEFAULTS };
   for (const row of rows) {
-    if (row.key in DEFAULTS) settings[row.key] = row.value;
+    if (row.key in DEFAULTS) settings[row.key as keyof typeof DEFAULTS] = row.value;
   }
   return settings;
 };

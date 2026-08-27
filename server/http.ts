@@ -1,4 +1,3 @@
-// @ts-nocheck
 import http from "http";
 import { handleApi } from "./api/index.js";
 import { attachWs } from "./realtime.js";

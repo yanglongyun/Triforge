@@ -1,10 +1,12 @@
-// @ts-nocheck
 // system prompt 拼装:身份 + 工作目录 + 该文件夹的约定与技能 + 工具与协作规则。
 // 每次运行现拼,不落库 —— 目录、文档、技能都可能变。
 import { agentContext } from "../repo/tree.js";
 import { resolveWorkdir } from "../repo/agents.js";
 
-export const buildSystem = (agent, settings) => {
+export const buildSystem = (
+  agent: { id: string; system?: string | null; workdir?: string | null },
+  settings: { system?: string },
+) => {
   const base = (agent.system && agent.system.trim()) || settings.system || "";
   const cwd = resolveWorkdir(agent);
   const ctx = agentContext(cwd);

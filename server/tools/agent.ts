@@ -1,4 +1,3 @@
-// @ts-nocheck
 // agent:多智能体的唯一工具。
 //   - 带 agent_id:给已存在的智能体发消息(旧 call_agent);
 //   - 不带 agent_id、带 title:在自己所在文件夹里派生一个新智能体并派活(旧 create_agent)。
@@ -26,7 +25,7 @@ export const agentDef = {
   },
 };
 
-const dispatch = (ctx, targetId, message) => {
+const dispatch = (ctx: any, targetId: string, message: string) => {
   const row = ctx.appendItem(
     targetId,
     { role: "user", content: String(message || "") },
@@ -34,12 +33,15 @@ const dispatch = (ctx, targetId, message) => {
   );
   ctx.touchAgent(targetId);
   ctx.emit({ type: EVENTS.INPUT, agentId: targetId, row });
-  ctx.runAgent(targetId, { callerId: ctx.selfAgentId }).catch((e) =>
+  ctx.runAgent(targetId, { callerId: ctx.selfAgentId }).catch((e: any) =>
     console.error("[agent] wake failed:", e?.message),
   );
 };
 
-export const agent = ({ agent_id, title, system, message }, ctx) => {
+export const agent = (
+  { agent_id, title, system, message }: { agent_id?: string; title?: string; system?: string; message?: string },
+  ctx: any,
+) => {
   const msg = String(message || "").trim();
   if (!msg) return "error: message 不能为空";
 

@@ -1,4 +1,3 @@
-// @ts-nocheck
 // 同源门卫。server 只绑 127.0.0.1,但浏览器里**任意网页**都能向本机端口发 fetch / WebSocket ——
 // 没有 Origin 校验的话,一个恶意网页就能通过你正跑着的 Workbench 执行 bash、读写磁盘。
 // 所以 http 的写操作与 ws 升级都必须过这道门:只认应用自己发来的请求。
@@ -14,11 +13,11 @@
 // 卡它的端口只徒增 dev 摩擦、不增安全。守住「必须是回环」这条线即可。
 
 const LOOPBACK_HOSTS = new Set(["127.0.0.1", "localhost", "[::1]", "::1"]);
-const isLoopbackHost = (host) =>
+const isLoopbackHost = (host: string) =>
   LOOPBACK_HOSTS.has(host) || host === "0.0.0.0" || host.endsWith(".localhost");
 
 /** 请求的 Origin 是否可信(port 保留参数,当前策略只认「回环主机」不卡端口)。 */
-export const isTrustedOrigin = (origin, _port) => {
+export const isTrustedOrigin = (origin: unknown, _port?: number) => {
   const value = String(origin || "").trim();
   if (!value || value === "null") return true; // 无源 / file:// 归一成的 "null"
   let parsed;

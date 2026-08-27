@@ -1,13 +1,13 @@
-// @ts-nocheck
 // 极简事件总线:agent 循环 emit,realtime 设置 broadcaster 把事件推给 WS 客户端。
 // 避免 agent <-> realtime 循环依赖。
-let broadcaster = () => {};
+type Broadcaster = (payload: unknown) => void;
+let broadcaster: Broadcaster = () => {};
 
-const setBroadcaster = (fn) => {
+const setBroadcaster = (fn: Broadcaster) => {
   broadcaster = typeof fn === "function" ? fn : () => {};
 };
 
-const emit = (payload) => {
+const emit = (payload: unknown) => {
   try {
     broadcaster(payload);
   } catch {
