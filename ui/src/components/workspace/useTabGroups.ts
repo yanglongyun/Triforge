@@ -80,6 +80,9 @@ export function useTabGroups({ canCloseTab = () => true, onTabClosed = () => {} 
     [groups],
   );
 
+  /** 全部分组(含隐藏的 side),有序:常驻层按它持有网页/终端。 */
+  const allGroups = useMemo(() => groupOrder.map((id) => groups[id]), [groups]);
+
   const activeGroup = groups[activeGroupId];
   const activeTab = activeTabOf(activeGroup);
 
@@ -390,6 +393,7 @@ export function useTabGroups({ canCloseTab = () => true, onTabClosed = () => {} 
     groups,
     sideOpen,
     visibleGroups,
+    allGroups,
     allTabs,
     activeGroupId,
     activeGroup,

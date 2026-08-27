@@ -1,126 +1,46 @@
 import { useCallback, useEffect, useRef, useState } from "react";
-import type { GitRepositoryStatus, Node } from "../../api";
-import { api } from "../../api";
+import type { GitRepositoryStatus, Node } from "../../../api";
+import { api } from "../../../api";
 import { NodeRow, InlineCreateRow, iconFor, colorFor, type TreeControls } from "./NodeRow";
-import { AgentRail } from "./AgentRail";
-import { PanelFrame } from "../panels/PanelFrame";
-import { ContextMenu, dialog, type MenuItem } from "../ui";
-import { Settings, Folder, FolderPlus, FolderOpen, FileText, FilePlus, Bot, Trash2, Pencil, Plus, X, Copy, PanelRight, Terminal, GitBranch, Radio, Menu, MessageSquare, Files, Globe, ListTodo, Sparkles, Scissors, ClipboardPaste, FoldVertical } from "lucide-react";
+import { ContextMenu, dialog, type MenuItem } from "../../ui";
+import { Folder, FolderPlus, FolderOpen, FileText, FilePlus, Bot, Trash2, Pencil, X, Copy, PanelRight, Terminal, GitBranch, Scissors, ClipboardPaste, FoldVertical } from "lucide-react";
 
 const REVEAL_LABEL = /Mac/i.test(navigator.platform) ? "在 Finder 中显示"
   : /Win/i.test(navigator.platform) ? "在资源管理器中显示" : "在文件管理器中显示";
 import { DndContext, DragOverlay, useDroppable } from "@dnd-kit/core";
-import { beginGlobalDrag, endGlobalDrag } from "../../lib/drag";
 import { useTreeDnd, ROOT_ID } from "./useTreeDnd";
 import { AddWorkspaceDialog } from "./AddWorkspaceDialog";
 
-// ── 面板注册表:侧边栏 = 可扩展的面板宿主(见 PANEL.md)──
-// 双轨制:会话/文件是原生 React(深度集成:拖拽/多选/快捷键);
-// 「网站」是预置的 iframe 面板示例;从 + 安装的扩展面板一律 iframe 沙箱。
-type PanelDef = { id: string; title: string; icon: typeof MessageSquare; ext?: boolean };
-const BUILTIN_PANELS: PanelDef[] = [
-  { id: "agents", title: "会话", icon: MessageSquare },
-  { id: "files", title: "文件", icon: Files },
-  { id: "sites", title: "网站", icon: Globe }, // 预置,但载体是 iframe —— 面板契约的白老鼠
-];
-const EXT_PANELS: Record<string, PanelDef> = {
-  todo: { id: "todo", title: "任务", icon: ListTodo, ext: true },
-};
-
-export function NodeTree({
+// 文件面板:真实文件系统的树。多选/键盘/剪贴板/拖拽/Git 染色/筛选都内聚在此;
+// 宿主(PanelHost)只负责装卸与显隐 —— 本面板常驻挂载,展开集/多选等重状态跨切换保活。
+export function FilesPanel({
+  active,
   selectedId,
   onSelect,
-  socket,
-  onOpenUrl,
-  onToggleNav,
   onOpenSide,
   onOpenTerminal,
   onOpenGit,
+  onCreateAgentAt,
   createParentId,
   refreshKey,
-  settingsActive,
-  onOpenSettings,
-  activityActive,
-  onOpenActivity,
-  mobileOpen = false,
-  desktopOpen = true,
-  onCloseMobile,
   onChanged,
 }: {
+  /** 当前是否为激活面板:控制显隐与键盘/Git 轮询的闸门(组件本身常驻)。 */
+  active: boolean;
   selectedId: string;
   onSelect: (n: Node | null) => void;
-  socket: { send: (m: any) => void; on: (t: string, fn: (p: any) => void) => () => void };
-  onOpenUrl: (url: string, title?: string) => void;
-  /** 侧栏头部汉堡:收起侧边栏(桌面端;展开入口在标签栏左端)。 */
-  onToggleNav?: () => void;
   onOpenSide?: (n: Node) => void;
   onOpenTerminal?: (n: Node, opts?: { command?: string; titlePrefix?: string }) => void;
   onOpenGit?: (repo: GitRepositoryStatus) => void;
+  /** 文件夹右键「在此新建对话」→ 宿主切到会话面板并带上预设 workdir。 */
+  onCreateAgentAt: (workdir: string) => void;
   createParentId?: string | null;
   refreshKey: number;
-  settingsActive: boolean;
-  onOpenSettings: () => void;
-  activityActive?: boolean;
-  onOpenActivity?: () => void;
-  mobileOpen?: boolean;
-  desktopOpen?: boolean;
-  onCloseMobile?: () => void;
   onChanged?: () => void;
 }) {
   const [roots, setRoots] = useState<Node[]>([]);
-  // ── 面板宿主状态:已安装的扩展面板 + 当前面板,均跨启动记住 ──
-  const [extPanels, setExtPanels] = useState<string[]>(() => {
-    try {
-      const saved = JSON.parse(localStorage.getItem("workbench.extPanels") || "[]");
-      return Array.isArray(saved) ? saved.filter((id) => typeof id === "string" && EXT_PANELS[id]) : [];
-    } catch { return []; }
-  });
-  const panels: PanelDef[] = [...BUILTIN_PANELS, ...extPanels.map((id) => EXT_PANELS[id]).filter(Boolean)];
-  const [sideTab, setSideTab] = useState<string>(() => localStorage.getItem("workbench.sideTab") || "agents");
-  const activePanelId = panels.some((p) => p.id === sideTab) ? sideTab : "agents";
-  const switchTab = (tab: string) => {
-    setSideTab(tab);
-    localStorage.setItem("workbench.sideTab", tab);
-  };
-  const installPanel = (id: string) => {
-    setExtPanels((prev) => {
-      const next = prev.includes(id) ? prev : [...prev, id];
-      localStorage.setItem("workbench.extPanels", JSON.stringify(next));
-      return next;
-    });
-    switchTab(id);
-  };
-  const removePanel = (id: string) => {
-    setExtPanels((prev) => {
-      const next = prev.filter((x) => x !== id);
-      localStorage.setItem("workbench.extPanels", JSON.stringify(next));
-      return next;
-    });
-    if (sideTab === id) switchTab("agents");
-  };
-  // 文件夹右键「在此新建对话」→ 切到会话面板并带上预设 workdir
-  const [agentCreateReq, setAgentCreateReq] = useState<{ workdir?: string } | null>(null);
-
-  // ── 面板 tab 行的响应式:放不下「图标+文字」就整行退化为纯图标(悬停有 title)──
-  // 侧栏宽度可拖(220–420),所以不按面板数量,按实测文字宽度判断;拖宽自动恢复文字。
-  const measureCtxRef = useRef<CanvasRenderingContext2D | null>(null);
-  const labelWidth = (text: string) => {
-    if (!measureCtxRef.current) measureCtxRef.current = document.createElement("canvas").getContext("2d");
-    const ctx = measureCtxRef.current;
-    if (!ctx) return text.length * 13;
-    ctx.font = '500 13px Inter, -apple-system, BlinkMacSystemFont, "PingFang SC", "Microsoft YaHei", sans-serif';
-    return ctx.measureText(text).width;
-  };
-  const PANEL_TAB_CHROME = 8 + 13 + 6; // px-1 两侧 + 图标 + 图标文字间距
-  const panelsNeedWidth =
-    panels.reduce((sum, p) => sum + PANEL_TAB_CHROME + Math.ceil(labelWidth(p.title)), 0)
-    + 36 /* + 按钮及其边距 */ + 8 /* 呼吸余量 */;
   // 文件夹徽标:workdir → 绑定的智能体数
   const [agentDirs, setAgentDirs] = useState<Map<string, number>>(new Map());
-  const [sidebarWidth, setSidebarWidth] = useState(() => {
-    const saved = Number(localStorage.getItem("workbench.sidebarWidth") || "");
-    return Number.isFinite(saved) && saved >= 220 && saved <= 420 ? saved : 260;
-  });
   const [addWorkspaceOpen, setAddWorkspaceOpen] = useState(false);
   const [workspacePathDraft, setWorkspacePathDraft] = useState("");
   const [workspaceError, setWorkspaceError] = useState<string | null>(null);
@@ -178,7 +98,7 @@ export function NodeTree({
     if (node.kind === "space") toggleExpand(node.id);
   };
 
-  useEffect(() => { clearMulti(); }, [sideTab, clearMulti]);
+  useEffect(() => { clearMulti(); }, [active, clearMulti]);
 
 
   // 创建
@@ -218,7 +138,7 @@ export function NodeTree({
   const rootsRef = useRef(roots); rootsRef.current = roots;
   const selectedIdRef = useRef(selectedId); selectedIdRef.current = selectedId;
   const expandedRef = useRef(expandedIds); expandedRef.current = expandedIds;
-  const sideTabRef = useRef(sideTab); sideTabRef.current = sideTab;
+  const activeRef = useRef(active); activeRef.current = active;
 
   /** 删除一组 id(菜单与 Delete 键共用):祖先已选剔除后代;工作区走移除。 */
   const deleteIds = useCallback(async (rawIds: string[]) => {
@@ -334,7 +254,7 @@ export function NodeTree({
   // ── Git 状态标记:文件按状态染色,脏目录点标 ──
   const [gitMarks, setGitMarks] = useState<{ files: Map<string, string>; dirs: Set<string> }>({ files: new Map(), dirs: new Set() });
   useEffect(() => {
-    if (sideTab !== "files") return;
+    if (!active) return;
     let stale = false;
     api.gitStatus().then((r) => {
       if (stale) return;
@@ -361,7 +281,7 @@ export function NodeTree({
       setGitMarks({ files, dirs });
     }).catch(() => {});
     return () => { stale = true; };
-  }, [refreshKey, sideTab]);
+  }, [refreshKey, active]);
 
   // ── 文件名筛选(输入即筛,基于全量节点清单的扁平结果)──
   const [filterQ, setFilterQ] = useState("");
@@ -391,7 +311,7 @@ export function NodeTree({
     };
     const onKey = (e: KeyboardEvent) => {
       if (e.key === "Escape") { clearMulti(); return; }
-      if (sideTabRef.current !== "files" || isTyping(e.target)) return;
+      if (!activeRef.current || isTyping(e.target)) return;
       const anchor = anchorRef.current;
       const engaged = !!anchor || multiSelRef.current.size > 0;
       if (!engaged) return; // 没点过树,不抢任何键
@@ -482,12 +402,11 @@ export function NodeTree({
     }).catch(() => {});
   }, [refreshKey]);
 
-  // 聊天面板的工作目录芯片 → 跳到文件 tab 并展开定位那个目录
+  // 聊天面板的工作目录芯片 → 展开定位那个目录(切到文件面板由宿主做)
   useEffect(() => {
     const onReveal = (e: Event) => {
       const abs = String((e as CustomEvent).detail?.path || "");
       if (!abs) return;
-      switchTab("files");
       const root = roots.map((r) => r.id).filter((r) => abs === r || abs.startsWith(r + "/")).sort((a, b) => b.length - a.length)[0];
       if (!root) return;
       // 展开根到目标的每一级
@@ -522,35 +441,6 @@ export function NodeTree({
       return next;
     });
   }, [roots]);
-
-  const startResize = (e: React.PointerEvent) => {
-    e.preventDefault();
-    e.stopPropagation();
-    const startX = e.clientX;
-    const startWidth = sidebarWidth;
-    const previousCursor = document.body.style.cursor;
-    const previousSelect = document.body.style.userSelect;
-    let currentWidth = startWidth;
-    document.body.style.cursor = "col-resize";
-    document.body.style.userSelect = "none";
-    beginGlobalDrag(); // 拖拽期让 webview/iframe 失明,pointerup 不再被网页吞掉
-    const onUp = () => {
-      window.removeEventListener("pointermove", onMove);
-      window.removeEventListener("pointerup", onUp);
-      document.body.style.cursor = previousCursor;
-      document.body.style.userSelect = previousSelect;
-      endGlobalDrag();
-      localStorage.setItem("workbench.sidebarWidth", String(Math.round(currentWidth)));
-    };
-    const onMove = (ev: PointerEvent) => {
-      if (ev.buttons === 0) { onUp(); return; } // 松手事件丢了也能自愈
-      const next = Math.max(220, Math.min(420, startWidth + ev.clientX - startX));
-      currentWidth = next;
-      setSidebarWidth(next);
-    };
-    window.addEventListener("pointermove", onMove);
-    window.addEventListener("pointerup", onUp);
-  };
 
   // ── 创建 ──
   const startCreate = (parentId: string | null, kind: "space" | "file") => {
@@ -679,7 +569,7 @@ export function NodeTree({
     if (node.kind === "space") {
       items.push(
         { label: "在此新建对话", icon: <Bot size={13} className="text-warning" />,
-          onClick: () => { switchTab("agents"); setAgentCreateReq({ workdir: node.id }); } },
+          onClick: () => onCreateAgentAt(node.id) },
         "divider",
         { label: "新建文件夹", icon: <Folder size={13} className="text-accent" />,
           onClick: () => startCreate(node.id, "space") },
@@ -769,50 +659,9 @@ export function NodeTree({
     });
   };
 
-  const handleSelect = (n: Node | null) => {
-    onSelect(n);
-    if (mobileOpen && n?.kind !== "space") onCloseMobile?.();
-  };
-  const handleToggleActivity = () => {
-    onOpenActivity?.();
-    if (mobileOpen) onCloseMobile?.();
-  };
-  const handleToggleSettings = () => {
-    onOpenSettings();
-    if (mobileOpen) onCloseMobile?.();
-  };
+  // 选中直接上抛(移动端「选中即收抽屉」由宿主包装)
+  const handleSelect = onSelect;
 
-  // 「添加面板」:面板库。运行时装进来的面板一律 iframe 沙箱(见 PANEL.md);
-  // 创建对话/文件/网站等操作不在这里 —— 归各面板内部。
-  const openPanelGallery = (e: React.MouseEvent) => {
-    const r = (e.currentTarget as HTMLElement).getBoundingClientRect();
-    const items: MenuItem[] = Object.values(EXT_PANELS).map((p) => {
-      const installed = extPanels.includes(p.id);
-      const Icon = p.icon;
-      return {
-        label: installed ? `${p.title}(已添加)` : `添加「${p.title}」面板`,
-        icon: <Icon size={13} className={installed ? "" : "text-accent"} />,
-        onClick: () => (installed ? switchTab(p.id) : installPanel(p.id)),
-      };
-    });
-    items.push("divider", {
-      label: "用 AI 定制面板(即将开放)",
-      icon: <Sparkles size={13} className="text-accent" />,
-      disabled: true,
-      onClick: () => {},
-    });
-    setMenu({ x: r.left, y: r.bottom + 4, items });
-  };
-
-  // 扩展面板 tab 右键:移除(内置面板不可移除,无菜单)
-  const onPanelTabContext = (e: React.MouseEvent, p: PanelDef) => {
-    if (!p.ext) return;
-    e.preventDefault();
-    setMenu({
-      x: e.clientX, y: e.clientY,
-      items: [{ label: `移除「${p.title}」面板`, icon: <X size={13} />, danger: true, onClick: () => removePanel(p.id) }],
-    });
-  };
 
   // 键盘 handler 的最新函数出口(handler 只挂一次,经 ref 调最新实现)
   keyApiRef.current = { handleSelect, startRename, toggleExpand, setExpanded };
@@ -830,83 +679,8 @@ export function NodeTree({
   };
   return (
     <DndContext sensors={sensors} {...dndHandlers}>
-      <aside
-        style={{ width: `min(${sidebarWidth}px, calc(100vw - 32px))` }}
-        className={[
-          "flex-col border-r border-border bg-bg-raised shrink-0",
-          "absolute inset-y-0 left-0 z-40 shadow-2xl shadow-black/10",
-          "md:relative md:shadow-none",
-          // 移动端:关闭时直接 hidden;桌面端由左上角汉堡切换
-          mobileOpen ? "flex" : "hidden",
-          desktopOpen ? "md:flex" : "md:hidden",
-        ].join(" ")}
-      >
-        {/* brand:右上角 = 汉堡,只管侧栏收起(移动端沿用 X 关闭抽屉) */}
-        <div className="flex items-center gap-2.5 px-3.5 h-11 border-b border-border">
-          <span className="text-[20px] leading-none select-none">🌳</span>
-          <span className="text-[17px] font-semibold text-text flex-1 tracking-tight">Workbench</span>
-          {onToggleNav && (
-            <button
-              onClick={onToggleNav}
-              title="收起侧边栏"
-              className="hidden md:flex w-6 h-6 rounded items-center justify-center text-text-faint hover:text-text hover:bg-bg-hover transition-colors"
-            >
-              <Menu size={16} />
-            </button>
-          )}
-          {onCloseMobile && (
-            <button
-              onClick={onCloseMobile}
-              className="md:hidden w-6 h-6 rounded flex items-center justify-center text-text-faint hover:text-text hover:bg-bg-hover transition-colors"
-            >
-              <X size={14} />
-            </button>
-          )}
-        </div>
-
-        {/* 面板区:可扩展功能区的 tab 行;行末 + = 添加面板(创建操作归各面板内部) */}
-        <div className="flex items-stretch border-b border-border">
-          {panels.map((p) => (
-            <button
-              key={p.id}
-              onClick={() => switchTab(p.id)}
-              onContextMenu={(e) => onPanelTabContext(e, p)}
-              title={p.ext ? `${p.title}(扩展面板,右键可移除)` : p.title}
-              className={[
-                "flex-1 min-w-0 flex items-center justify-center gap-1.5 h-9 px-1 text-[13px] transition-colors border-b-2 -mb-px",
-                activePanelId === p.id
-                  ? "border-accent text-text font-medium"
-                  : "border-transparent text-text-dim hover:text-text hover:bg-bg-hover",
-              ].join(" ")}
-            >
-              <p.icon size={13} className="shrink-0" />
-              {/* 空间不够放全 → 整行纯图标,不出半截省略号 */}
-              {panelsNeedWidth <= sidebarWidth && <span className="truncate">{p.title}</span>}
-            </button>
-          ))}
-          <button
-            onClick={openPanelGallery}
-            title="添加面板"
-            className="self-center shrink-0 w-6 h-6 mx-1.5 rounded flex items-center justify-center text-text-faint hover:text-accent hover:bg-bg-hover transition-colors"
-          >
-            <Plus size={15} />
-          </button>
-        </div>
-
-        {activePanelId === "agents" ? (
-          <AgentRail
-            selectedId={selectedId}
-            onSelect={handleSelect}
-            refreshKey={refreshKey}
-            socket={socket}
-            createReq={agentCreateReq}
-            onCreateHandled={() => setAgentCreateReq(null)}
-          />
-        ) : activePanelId !== "files" ? (
-          // 预置示例「网站」+ 所有安装的扩展面板:iframe 沙箱,一切往来走宿主桥
-          <PanelFrame key={activePanelId} panelId={activePanelId} onOpenUrl={onOpenUrl} />
-        ) : (
-        <>
+      {/* 身体:未激活仅隐藏 —— 展开集/多选/键盘锚点等重状态跨面板切换保活 */}
+      <div className={active ? "flex flex-col flex-1 min-h-0" : "hidden"}>
         {/* 筛选 + 折叠全部 */}
         <div className="shrink-0 flex items-center gap-1 px-2 py-1.5 border-b border-border">
           <input
@@ -1000,36 +774,10 @@ export function NodeTree({
           )}
         </RootDroppable>
         )}
-        </>
-        )}
+      </div>
 
-        {/* footer */}
-        <div className="border-t border-border px-1.5 py-1.5 flex items-center gap-1">
-          <button
-            onClick={handleToggleActivity}
-            title="活动:智能体之间的调用"
-            className={[
-              "flex-1 flex items-center justify-center gap-1.5 px-2 py-1.5 rounded text-[13px] transition-colors",
-              activityActive ? "bg-bg-inset text-text" : "text-text-dim hover:bg-bg-hover hover:text-text",
-            ].join(" ")}
-          >
-            <Radio size={13} />
-            <span>活动</span>
-          </button>
-          <button
-            onClick={handleToggleSettings}
-            title="设置"
-            className={[
-              "flex-1 flex items-center justify-center gap-1.5 px-2 py-1.5 rounded text-[13px] transition-colors",
-              settingsActive ? "bg-bg-inset text-text" : "text-text-dim hover:bg-bg-hover hover:text-text",
-            ].join(" ")}
-          >
-            <Settings size={13} />
-            <span>设置</span>
-          </button>
-        </div>
-
-        {menu && <ContextMenu x={menu.x} y={menu.y} items={menu.items} onClose={() => setMenu(null)} />}
+      {/* 菜单与对话框放隐藏容器之外:面板未激活时(如命令面板发起「添加工作区」)也可见 */}
+      {menu && <ContextMenu x={menu.x} y={menu.y} items={menu.items} onClose={() => setMenu(null)} />}
         {addWorkspaceOpen && (
           <AddWorkspaceDialog
             value={workspacePathDraft}
@@ -1042,12 +790,6 @@ export function NodeTree({
             onClose={() => { if (!addingWorkspace && !pickingWorkspace) setAddWorkspaceOpen(false); }}
           />
         )}
-        <div
-          onPointerDown={startResize}
-          className="hidden md:block absolute top-0 right-[-3px] z-20 h-full w-1.5 cursor-col-resize hover:bg-accent/25"
-          title="调整侧边栏宽度"
-        />
-      </aside>
 
       {/* 拖动跟随物:小而不挡视野 —— 单个 = 图标牌,多选 = 第一层数量徽标 */}
       <DragOverlay dropAnimation={null}>

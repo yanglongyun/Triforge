@@ -82,6 +82,22 @@ export type WorkspaceGroupState = {
   previewId: string | null;
 };
 
+/** 标签操作合集:App 装一次包,贯穿 Layout → Group → TabBar,不再逐层点名 20 个回调。 */
+export type TabActions = {
+  focusGroup: (groupId: WorkspaceGroupId) => void;
+  activate: (groupId: WorkspaceGroupId, id: string) => void;
+  close: (groupId: WorkspaceGroupId, id: string) => void;
+  reorder: (groupId: WorkspaceGroupId, tabs: WorkspaceTab[]) => void;
+  moveFromGroup: (fromGroupId: WorkspaceGroupId, tabId: string, toGroupId: WorkspaceGroupId, toIndex?: number) => void;
+  moveToOther: (groupId: WorkspaceGroupId, tabId: string) => void;
+  toggleSideGroup: () => void;
+  closeOthers: (groupId: WorkspaceGroupId, keepId: string) => void;
+  closeToRight: (groupId: WorkspaceGroupId, afterId: string) => void;
+  closeGroup: (groupId: WorkspaceGroupId) => void;
+  /** 新标签页(方案 C):在指定分组开启动器。 */
+  newTab: (groupId: WorkspaceGroupId) => void;
+};
+
 export const processTab = (): ProcessTab => ({
   id: PROCESS_TAB_ID,
   kind: "process",

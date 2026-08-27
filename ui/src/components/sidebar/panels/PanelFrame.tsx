@@ -6,9 +6,9 @@
 //   面板对外只有一种语言:workbench-sdk 包装的 RPC(tabs.open / storage / dialog…),
 //   桥在宿主侧带着面板身份转发 —— 面板永远不直连本地 http/ws 端口。
 import { useEffect, useRef } from "react";
-import { api } from "../../api";
-import { dialog } from "../ui";
-import { THEME_EVENT } from "../../lib/theme";
+import { api } from "../../../api";
+import { dialog } from "../../ui";
+import { THEME_EVENT } from "../../../lib/theme";
 
 const THEME_TOKENS = [
   "bg", "bg-raised", "bg-panel", "bg-inset", "bg-hover",

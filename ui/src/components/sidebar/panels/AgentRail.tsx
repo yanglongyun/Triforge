@@ -1,9 +1,9 @@
 // 会话列表:智能体不再长在文件树里,这里是它们的家。
 // 置顶 / 最近两组;行上呼吸点 = 正在运行,绿点 = 未读;悬停 ⋯ 出操作。
 import { useCallback, useEffect, useState } from "react";
-import type { Node } from "../../api";
-import { api } from "../../api";
-import { ContextMenu, dialog, type MenuItem } from "../ui";
+import type { Node } from "../../../api";
+import { api } from "../../../api";
+import { ContextMenu, dialog, type MenuItem } from "../../ui";
 import { Bot, Copy, FolderOpen, Pencil, Pin, PinOff, Plus, Trash2 } from "lucide-react";
 
 type Socket = { send: (m: any) => void; on: (t: string, fn: (p: any) => void) => () => void };

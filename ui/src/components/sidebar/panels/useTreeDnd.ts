@@ -1,7 +1,7 @@
 import { useState } from "react";
-import { api, type Node } from "../../api";
-import { dialog } from "../ui";
-import { beginGlobalDrag, endGlobalDrag } from "../../lib/drag";
+import { api, type Node } from "../../../api";
+import { dialog } from "../../ui";
+import { beginGlobalDrag, endGlobalDrag } from "../../../lib/drag";
 import {
   PointerSensor,
   TouchSensor,

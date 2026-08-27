@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import { api, type Node } from "../../api";
-import { iconFor, colorFor } from "../explorer/NodeRow";
+import { iconFor, colorFor } from "../sidebar/panels/NodeRow";
 import { fuzzy } from "../../lib/fuzzy";
 
 // 快速打开(⌘P):模糊搜索整棵树,回车打开

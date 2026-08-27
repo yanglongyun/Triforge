@@ -1,9 +1,9 @@
 import { useEffect, useRef, useState } from "react";
-import { iconFor, colorFor } from "../explorer/NodeRow";
+import { iconFor, colorFor } from "../sidebar/panels/NodeRow";
 import { X, Menu, Circle, GitBranch, GitCompare, Globe, MonitorPlay, PanelRight, Plus, Radio, Settings, Terminal } from "lucide-react";
 import { ContextMenu, Favicon, type MenuItem } from "../ui";
 import { beginGlobalDrag, endGlobalDrag } from "../../lib/drag";
-import type { WorkspaceGroupId, WorkspaceTab } from "./types";
+import type { TabActions, WorkspaceGroupId, WorkspaceTab } from "./types";
 
 const tabIconFor = (tab: WorkspaceTab) =>
   tab.kind === "git-diff" ? GitCompare :
@@ -37,40 +37,25 @@ export function TabBar({
   groupId,
   dirtyIds,
   previewId,
-  onActivate,
-  onClose,
-  onReorder,
-  onMoveFromGroup,
-  onMoveToOther,
-  onToggleSideGroup,
+  actions,
+  showSideToggle,
   sideToggleOpen,
-  onCloseOthers,
-  onCloseToRight,
-  onCloseGroup,
   onOpenNav,
   navOpen,
-  onNewTab,
 }: {
   tabs: WorkspaceTab[];
   activeId: string | null;
   groupId: WorkspaceGroupId;
   dirtyIds: Set<string>;
   previewId: string | null;
-  onActivate: (id: string) => void;
-  onClose: (id: string) => void;
-  onReorder: (next: WorkspaceTab[]) => void;
-  onMoveFromGroup?: (fromGroupId: WorkspaceGroupId, tabId: string, toGroupId: WorkspaceGroupId, toIndex?: number) => void;
-  onMoveToOther?: (id: string) => void;
-  onToggleSideGroup?: () => void;
+  /** 全部标签操作:一个包,groupId 由本组补上。 */
+  actions: TabActions;
+  /** 是否显示右端的分屏开关(只有最右一组显示)。 */
+  showSideToggle?: boolean;
   sideToggleOpen?: boolean;
-  onCloseOthers?: (id: string) => void;
-  onCloseToRight?: (id: string) => void;
-  onCloseGroup?: () => void;
   onOpenNav?: () => void;
   /** 侧边栏当前是否展开:展开时桌面端隐藏标签栏左端的汉堡(汉堡在侧栏头部)。 */
   navOpen?: boolean;
-  /** 新标签页(方案 C):标签栏加号,贴着最后一个标签。 */
-  onNewTab?: () => void;
 }) {
   const pointerDrag = useRef<{
     startX: number;
@@ -110,7 +95,7 @@ export function TabBar({
     const [moved] = next.splice(fromIndex, 1);
     const insertAt = toIndex > fromIndex ? toIndex - 1 : toIndex;
     next.splice(Math.max(0, Math.min(next.length, insertAt)), 0, moved);
-    onReorder(next);
+    actions.reorder(groupId, next);
   };
 
   const dropGuideFor = (targetGroupId: WorkspaceGroupId, toIndex: number): DropGuide | null => {
@@ -201,7 +186,7 @@ export function TabBar({
       const target = dropTargetAt(ev.clientX, ev.clientY);
       if (!target) return;
       if (target.groupId === groupId) reorderWithinGroup(drag.index, target.toIndex);
-      else onMoveFromGroup?.(groupId, drag.tabId, target.groupId, target.toIndex);
+      else actions.moveFromGroup(groupId, drag.tabId, target.groupId, target.toIndex);
     };
 
     window.addEventListener("pointermove", onMove);
@@ -211,20 +196,17 @@ export function TabBar({
   const openTabMenu = (e: React.MouseEvent, tab: WorkspaceTab) => {
     e.preventDefault();
     e.stopPropagation();
-    onActivate(tab.id);
-    const items: MenuItem[] = [];
-    if (onMoveToOther) {
-      items.push({ label: "移动到另一侧", icon: <PanelRight size={13} />, onClick: () => onMoveToOther(tab.id) });
-      items.push("divider");
-    }
+    actions.activate(groupId, tab.id);
     const idx = tabs.findIndex((t) => t.id === tab.id);
-    items.push(
-      { label: "关闭", icon: <X size={13} />, onClick: () => onClose(tab.id) },
-      { label: "关闭其他标签", icon: <X size={13} />, onClick: () => onCloseOthers?.(tab.id), disabled: tabs.length <= 1 || !onCloseOthers },
-      { label: "关闭右侧标签", icon: <X size={13} />, onClick: () => onCloseToRight?.(tab.id), disabled: idx < 0 || idx >= tabs.length - 1 || !onCloseToRight },
+    const items: MenuItem[] = [
+      { label: "移动到另一侧", icon: <PanelRight size={13} />, onClick: () => actions.moveToOther(groupId, tab.id) },
       "divider",
-      { label: "关闭本组", icon: <X size={13} />, onClick: () => onCloseGroup?.(), disabled: !onCloseGroup },
-    );
+      { label: "关闭", icon: <X size={13} />, onClick: () => actions.close(groupId, tab.id) },
+      { label: "关闭其他标签", icon: <X size={13} />, onClick: () => actions.closeOthers(groupId, tab.id), disabled: tabs.length <= 1 },
+      { label: "关闭右侧标签", icon: <X size={13} />, onClick: () => actions.closeToRight(groupId, tab.id), disabled: idx < 0 || idx >= tabs.length - 1 },
+      "divider",
+      { label: "关闭本组", icon: <X size={13} />, onClick: () => actions.closeGroup(groupId) },
+    ];
     setMenu({ x: e.clientX, y: e.clientY, items });
   };
 
@@ -271,9 +253,9 @@ export function TabBar({
             onPointerDown={(e) => startPointerDrag(e, t, idx)}
             onClick={(e) => {
               if (suppressClick.current) { e.preventDefault(); return; }
-              onActivate(t.id);
+              actions.activate(groupId, t.id);
             }}
-            onAuxClick={(e) => { if (e.button === 1) onClose(t.id); }} // 中键关闭
+            onAuxClick={(e) => { if (e.button === 1) actions.close(groupId, t.id); }} // 中键关闭
             onContextMenu={(e) => openTabMenu(e, t)}
             title={t.title}
             className={[
@@ -299,7 +281,7 @@ export function TabBar({
             {unread && <span className="w-1.5 h-1.5 rounded-full bg-success shrink-0" />}
             <button
               onPointerDown={(e) => e.stopPropagation()}
-              onClick={(e) => { e.stopPropagation(); onClose(t.id); }}
+              onClick={(e) => { e.stopPropagation(); actions.close(groupId, t.id); }}
               className="w-4 h-4 rounded flex items-center justify-center shrink-0 hover:bg-bg-inset"
               title="关闭"
             >
@@ -320,19 +302,17 @@ export function TabBar({
 
       {/* 新标签页:贴着滚动区右缘 —— 标签不满时即贴着最后一个标签,溢出时也始终可见。
           左边线补齐(-ml-px 与最后一个标签的右边线重叠,避免双线) */}
-      {onNewTab && (
-        <button
-          onClick={onNewTab}
-          className="px-2.5 flex items-center justify-center text-text-faint hover:text-accent hover:bg-bg-hover shrink-0 border-l border-border -ml-px"
-          title="新标签页(⌘T)"
-        >
-          <Plus size={15} />
-        </button>
-      )}
+      <button
+        onClick={() => actions.newTab(groupId)}
+        className="px-2.5 flex items-center justify-center text-text-faint hover:text-accent hover:bg-bg-hover shrink-0 border-l border-border -ml-px"
+        title="新标签页(⌘T)"
+      >
+        <Plus size={15} />
+      </button>
 
-      {onToggleSideGroup && (
+      {showSideToggle && (
         <button
-          onClick={onToggleSideGroup}
+          onClick={actions.toggleSideGroup}
           className={[
             "ml-auto flex px-2 items-center justify-center border-l border-border shrink-0",
             sideToggleOpen ? "text-accent bg-accent-soft hover:text-accent" : "text-text-faint hover:text-text hover:bg-bg-hover",

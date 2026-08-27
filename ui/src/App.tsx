@@ -4,8 +4,8 @@ import { useBrowserHost, wcIdForTab } from "./lib/webviewHost";
 import { api, type GitRepositoryStatus, type Node } from "./api";
 import { EVENTS } from "../../server/shared/events";
 import { QuickOpen, CommandPalette, type Command } from "./components/command";
-import { NodeTree } from "./components/explorer";
-import { WorkspaceLayout, isSettingsTab, isActivityTab, isNodeTab, useTabGroups, webTab, type WorkspaceGroupId } from "./components/workspace";
+import { PanelHost } from "./components/sidebar";
+import { WorkspaceLayout, isSettingsTab, isActivityTab, isNodeTab, useTabGroups, webTab, type TabActions, type WorkspaceGroupId } from "./components/workspace";
 import { looksLikeUrl, normalizeUrl } from "./lib/urls";
 import { DialogHost, dialog, SystemNotices } from "./components/ui";
 import { FileText, Folder, FolderPlus, Bot, Globe, Search, Settings as SettingsIcon, X, MonitorPlay, PanelRight, Radio } from "lucide-react";
@@ -365,6 +365,24 @@ export function App() {
     { id: "close-all", label: "关闭所有标签", icon: <X size={14} />, run: () => tabGroups.closeAll() },
   ];
 
+  // 标签操作包:装一次,贯穿 Layout → Group → TabBar(不再逐层点名回调)
+  const tabActions: TabActions = {
+    focusGroup: tabGroups.focusGroup,
+    activate: (groupId, tabId) => {
+      tabGroups.activateTab(groupId, tabId);
+      tabGroups.updateNodeTab(tabId, { unread: false } as Node); // 点开即已读
+    },
+    close: tabGroups.closeTab,
+    reorder: tabGroups.reorderTabs,
+    moveFromGroup: tabGroups.moveTab,
+    moveToOther: tabGroups.moveTab,
+    toggleSideGroup: tabGroups.toggleSideGroup,
+    closeOthers: tabGroups.closeOthers,
+    closeToRight: tabGroups.closeToRight,
+    closeGroup: tabGroups.closeGroup,
+    newTab: (groupId) => tabGroups.openLauncher({ groupId }),
+  };
+
   const toggleNav = () => {
     if (window.matchMedia("(min-width: 768px)").matches) {
       setDesktopNavOpen((open) => !open);
@@ -376,7 +394,7 @@ export function App() {
 
   return (
     <div className="h-screen flex overflow-hidden bg-bg text-text font-sans relative">
-      <NodeTree
+      <PanelHost
         selectedId={selectedNode?.id || activeNode?.id || ""}
         onSelect={openNode}
         socket={socket}
@@ -413,38 +431,27 @@ export function App() {
       <div className="flex-1 flex min-w-0 min-h-0">
         <WorkspaceLayout
           groups={tabGroups.visibleGroups}
-          allGroups={[tabGroups.groups.main, tabGroups.groups.side]}
+          allGroups={tabGroups.allGroups}
           activeGroupId={tabGroups.activeGroupId}
           sideOpen={tabGroups.sideOpen}
           navOpen={desktopNavOpen}
-          onNewTab={(groupId) => tabGroups.openLauncher({ groupId })}
-          socket={socket}
-          dirtyIds={dirtyIds}
-          drafts={drafts}
-          fileRefreshKeys={fileRefreshKeys}
-          pendingGoto={pendingGoto}
-          gitRefreshKey={gitRefreshKey}
-          onFocusGroup={tabGroups.focusGroup}
-          onActivateTab={(groupId, tabId) => {
-            tabGroups.activateTab(groupId, tabId);
-            tabGroups.updateNodeTab(tabId, { unread: false } as Node); // 点开即已读
-          }}
-          onCloseTab={tabGroups.closeTab}
-          onReorderTabs={tabGroups.reorderTabs}
-          onMoveTabFromGroup={tabGroups.moveTab}
-          onMoveTab={tabGroups.moveTab}
-          onToggleSideGroup={tabGroups.toggleSideGroup}
-          onCloseOthers={tabGroups.closeOthers}
-          onCloseToRight={tabGroups.closeToRight}
-          onCloseGroup={tabGroups.closeGroup}
-          onFileChange={onFileChange}
-          onFileSaved={onFileSaved}
-          onSelect={openNode}
-          onOpenAgent={openAgentById}
           onOpenNav={toggleNav}
-          onOpenSettings={openSettings}
-          onGitChanged={refreshGit}
-          onOpenGitDiff={(root, path, staged) => tabGroups.openGitDiff(root, path, staged)}
+          dirtyIds={dirtyIds}
+          tabs={tabActions}
+          content={{
+            socket,
+            drafts,
+            fileRefreshKeys,
+            pendingGoto,
+            gitRefreshKey,
+            onFileChange,
+            onFileSaved,
+            onSelect: openNode,
+            onOpenAgent: openAgentById,
+            onOpenSettings: openSettings,
+            onGitChanged: refreshGit,
+            onOpenGitDiff: (root, path, staged) => tabGroups.openGitDiff(root, path, staged),
+          }}
           onUpdateWebTab={tabGroups.updateWebTab}
         />
       </div>
