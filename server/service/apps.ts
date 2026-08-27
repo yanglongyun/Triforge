@@ -1,18 +1,19 @@
-// 应用注册表:应用 = 工作区里的一个目录,本身就是一个完整的 Worker 网站(见 APP.md)。
+// 应用注册表:应用 = 一个目录,本身就是一个完整的 Worker 网站(见 APP.md)。
 //
-//   <workspace>/apps/<id>/
+//   <应用的家>/apps/<id>/     应用的家 = Workbench 默认工作区根(打包版 ~/Documents/Workbench)
 //     app.json     manifest(挂载点 = 路由路径,能力声明)
 //     server.js    Worker:export default { fetch(req, env) }
 //     public/      静态资源(env.ASSETS 读这里)
 //     data.db      数据(env.DB 落这里 —— 就在应用旁边,你和 AI 都能 sqlite3 撬开)
 //
 // 「安装」= 目录存在(扫描自动注册);「移除」= 删目录。AI 用 write 工具即可造应用。
-// 预装应用随包发,首次启动落地到第一个工作区 —— 之后它就是普通工作区应用,可改可删。
+// 预装应用随包发,首次启动落地到「应用的家」—— 之后它就是普通应用,可改可删。
+// 用户在任何工作区里造的 apps/ 目录同样被扫到。
 import { createHash, randomBytes } from "crypto";
 import fs from "fs";
 import path from "path";
 import { fileURLToPath } from "url";
-import { listWorkspaces } from "../repo/tree.js";
+import { ensureRoot, listWorkspaces } from "../repo/tree.js";
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const HOME = process.env.WORKBENCH_HOME || path.join(__dirname, "../..");
@@ -56,12 +57,21 @@ const readManifest = (dir: string): AppInfo | null => {
   }
 };
 
-const workspaceRoots = () => (listWorkspaces() as { path: string }[]).map((w) => w.path);
+/** 应用的家:Workbench 自己的默认工作区根(打包版 ~/Documents/Workbench)。
+ *  刻意**不用**「第一个工作区」—— 用户可能把桌面或家目录加成工作区,
+ *  往那儿塞 apps/ 是在污染人家的地盘。 */
+const appsHome = () => ensureRoot();
+
+/** 扫描范围:应用的家 + 所有工作区(用户也可以在任何工作区里造应用)。 */
+const scanRoots = () => {
+  const roots = [appsHome(), ...(listWorkspaces() as { path: string }[]).map((w) => w.path)];
+  return [...new Set(roots.map((r) => path.resolve(r)))];
+};
 
 export const listApps = (): AppInfo[] => {
   const out: AppInfo[] = [];
   const seen = new Set<string>();
-  for (const root of workspaceRoots()) {
+  for (const root of scanRoots()) {
     let entries: fs.Dirent[];
     try { entries = fs.readdirSync(path.join(root, "apps"), { withFileTypes: true }); } catch { continue; }
     for (const entry of entries) {
@@ -122,10 +132,9 @@ export const appToken = (appId: string) => {
 };
 export const appIdForToken = (token: string) => tokens.get(String(token || "")) || null;
 
-/** 预装应用落地:随包的出厂模板复制进第一个工作区,之后它就是用户自己的应用(可改可删)。 */
+/** 预装应用落地:出厂模板复制进「应用的家」,之后它就是用户自己的应用(可改可删)。 */
 export const seedPresetApps = () => {
-  const root = workspaceRoots()[0];
-  if (!root) return;
+  const root = appsHome();
   const presetDir = path.join(UI_DIST, "apps");
   let entries: fs.Dirent[];
   try { entries = fs.readdirSync(presetDir, { withFileTypes: true }); } catch { return; }
