@@ -24,6 +24,8 @@ export function WorkspaceGroup({
   showNavButton,
   showSideToggle,
   sideOpen,
+  navOpen,
+  onNewTab,
   onFocus,
   onActivateTab,
   onCloseTab,
@@ -56,6 +58,8 @@ export function WorkspaceGroup({
   showNavButton?: boolean;
   showSideToggle?: boolean;
   sideOpen: boolean;
+  navOpen?: boolean;
+  onNewTab?: (groupId: WorkspaceGroupId) => void;
   onFocus: (groupId: WorkspaceGroupId) => void;
   onActivateTab: (groupId: WorkspaceGroupId, id: string) => void;
   onCloseTab: (groupId: WorkspaceGroupId, id: string) => void;
@@ -108,10 +112,13 @@ export function WorkspaceGroup({
         onCloseToRight={(id) => onCloseToRight(group.id, id)}
         onCloseGroup={() => onCloseGroup(group.id)}
         onOpenNav={showNavButton ? onOpenNav : undefined}
+        navOpen={navOpen}
+        onNewTab={onNewTab ? () => onNewTab(group.id) : undefined}
       />
       <div className="flex-1 min-h-0 flex flex-col relative">
         <TabContent
           tab={isWebTab(tab) ? null : tab}
+          groupId={group.id}
           socket={socket}
           drafts={drafts}
           fileRefreshKeys={fileRefreshKeys}

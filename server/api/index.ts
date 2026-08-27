@@ -6,6 +6,7 @@ import { execFile } from "child_process";
 import * as tree from "../service/tree.js";
 import * as agents from "../service/agents.js";
 import * as sites from "../service/sites.js";
+import * as panels from "../service/panels.js";
 import { listRows } from "../repo/messages.js";
 import { runningIds } from "../runs/index.js";
 import { listCalls } from "../repo/calls.js";
@@ -113,7 +114,19 @@ const handleApi = async (req, res) => {
       return json(res, 200, { ok: true, item: agents.markRead(url.searchParams.get("id")) });
     }
 
-    // ---- sites(网站收藏)----
+    // ---- 面板私有存储(iframe 面板经宿主桥读写;面板不直连本接口,见 PANEL.md)----
+    if (path === "/api/panel/storage") {
+      const id = url.searchParams.get("id") || "";
+      if (!/^[\w-]{1,64}$/.test(id)) return json(res, 400, { ok: false, error: "bad panel id" });
+      if (method === "GET") return json(res, 200, { ok: true, value: panels.get(id) });
+      if (method === "PUT" || method === "POST") {
+        const body = await parseBody(req);
+        panels.set(id, body?.value);
+        return json(res, 200, { ok: true });
+      }
+    }
+
+    // ---- sites(网站收藏;数据已迁往 sites 面板存储,接口保留兼容)----
     if (path === "/api/sites") {
       if (method === "GET") return json(res, 200, { ok: true, sites: sites.list() });
       if (method === "POST") {

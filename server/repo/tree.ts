@@ -244,11 +244,8 @@ const listChildren = (parentId) => {
     if (e.isDirectory()) out.push(spaceItem(abs));
     else out.push(fileItem(abs));
   }
-  // 排序:和 AI 相关的上下文(AGENTS.md / CLAUDE.md / skills 目录)→ 其它文件夹 → 其它文件
-  const isContextItem = (n) =>
-    (n.kind === "space" && n.title === "skills") ||
-    (n.kind === "file" && (n.title === "AGENTS.md" || n.title === "CLAUDE.md"));
-  const rank = (n) => (isContextItem(n) ? 1 : n.kind === "space" ? 2 : 3);
+  // 排序:普通文件管理器规则 —— 文件夹在前,同类按名(不给任何文件特权)
+  const rank = (n) => (n.kind === "space" ? 1 : 2);
   out.sort((a, b) => rank(a) - rank(b) || a.title.localeCompare(b.title, undefined, { sensitivity: "base" }));
   out.forEach((n, i) => { n.position = i + 1; });
   return out;

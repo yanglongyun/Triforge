@@ -138,6 +138,16 @@ const buildMenu = () => {
       label: "文件",
       submenu: [
         {
+          label: "新建标签页",
+          accelerator: "CmdOrCtrl+T",
+          click: () => {
+            BrowserWindow.getFocusedWindow()?.webContents
+              .executeJavaScript("window.dispatchEvent(new Event('workbench:new-tab'))")
+              .catch(() => {});
+          },
+        },
+        { type: "separator" },
+        {
           label: "关闭标签页",
           accelerator: "CmdOrCtrl+W",
           click: () => {

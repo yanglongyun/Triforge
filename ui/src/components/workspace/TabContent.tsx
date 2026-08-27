@@ -2,8 +2,8 @@ import type { Settings, Node } from "../../api";
 import { ChatPanel } from "../chat";
 import { FilePanel } from "../files";
 import { SettingsPanel } from "../settings";
-import { ActivityPanel, EmptyPanel, GitDiffPanel, GitView, ProcessPanel, TerminalPanel } from "./panels";
-import { isActivityTab, isGitDiffTab, isGitTab, isProcessTab, isSettingsTab, isNodeTab, isTerminalTab, type WorkspaceTab } from "./types";
+import { ActivityPanel, EmptyPanel, GitDiffPanel, GitView, LauncherPanel, ProcessPanel, TerminalPanel } from "./panels";
+import { isActivityTab, isGitDiffTab, isGitTab, isLauncherTab, isProcessTab, isSettingsTab, isNodeTab, isTerminalTab, type WorkspaceGroupId, type WorkspaceTab } from "./types";
 
 type Socket = {
   send: (m: any) => void;
@@ -12,6 +12,7 @@ type Socket = {
 
 export function TabContent({
   tab,
+  groupId,
   socket,
   drafts,
   fileRefreshKeys,
@@ -30,6 +31,7 @@ export function TabContent({
   onCloseTerminal,
 }: {
   tab: WorkspaceTab | null;
+  groupId: WorkspaceGroupId;
   socket: Socket;
   drafts: Record<string, string>;
   fileRefreshKeys: Record<string, number>;
@@ -48,6 +50,10 @@ export function TabContent({
   onCloseTerminal: () => void;
 }) {
   if (!tab) return <EmptyPanel />;
+
+  if (isLauncherTab(tab)) {
+    return <LauncherPanel key={tab.id} tab={tab} groupId={groupId} />;
+  }
 
   if (isProcessTab(tab)) {
     return <ProcessPanel socket={socket} onClose={onCloseProcess} />;

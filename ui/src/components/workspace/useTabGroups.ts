@@ -11,6 +11,7 @@ import {
   settingsTab,
   activityTab,
   terminalTab,
+  launcherTab,
   webTab,
   isWebTab,
   type WebTab,
@@ -133,6 +134,45 @@ export function useTabGroups({ canCloseTab = () => true, onTabClosed = () => {} 
   const openActivity = useCallback((opts: { groupId?: WorkspaceGroupId; side?: boolean } = {}) => {
     openTab(activityTab(), opts);
   }, [openTab]);
+
+  /** 新标签页(方案 C):+ / ⌘T 的入口,内容是全能输入框。 */
+  const openLauncher = useCallback((opts: { groupId?: WorkspaceGroupId; side?: boolean } = {}) => {
+    openTab(launcherTab(), opts);
+  }, [openTab]);
+
+  /** 就地换身:同位置把 oldId 替换成新标签(新标签页 Enter 后变成对话/网站,位置不跳)。 */
+  const replaceTab = useCallback((groupId: WorkspaceGroupId, oldId: string, tab: WorkspaceTab) => {
+    setGroups((prev) => {
+      const group = prev[groupId];
+      const idx = group.tabs.findIndex((t) => t.id === oldId);
+      if (idx === -1) return prev;
+      const tabs = [...group.tabs];
+      tabs[idx] = tab;
+      return {
+        ...prev,
+        [groupId]: {
+          ...group,
+          tabs,
+          activeId: group.activeId === oldId ? tab.id : group.activeId,
+          previewId: group.previewId === oldId ? null : group.previewId,
+        },
+      };
+    });
+  }, []);
+
+  /** 按站点身份找已开的网页标签(去重口径与 openWeb 一致:先精确键,后站点键)。 */
+  const findWebTab = useCallback((url: string): { groupId: WorkspaceGroupId; tab: WebTab } | null => {
+    const exact = exactKey(url);
+    const host = hostKey(url);
+    for (const groupId of groupOrder) {
+      const tabs = groupsRef.current[groupId].tabs;
+      const tab =
+        tabs.find((t): t is WebTab => isWebTab(t) && exactKey(t.url) === exact)
+        || (host ? tabs.find((t): t is WebTab => isWebTab(t) && hostKey(t.url) === host) : undefined);
+      if (tab) return { groupId, tab };
+    }
+    return null;
+  }, []);
 
 
   /** 网页标签的标题/地址/图标跟着页面走(page-title-updated / did-navigate / page-favicon-updated)。无变化返回 prev,别造渲染。 */
@@ -364,6 +404,9 @@ export function useTabGroups({ canCloseTab = () => true, onTabClosed = () => {} 
     openGitDiff,
     openSettings,
     openActivity,
+    openLauncher,
+    replaceTab,
+    findWebTab,
     openWeb,
     updateWebTab,
     activateTab,

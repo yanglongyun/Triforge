@@ -104,6 +104,16 @@ const initDb = () => {
     CREATE INDEX IF NOT EXISTS idx_compactions_agent ON compactions(agent_id, id);
   `);
 
+  db.exec(`
+    -- 面板私有存储:每个侧栏面板(含 iframe 扩展面板)一份 JSON。
+    -- 面板经宿主桥读写,自己永远不直连 http —— 见 PANEL.md。
+    CREATE TABLE IF NOT EXISTS panel_kv (
+      id         TEXT PRIMARY KEY,
+      value      TEXT NOT NULL,
+      updated_at TEXT NOT NULL DEFAULT (datetime('now'))
+    );
+  `);
+
   return db;
 };
 

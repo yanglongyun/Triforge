@@ -194,6 +194,12 @@ export const api = {
     request<{ attachment: Attachment }>("/api/upload", { method: "POST", ...jsonBody(opts) }),
 
   // ── 网站收藏 ──
+  /** 面板私有存储:iframe 面板经 PanelFrame 桥读写(面板自己不直连 http)。 */
+  panelStorageGet: (id: string) =>
+    request<{ value: any }>(`/api/panel/storage?id=${encodeURIComponent(id)}`).then((r) => r.value),
+  panelStorageSet: (id: string, value: any) =>
+    request<{ ok: boolean }>(`/api/panel/storage?id=${encodeURIComponent(id)}`, { method: "PUT", ...jsonBody({ value }) }),
+
   listSites: () => request<{ sites: Site[] }>("/api/sites"),
   createSite: (opts: { url: string; title?: string }) =>
     request<{ item: Site }>("/api/sites", { method: "POST", ...jsonBody(opts) }),

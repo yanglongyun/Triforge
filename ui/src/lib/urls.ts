@@ -31,3 +31,12 @@ export const exactKey = (raw: string): string => {
   if (!u) return String(raw || "").trim();
   return hostKey(raw) + u.pathname.replace(/\/+$/, "") + u.search;
 };
+
+/** 一段输入「长得像网址」吗(新标签页的意图判定:像 → 开网站,不像 → 开对话)。 */
+export const looksLikeUrl = (raw: string): boolean => {
+  const value = String(raw || "").trim();
+  if (!value || /\s/.test(value)) return false;
+  if (/^[a-z][a-z0-9+.-]*:\/\//i.test(value)) return true;          // 带协议
+  if (/^localhost(:\d+)?([/?#]|$)/i.test(value)) return true;       // 本机
+  return /^[\w-]+(\.[\w-]+)+([/?#]\S*)?$/.test(value);              // 域名形
+};

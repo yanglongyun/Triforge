@@ -1,7 +1,6 @@
-import { useEffect, useRef, useState } from "react";
+import { useState } from "react";
 import { api, type Node } from "../../api";
 import { dialog } from "../ui";
-import type { DropPosition } from "./NodeRow";
 import {
   PointerSensor,
   TouchSensor,
@@ -15,10 +14,13 @@ import {
 
 export const ROOT_ID = "__root__";
 
-export type OverInfo = { nodeId: string; pos: DropPosition; node: Node };
-
-// 树的拖拽:sensors + 指针追踪 + drop 位置计算 + 落库,全部内聚在此。
-// NodeTree 只负责把返回的 handlers 接到 DndContext、把状态接到 controls/overlay。
+// 树的拖拽:sensors + 目标目录判定 + 落库,全部内聚在此。
+//
+// 文件树没有手工排序(磁盘目录按名列出,move 的 position 服务端直接忽略),
+// 所以这里不存在 before/after 插入线 —— 拖拽唯一的语义是「搬进某个文件夹」:
+//   - 悬停文件夹 = 搬进它;悬停文件 = 搬进它所在的文件夹;
+//   - 目标目录整行亮起(.drop-target);目标就是拖拽物当前所在目录 → 不亮、放下也不动;
+//   - 多选拖拽整组搬(祖先已选中的后代剔除,id 即绝对路径)。
 export function useTreeDnd({
   refresh,
   setExpanded,
@@ -31,24 +33,8 @@ export function useTreeDnd({
 }) {
   const [activeNode, setActiveNode] = useState<Node | null>(null);
   const activeId = activeNode?.id || null;
-  const [overInfo, setOverInfo] = useState<OverInfo | null>(null);
-  const [overRoot, setOverRoot] = useState(false);
-
-  // 全局跟踪指针位置(算 drop position 用)
-  const pointerRef = useRef({ x: 0, y: 0 });
-  useEffect(() => {
-    const onMove = (e: PointerEvent) => { pointerRef.current = { x: e.clientX, y: e.clientY }; };
-    const onTouchMove = (e: TouchEvent) => {
-      const t = e.touches[0];
-      if (t) pointerRef.current = { x: t.clientX, y: t.clientY };
-    };
-    document.addEventListener("pointermove", onMove);
-    document.addEventListener("touchmove", onTouchMove, { passive: true });
-    return () => {
-      document.removeEventListener("pointermove", onMove);
-      document.removeEventListener("touchmove", onTouchMove);
-    };
-  }, []);
+  /** 当前会被落入的目标目录 id(null = 没有可行目标,不亮)。 */
+  const [overDirId, setOverDirId] = useState<string | null>(null);
 
   // ── sensors:鼠标 + 触摸 + 键盘 ──
   const sensors = useSensors(
@@ -57,60 +43,34 @@ export function useTreeDnd({
     useSensor(KeyboardSensor),
   );
 
-  // ── 拖拽算法 ──
-  const nextPosUnder = async (parentId: string | null) => {
-    const siblings = parentId ? (await api.listChildren(parentId)).nodes : (await api.listRoots()).nodes;
-    const max = siblings.reduce((m: number, n: any) => Math.max(m, Number(n.position) || 0), 0);
-    return max + 1;
+  /** 本次拖拽实际要搬的一组 id:多选含拖拽物 → 整组;剔除「祖先也被选中」的后代。 */
+  const dragBatch = (src: string) => {
+    const selection = getSelection?.() || [];
+    let batch = selection.length > 1 && selection.includes(src) ? selection : [src];
+    batch = batch.filter((id) => !batch.some((other) => other !== id && id.startsWith(other + "/")));
+    return batch;
   };
+
+  const parentOf = (id: string) => id.slice(0, id.lastIndexOf("/"));
+
+  /** id 能否搬进 dirId:不进自己/自己的子孙,不搬回自己当前所在目录(原地 = 无操作)。 */
+  const movableInto = (id: string, dirId: string) =>
+    dirId !== id && !dirId.startsWith(id + "/") && parentOf(id) !== dirId;
+
+  /** 悬停节点 → 目标目录:文件夹是它自己,文件是它所在的文件夹。 */
+  const targetDirOf = (node: Node) => (node.kind === "space" ? node.id : node.parent_id || null);
 
   /** 移动 + 重名覆盖确认:服务端默认拒绝同名,确认后带 overwrite 重试(旧的进废纸篓)。 */
-  const moveWithConfirm = async (sourceId: string, parentId: string | null, pos?: number) => {
+  const moveWithConfirm = async (sourceId: string, dirId: string) => {
     try {
-      await api.moveNode(sourceId, parentId, pos);
+      await api.moveNode(sourceId, dirId);
     } catch (e: any) {
-      if (/已有同名/.test(e?.message || "") && (await dialog.confirm(`${e.message}。覆盖吗?(被覆盖的会进废纸篓)`, { danger: true, confirmText: "覆盖" }))) {
-        await api.moveNode(sourceId, parentId, pos, true);
+      if (/已有同名/.test(e?.message || "")) {
+        if (await dialog.confirm(`${e.message}。覆盖吗?(被覆盖的会进废纸篓)`, { danger: true, confirmText: "覆盖" })) {
+          await api.moveNode(sourceId, dirId, undefined, true);
+        }
       } else throw e;
     }
-  };
-
-  const applyDrop = async (sourceId: string, target: Node, position: DropPosition) => {
-    if (sourceId === target.id) return;
-    if (target.workspace && position !== "into") return;
-    try {
-      if (position === "into") {
-        if (target.kind !== "space") return;
-        const pos = await nextPosUnder(target.id);
-        await moveWithConfirm(sourceId, target.id, pos);
-      } else {
-        const parentId = target.parent_id;
-        const siblingsList = parentId
-          ? (await api.listChildren(parentId)).nodes
-          : (await api.listRoots()).nodes;
-        const siblings = siblingsList.filter((n: any) => n.id !== sourceId);
-        const idx = siblings.findIndex((n: any) => n.id === target.id);
-        const targetPos = Number(target.position) || (idx + 1);
-        let newPos: number;
-        if (position === "before") {
-          const prev = idx > 0 ? siblings[idx - 1] : null;
-          const prevPos = prev ? Number(prev.position) || 0 : targetPos - 1;
-          newPos = (prevPos + targetPos) / 2;
-        } else {
-          const next = idx < siblings.length - 1 ? siblings[idx + 1] : null;
-          const nextPos = next ? Number(next.position) || (targetPos + 1) : targetPos + 1;
-          newPos = (targetPos + nextPos) / 2;
-        }
-        await moveWithConfirm(sourceId, parentId, newPos);
-      }
-      refresh();
-    } catch (e: any) {
-      void dialog.alert(e.message || "移动失败");
-    }
-  };
-
-  const applyDropToRoot = async (sourceId: string) => {
-    if (sourceId) setOverRoot(false);
   };
 
   // ── dnd-kit 事件 ──
@@ -121,71 +81,45 @@ export function useTreeDnd({
 
   const onDragOver = (e: DragOverEvent) => {
     const over = e.over;
-    if (!over) { setOverInfo(null); setOverRoot(false); return; }
-    if (String(over.id) === ROOT_ID) {
-      setOverInfo(null);
-      setOverRoot(true);
-      return;
-    }
-    setOverRoot(false);
+    if (!over || String(over.id) === ROOT_ID || !activeId) { setOverDirId(null); return; }
     const node = (over.data.current as any)?.node as Node | undefined;
-    if (!node) { setOverInfo(null); return; }
-    if (node.id === activeId) { setOverInfo(null); return; }
-    // 自己不能拖进自己的子孙(基础防环,后端兜底)
-    const rect = over.rect;
-    if (!rect) { setOverInfo(null); return; }
-    const py = pointerRef.current.y;
-    const rel = Math.max(0, Math.min(1, (py - rect.top) / rect.height));
-
-    let pos: DropPosition;
-    if (node.kind === "space") {
-      if (rel < 0.25) pos = "before";
-      else if (rel > 0.75) pos = "after";
-      else pos = "into";
-    } else {
-      pos = rel < 0.5 ? "before" : "after";
-    }
-    setOverInfo({ nodeId: node.id, pos, node });
+    if (!node) { setOverDirId(null); return; }
+    const dirId = targetDirOf(node);
+    if (!dirId) { setOverDirId(null); return; }
+    // 整组里至少有一个真会动,目标才亮;全是原地/进自己 → 不亮
+    const movable = dragBatch(activeId).some((id) => movableInto(id, dirId));
+    setOverDirId(movable ? dirId : null);
   };
 
   const onDragEnd = async (_e: DragEndEvent) => {
     const src = activeId;
-    const info = overInfo;
-    const root = overRoot;
+    const dirId = overDirId;
     setActiveNode(null);
-    setOverInfo(null);
-    setOverRoot(false);
-    if (!src) return;
-    if (root) {
-      await applyDropToRoot(src);
-      return;
-    }
-    if (!info) return;
-    if (info.pos === "into") setExpanded(info.node.id, true);
+    setOverDirId(null);
+    if (!src || !dirId) return;
 
-    // 多选拖拽:拖的是选中项之一 → 整组一起搬(祖先已选中的后代剔除,id 即路径)
-    const selection = getSelection?.() || [];
-    let batch = selection.length > 1 && selection.includes(src) ? selection : [src];
-    batch = batch.filter((id) => !batch.some((other) => other !== id && id.startsWith(other + "/")));
-    // after 逆序、before 顺序:每次落点都插在 target 旁,迭代后保持原有相对次序
-    const ordered = info.pos === "after" ? [...batch].reverse() : batch;
-    for (const id of ordered) {
-      if (id === info.node.id || info.node.id.startsWith(id + "/")) continue; // 不搬进自己/自己的子孙
-      await applyDrop(id, info.node, info.pos);
+    const batch = dragBatch(src).filter((id) => movableInto(id, dirId));
+    if (!batch.length) return;
+    for (const id of batch) {
+      try {
+        await moveWithConfirm(id, dirId);
+      } catch (e: any) {
+        void dialog.alert(e?.message || "移动失败");
+      }
     }
+    setExpanded(dirId, true); // 放下即展开,看得见落点
+    refresh();
   };
 
   const onDragCancel = () => {
     setActiveNode(null);
-    setOverInfo(null);
-    setOverRoot(false);
+    setOverDirId(null);
   };
 
   return {
     sensors,
     activeNode,
-    overInfo,
-    overRoot,
+    overDirId,
     dndHandlers: { onDragStart, onDragOver, onDragEnd, onDragCancel },
   };
 }

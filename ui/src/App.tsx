@@ -5,7 +5,8 @@ import { api, type GitRepositoryStatus, type Node } from "./api";
 import { EVENTS } from "../../server/shared/events";
 import { QuickOpen, CommandPalette, type Command } from "./components/command";
 import { NodeTree } from "./components/explorer";
-import { WorkspaceLayout, isSettingsTab, isActivityTab, isNodeTab, useTabGroups } from "./components/workspace";
+import { WorkspaceLayout, isSettingsTab, isActivityTab, isNodeTab, useTabGroups, webTab, type WorkspaceGroupId } from "./components/workspace";
+import { looksLikeUrl, normalizeUrl } from "./lib/urls";
 import { DialogHost, dialog } from "./components/ui";
 import { FileText, Folder, FolderPlus, Bot, Globe, Search, Settings as SettingsIcon, X, MonitorPlay, PanelRight, Radio } from "lucide-react";
 import type { ManagedProcess } from "./api";
@@ -225,8 +226,9 @@ export function App() {
         cycleTab(e.key === "]" || e.key === "}" ? 1 : -1);
         return;
       }
-      // dev 纯浏览器里 ⌘W 被浏览器保留,拦不住;Electron 走菜单转发,这里兜非 mac 的 Ctrl+W
+      // dev 纯浏览器里 ⌘W/⌘T 被浏览器保留,拦不住;Electron 走菜单转发,这里兜非 mac 的 Ctrl+W/T
       if (e.ctrlKey && !e.metaKey && !e.shiftKey && e.key.toLowerCase() === "w") { e.preventDefault(); closeActiveTab(); return; }
+      if (e.ctrlKey && !e.metaKey && !e.shiftKey && e.key.toLowerCase() === "t") { e.preventDefault(); tabGroups.openLauncher(); return; }
     };
     const onCloseTab = () => closeActiveTab();
     window.addEventListener("keydown", onKey);
@@ -267,6 +269,67 @@ export function App() {
     setDesktopNavOpen(true);
     window.dispatchEvent(new Event("workbench:add-workspace"));
   };
+
+  // 新标签页(方案 C):+ / ⌘T 打开;Enter 后就地转身 —— 文字变对话(文字即首条消息),
+  // 网址变网页标签(同站已开则聚焦并退场)。LauncherPanel 只发事件,裁决都在这里。
+  const createParentIdRef = useRef(currentCreateParentId);
+  createParentIdRef.current = currentCreateParentId;
+  useEffect(() => {
+    const onNewTab = () => tabGroups.openLauncher();
+    const onLaunch = (e: Event) => {
+      const { tabId, groupId, value } = ((e as CustomEvent).detail || {}) as { tabId?: string; groupId?: WorkspaceGroupId; value?: string };
+      if (!tabId || !groupId) return;
+      const input = String(value || "").trim();
+      if (input && looksLikeUrl(input)) {
+        const url = normalizeUrl(input);
+        const existing = tabGroups.findWebTab(url);
+        if (existing) {
+          tabGroups.closeTab(groupId, tabId);
+          tabGroups.activateTab(existing.groupId, existing.tab.id);
+        } else {
+          tabGroups.replaceTab(groupId, tabId, webTab(url));
+        }
+        return;
+      }
+      void (async () => {
+        try {
+          const r = await api.createAgent({ title: "", workdir: createParentIdRef.current() || undefined });
+          setSelectedNode(r.node);
+          tabGroups.replaceTab(groupId, tabId, r.node);
+          setTreeRefresh((n) => n + 1);
+          if (input) socket.send({ type: "send", agentId: r.node.id, prompt: input });
+        } catch (err: any) {
+          void dialog.alert(err?.message || "新建对话失败");
+        }
+      })();
+    };
+    const onLaunchClose = (e: Event) => {
+      const { tabId, groupId } = ((e as CustomEvent).detail || {}) as { tabId?: string; groupId?: WorkspaceGroupId };
+      if (tabId && groupId) tabGroups.closeTab(groupId, tabId);
+    };
+    const onLaunchCreate = (e: Event) => {
+      const { tabId, groupId, kind } = ((e as CustomEvent).detail || {}) as { tabId?: string; groupId?: WorkspaceGroupId; kind?: string };
+      if (tabId && groupId) tabGroups.closeTab(groupId, tabId);
+      if (kind === "file") { void createAtCurrentTarget("file"); return; }
+      if (kind === "terminal") {
+        void (async () => {
+          const pid = createParentIdRef.current() || (await api.listRoots().catch(() => ({ nodes: [] as Node[] }))).nodes[0]?.id;
+          if (!pid) { void dialog.alert("先添加一个工作区,终端才有落脚的目录。"); return; }
+          tabGroups.openTerminal(pid, `Terminal: ${pid.split("/").filter(Boolean).pop() || "workspace"}`);
+        })();
+      }
+    };
+    window.addEventListener("workbench:new-tab", onNewTab);
+    window.addEventListener("workbench:launch", onLaunch);
+    window.addEventListener("workbench:launch-close", onLaunchClose);
+    window.addEventListener("workbench:launch-create", onLaunchCreate);
+    return () => {
+      window.removeEventListener("workbench:new-tab", onNewTab);
+      window.removeEventListener("workbench:launch", onLaunch);
+      window.removeEventListener("workbench:launch-close", onLaunchClose);
+      window.removeEventListener("workbench:launch-create", onLaunchCreate);
+    };
+  });
 
   const commands: Command[] = [
     { id: "new-agent", label: "新建对话", icon: <Bot size={14} />, run: () => createAtCurrentTarget("agent") },
@@ -318,6 +381,7 @@ export function App() {
         onSelect={openNode}
         socket={socket}
         onOpenUrl={openWebTab}
+        onToggleNav={toggleNav}
         onOpenSide={(n) => openNode(n, { groupId: "side" })}
         onOpenTerminal={openTerminal}
         onOpenGit={openGit}
@@ -350,6 +414,8 @@ export function App() {
           groups={tabGroups.visibleGroups}
           activeGroupId={tabGroups.activeGroupId}
           sideOpen={tabGroups.sideOpen}
+          navOpen={desktopNavOpen}
+          onNewTab={(groupId) => tabGroups.openLauncher({ groupId })}
           socket={socket}
           dirtyIds={dirtyIds}
           drafts={drafts}

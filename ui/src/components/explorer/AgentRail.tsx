@@ -152,6 +152,16 @@ export function AgentRail({
 
   return (
     <div className="flex-1 overflow-y-auto py-1">
+      {/* 面板内部的创建入口(顶部 + 已让位给「添加面板」,创建归各面板自己) */}
+      {agents.length > 0 && (
+        <div
+          onClick={() => void createNow()}
+          className="flex items-center gap-1.5 py-[4px] pl-3 pr-2 cursor-pointer select-none text-text-faint hover:text-text hover:bg-bg-hover"
+        >
+          <Plus size={14} className="shrink-0" />
+          <span className="text-[13.5px]">新建对话</span>
+        </div>
+      )}
       {pinned.length > 0 && (<>
         <div className="px-3 pt-2 pb-1 text-[11px] font-medium text-text-faint select-none">置顶</div>
         {pinned.map(row)}

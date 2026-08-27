@@ -1,6 +1,6 @@
 import { useRef, useState } from "react";
 import { iconFor, colorFor } from "../explorer/NodeRow";
-import { X, Menu, Circle, GitBranch, GitCompare, Globe, MonitorPlay, PanelRight, Radio, Settings, Terminal } from "lucide-react";
+import { X, Menu, Circle, GitBranch, GitCompare, Globe, MonitorPlay, PanelRight, Plus, Radio, Settings, Terminal } from "lucide-react";
 import { ContextMenu, Favicon, type MenuItem } from "../ui";
 import type { WorkspaceGroupId, WorkspaceTab } from "./types";
 
@@ -11,6 +11,7 @@ const tabIconFor = (tab: WorkspaceTab) =>
   tab.kind === "activity" ? Radio :
   tab.kind === "terminal" ? Terminal :
   tab.kind === "process" ? MonitorPlay :
+  tab.kind === "launcher" ? Plus :
   tab.kind === "web" ? Globe : iconFor(tab.kind, tab.title);
 
 const tabColorFor = (tab: WorkspaceTab) =>
@@ -20,6 +21,7 @@ const tabColorFor = (tab: WorkspaceTab) =>
   tab.kind === "activity" ? "text-accent" :
   tab.kind === "terminal" ? "text-success" :
   tab.kind === "process" ? "text-accent" :
+  tab.kind === "launcher" ? "text-accent" :
   tab.kind === "web" ? "text-accent" : colorFor(tab.kind);
 
 type DropGuide = {
@@ -45,6 +47,8 @@ export function TabBar({
   onCloseToRight,
   onCloseGroup,
   onOpenNav,
+  navOpen,
+  onNewTab,
 }: {
   tabs: WorkspaceTab[];
   activeId: string | null;
@@ -62,6 +66,10 @@ export function TabBar({
   onCloseToRight?: (id: string) => void;
   onCloseGroup?: () => void;
   onOpenNav?: () => void;
+  /** 侧边栏当前是否展开:展开时桌面端隐藏标签栏左端的汉堡(汉堡在侧栏头部)。 */
+  navOpen?: boolean;
+  /** 新标签页(方案 C):标签栏加号,贴着最后一个标签。 */
+  onNewTab?: () => void;
 }) {
   const pointerDrag = useRef<{
     startX: number;
@@ -217,12 +225,15 @@ export function TabBar({
       data-tab-count={tabs.length}
       className="flex items-stretch h-11 bg-bg-raised border-b border-border overflow-x-auto no-scrollbar shrink-0"
     >
-      {/* 侧边栏开关 */}
+      {/* 侧边栏开关:侧栏展开时汉堡在侧栏头部,这里只在收起(或移动端)时出现 */}
       {onOpenNav && (
         <button
           onClick={onOpenNav}
-          className="px-2.5 flex items-center justify-center text-text-dim hover:text-text hover:bg-bg-hover border-r border-border shrink-0"
-          title="切换侧边栏"
+          className={[
+            "px-2.5 flex items-center justify-center text-text-dim hover:text-text hover:bg-bg-hover border-r border-border shrink-0",
+            navOpen ? "md:hidden" : "",
+          ].join(" ")}
+          title="展开侧边栏"
         >
           <Menu size={16} />
         </button>
@@ -287,6 +298,17 @@ export function TabBar({
           </div>
         );
       })}
+
+      {/* 新标签页:加号跟随最后一个标签(浏览器习惯) */}
+      {onNewTab && (
+        <button
+          onClick={onNewTab}
+          className="px-2.5 flex items-center justify-center text-text-faint hover:text-accent hover:bg-bg-hover shrink-0"
+          title="新标签页(⌘T)"
+        >
+          <Plus size={15} />
+        </button>
+      )}
 
       {onToggleSideGroup && (
         <button

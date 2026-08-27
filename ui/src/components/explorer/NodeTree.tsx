@@ -3,9 +3,9 @@ import type { GitRepositoryStatus, Node } from "../../api";
 import { api } from "../../api";
 import { NodeRow, InlineCreateRow, iconFor, colorFor, type TreeControls } from "./NodeRow";
 import { AgentRail } from "./AgentRail";
-import { SiteRail } from "./SiteRail";
+import { PanelFrame } from "../panels/PanelFrame";
 import { ContextMenu, dialog, type MenuItem } from "../ui";
-import { Settings, Folder, FolderPlus, FolderOpen, FileText, Bot, Trash2, Pencil, Plus, X, Copy, PanelRight, Terminal, GitBranch, Radio, MessageSquare, Files, Globe, Scissors, ClipboardPaste, FoldVertical } from "lucide-react";
+import { Settings, Folder, FolderPlus, FolderOpen, FileText, FilePlus, Bot, Trash2, Pencil, Plus, X, Copy, PanelRight, Terminal, GitBranch, Radio, Menu, MessageSquare, Files, Globe, ListTodo, Sparkles, Scissors, ClipboardPaste, FoldVertical } from "lucide-react";
 
 const REVEAL_LABEL = /Mac/i.test(navigator.platform) ? "在 Finder 中显示"
   : /Win/i.test(navigator.platform) ? "在资源管理器中显示" : "在文件管理器中显示";
@@ -13,11 +13,25 @@ import { DndContext, DragOverlay, useDroppable } from "@dnd-kit/core";
 import { useTreeDnd, ROOT_ID } from "./useTreeDnd";
 import { AddWorkspaceDialog } from "./AddWorkspaceDialog";
 
+// ── 面板注册表:侧边栏 = 可扩展的面板宿主(见 PANEL.md)──
+// 双轨制:会话/文件是原生 React(深度集成:拖拽/多选/快捷键);
+// 「网站」是预置的 iframe 面板示例;从 + 安装的扩展面板一律 iframe 沙箱。
+type PanelDef = { id: string; title: string; icon: typeof MessageSquare; ext?: boolean };
+const BUILTIN_PANELS: PanelDef[] = [
+  { id: "agents", title: "会话", icon: MessageSquare },
+  { id: "files", title: "文件", icon: Files },
+  { id: "sites", title: "网站", icon: Globe }, // 预置,但载体是 iframe —— 面板契约的白老鼠
+];
+const EXT_PANELS: Record<string, PanelDef> = {
+  todo: { id: "todo", title: "任务", icon: ListTodo, ext: true },
+};
+
 export function NodeTree({
   selectedId,
   onSelect,
   socket,
   onOpenUrl,
+  onToggleNav,
   onOpenSide,
   onOpenTerminal,
   onOpenGit,
@@ -36,6 +50,8 @@ export function NodeTree({
   onSelect: (n: Node | null) => void;
   socket: { send: (m: any) => void; on: (t: string, fn: (p: any) => void) => () => void };
   onOpenUrl: (url: string, title?: string) => void;
+  /** 侧栏头部汉堡:收起侧边栏(桌面端;展开入口在标签栏左端)。 */
+  onToggleNav?: () => void;
   onOpenSide?: (n: Node) => void;
   onOpenTerminal?: (n: Node, opts?: { command?: string; titlePrefix?: string }) => void;
   onOpenGit?: (repo: GitRepositoryStatus) => void;
@@ -51,20 +67,38 @@ export function NodeTree({
   onChanged?: () => void;
 }) {
   const [roots, setRoots] = useState<Node[]>([]);
-  // 顶部 tab:会话 | 文件 | 网站。VS Code 式切换,跨启动记住。
-  type SideTab = "agents" | "files" | "sites";
-  const [sideTab, setSideTab] = useState<SideTab>(() => {
-    const saved = localStorage.getItem("workbench.sideTab");
-    return saved === "files" || saved === "sites" ? saved : "agents";
+  // ── 面板宿主状态:已安装的扩展面板 + 当前面板,均跨启动记住 ──
+  const [extPanels, setExtPanels] = useState<string[]>(() => {
+    try {
+      const saved = JSON.parse(localStorage.getItem("workbench.extPanels") || "[]");
+      return Array.isArray(saved) ? saved.filter((id) => typeof id === "string" && EXT_PANELS[id]) : [];
+    } catch { return []; }
   });
-  const switchTab = (tab: SideTab) => {
+  const panels: PanelDef[] = [...BUILTIN_PANELS, ...extPanels.map((id) => EXT_PANELS[id]).filter(Boolean)];
+  const [sideTab, setSideTab] = useState<string>(() => localStorage.getItem("workbench.sideTab") || "agents");
+  const activePanelId = panels.some((p) => p.id === sideTab) ? sideTab : "agents";
+  const switchTab = (tab: string) => {
     setSideTab(tab);
     localStorage.setItem("workbench.sideTab", tab);
   };
-  // 文件夹右键「在此新建对话」→ 切到会话 tab 并带上预设 workdir
+  const installPanel = (id: string) => {
+    setExtPanels((prev) => {
+      const next = prev.includes(id) ? prev : [...prev, id];
+      localStorage.setItem("workbench.extPanels", JSON.stringify(next));
+      return next;
+    });
+    switchTab(id);
+  };
+  const removePanel = (id: string) => {
+    setExtPanels((prev) => {
+      const next = prev.filter((x) => x !== id);
+      localStorage.setItem("workbench.extPanels", JSON.stringify(next));
+      return next;
+    });
+    if (sideTab === id) switchTab("agents");
+  };
+  // 文件夹右键「在此新建对话」→ 切到会话面板并带上预设 workdir
   const [agentCreateReq, setAgentCreateReq] = useState<{ workdir?: string } | null>(null);
-  // 网站 tab 的「添加」请求(顶部 + 触发)
-  const [siteCreateReq, setSiteCreateReq] = useState(false);
   // 文件夹徽标:workdir → 绑定的智能体数
   const [agentDirs, setAgentDirs] = useState<Map<string, number>>(new Map());
   const [sidebarWidth, setSidebarWidth] = useState(() => {
@@ -152,7 +186,7 @@ export function NodeTree({
   const refresh = useCallback(() => { load(); onChanged?.(); }, [load, onChanged]);
 
   // 拖拽:状态 + 落库都在 hook 里(多选时拖任一选中项 = 整组搬)
-  const { sensors, activeNode, overInfo, overRoot, dndHandlers } = useTreeDnd({
+  const { sensors, activeNode, overDirId, dndHandlers } = useTreeDnd({
     refresh,
     setExpanded,
     getSelection: () => [...multiSelRef.current],
@@ -729,25 +763,35 @@ export function NodeTree({
     if (mobileOpen) onCloseMobile?.();
   };
 
-  // 「新建」:会话 tab 直接新建对话;网站 tab 拉起网址输入;文件 tab 弹文件类菜单
-  const openNewMenu = (e: React.MouseEvent, parentId: string | null = currentCreateParentId()) => {
-    if (sideTab === "agents") {
-      setAgentCreateReq({});
-      return;
-    }
-    if (sideTab === "sites") {
-      setSiteCreateReq(true);
-      return;
-    }
+  // 「添加面板」:面板库。运行时装进来的面板一律 iframe 沙箱(见 PANEL.md);
+  // 创建对话/文件/网站等操作不在这里 —— 归各面板内部。
+  const openPanelGallery = (e: React.MouseEvent) => {
     const r = (e.currentTarget as HTMLElement).getBoundingClientRect();
+    const items: MenuItem[] = Object.values(EXT_PANELS).map((p) => {
+      const installed = extPanels.includes(p.id);
+      const Icon = p.icon;
+      return {
+        label: installed ? `${p.title}(已添加)` : `添加「${p.title}」面板`,
+        icon: <Icon size={13} className={installed ? "" : "text-accent"} />,
+        onClick: () => (installed ? switchTab(p.id) : installPanel(p.id)),
+      };
+    });
+    items.push("divider", {
+      label: "用 AI 定制面板(即将开放)",
+      icon: <Sparkles size={13} className="text-accent" />,
+      disabled: true,
+      onClick: () => {},
+    });
+    setMenu({ x: r.left, y: r.bottom + 4, items });
+  };
+
+  // 扩展面板 tab 右键:移除(内置面板不可移除,无菜单)
+  const onPanelTabContext = (e: React.MouseEvent, p: PanelDef) => {
+    if (!p.ext) return;
+    e.preventDefault();
     setMenu({
-      x: r.left, y: r.bottom + 4,
-      items: [
-        { label: "新建文件夹", icon: <Folder size={13} className="text-accent" />, onClick: () => startCreate(parentId, "space") },
-        { label: "新建文件", icon: <FileText size={13} className="text-text-faint" />, onClick: () => startCreate(parentId, "file") },
-        "divider",
-        { label: "添加工作区", icon: <FolderPlus size={13} className="text-accent" />, onClick: openAddWorkspace },
-      ],
+      x: e.clientX, y: e.clientY,
+      items: [{ label: `移除「${p.title}」面板`, icon: <X size={13} />, danger: true, onClick: () => removePanel(p.id) }],
     });
   };
 
@@ -758,7 +802,7 @@ export function NodeTree({
     expandedIds, toggleExpand, setExpanded,
     creatingUnder, creatingKind, draftTitle, setDraftTitle, commitCreate, cancelCreate,
     renamingId, renameDraft, setRenameDraft, commitRename, cancelRename,
-    activeId: activeNode?.id || null, overNodeId: overInfo?.nodeId || null, dropPos: overInfo?.pos || null,
+    activeId: activeNode?.id || null, overDirId,
     agentDirs,
     multiSelectedIds: multiSel,
     cutIds,
@@ -778,14 +822,19 @@ export function NodeTree({
           desktopOpen ? "md:flex" : "md:hidden",
         ].join(" ")}
       >
-        {/* brand */}
+        {/* brand:右上角 = 汉堡,只管侧栏收起(移动端沿用 X 关闭抽屉) */}
         <div className="flex items-center gap-2.5 px-3.5 h-11 border-b border-border">
           <span className="text-[20px] leading-none select-none">🌳</span>
           <span className="text-[17px] font-semibold text-text flex-1 tracking-tight">Workbench</span>
-          <button onClick={openNewMenu} title="新建"
-            className="w-6 h-6 rounded flex items-center justify-center text-text-faint hover:text-accent hover:bg-bg-hover transition-colors">
-            <Plus size={16} />
-          </button>
+          {onToggleNav && (
+            <button
+              onClick={onToggleNav}
+              title="收起侧边栏"
+              className="hidden md:flex w-6 h-6 rounded items-center justify-center text-text-faint hover:text-text hover:bg-bg-hover transition-colors"
+            >
+              <Menu size={16} />
+            </button>
+          )}
           {onCloseMobile && (
             <button
               onClick={onCloseMobile}
@@ -796,26 +845,35 @@ export function NodeTree({
           )}
         </div>
 
-        {/* 顶部 tab:会话 | 文件 | 网站(VS Code 式切换) */}
-        <div className="flex border-b border-border">
-          {([["agents", "会话", MessageSquare], ["files", "文件", Files], ["sites", "网站", Globe]] as const).map(([key, label, TabIcon]) => (
+        {/* 面板区:可扩展功能区的 tab 行;行末 + = 添加面板(创建操作归各面板内部) */}
+        <div className="flex items-stretch border-b border-border">
+          {panels.map((p) => (
             <button
-              key={key}
-              onClick={() => switchTab(key)}
+              key={p.id}
+              onClick={() => switchTab(p.id)}
+              onContextMenu={(e) => onPanelTabContext(e, p)}
+              title={p.ext ? `${p.title}(扩展面板,右键可移除)` : p.title}
               className={[
-                "flex-1 flex items-center justify-center gap-1.5 h-9 text-[13px] transition-colors border-b-2 -mb-px",
-                sideTab === key
+                "flex-1 min-w-0 flex items-center justify-center gap-1.5 h-9 px-1 text-[13px] transition-colors border-b-2 -mb-px",
+                activePanelId === p.id
                   ? "border-accent text-text font-medium"
                   : "border-transparent text-text-dim hover:text-text hover:bg-bg-hover",
               ].join(" ")}
             >
-              <TabIcon size={13} />
-              <span>{label}</span>
+              <p.icon size={13} className="shrink-0" />
+              <span className="truncate">{p.title}</span>
             </button>
           ))}
+          <button
+            onClick={openPanelGallery}
+            title="添加面板"
+            className="self-center shrink-0 w-6 h-6 mx-1.5 rounded flex items-center justify-center text-text-faint hover:text-accent hover:bg-bg-hover transition-colors"
+          >
+            <Plus size={15} />
+          </button>
         </div>
 
-        {sideTab === "agents" ? (
+        {activePanelId === "agents" ? (
           <AgentRail
             selectedId={selectedId}
             onSelect={handleSelect}
@@ -824,13 +882,9 @@ export function NodeTree({
             createReq={agentCreateReq}
             onCreateHandled={() => setAgentCreateReq(null)}
           />
-        ) : sideTab === "sites" ? (
-          <SiteRail
-            refreshKey={refreshKey}
-            onOpenUrl={onOpenUrl}
-            createReq={siteCreateReq}
-            onCreateHandled={() => setSiteCreateReq(false)}
-          />
+        ) : activePanelId !== "files" ? (
+          // 预置示例「网站」+ 所有安装的扩展面板:iframe 沙箱,一切往来走宿主桥
+          <PanelFrame key={activePanelId} panelId={activePanelId} onOpenUrl={onOpenUrl} />
         ) : (
         <>
         {/* 筛选 + 折叠全部 */}
@@ -849,6 +903,21 @@ export function NodeTree({
               <X size={12} />
             </button>
           )}
+          {/* 面板内部的创建入口(顶部 + 已让位给「添加面板」) */}
+          <button
+            onClick={() => startCreate(currentCreateParentId(), "file")}
+            title="新建文件"
+            className="w-5 h-5 rounded flex items-center justify-center text-text-faint hover:text-text hover:bg-bg-hover"
+          >
+            <FilePlus size={13} />
+          </button>
+          <button
+            onClick={() => startCreate(currentCreateParentId(), "space")}
+            title="新建文件夹"
+            className="w-5 h-5 rounded flex items-center justify-center text-text-faint hover:text-text hover:bg-bg-hover"
+          >
+            <FolderPlus size={13} />
+          </button>
           <button
             onClick={() => setExpandedIds(new Set())}
             title="折叠全部"
@@ -880,7 +949,7 @@ export function NodeTree({
             {!filterMatches.length && <div className="px-3 py-6 text-center text-[12.5px] text-text-faint">没有匹配的文件</div>}
           </div>
         ) : (
-        <RootDroppable highlight={overRoot} onContextMenu={onBlankContext} onNativeDragOver={onExternalDragOver} onNativeDrop={onExternalDrop}>
+        <RootDroppable onContextMenu={onBlankContext} onNativeDragOver={onExternalDragOver} onNativeDrop={onExternalDrop}>
           {creatingUnder === "" && <InlineCreateRow depth={0} controls={controls} />}
 
           {roots.map((node) => (
@@ -960,12 +1029,12 @@ export function NodeTree({
         />
       </aside>
 
-      {/* 拖动时跟手指/鼠标的预览(多选拖拽带数量角标) */}
+      {/* 拖动跟随物:小而不挡视野 —— 单个 = 图标牌,多选 = 第一层数量徽标 */}
       <DragOverlay dropAnimation={null}>
         {activeNode ? (
           <DragPreview
             node={activeNode}
-            count={multiSel.size > 1 && multiSel.has(activeNode.id) ? multiSel.size : 1}
+            count={multiSel.has(activeNode.id) ? pruneNested([...multiSel]).length : 1}
           />
         ) : null}
       </DragOverlay>
@@ -975,23 +1044,22 @@ export function NodeTree({
 
 function RootDroppable({
   children,
-  highlight,
   onContextMenu,
   onNativeDragOver,
   onNativeDrop,
 }: {
   children: React.ReactNode;
-  highlight: boolean;
   onContextMenu: (e: React.MouseEvent) => void;
   /** 外部文件拖入(Finder → 树):dnd-kit 是指针拖拽,与原生 drag 事件不冲突。 */
   onNativeDragOver?: (e: React.DragEvent) => void;
   onNativeDrop?: (e: React.DragEvent) => void;
 }) {
+  // 仍注册 droppable:空白区是合法的悬停区域(无目标,不亮、放下无操作)
   const { setNodeRef } = useDroppable({ id: ROOT_ID });
   return (
     <div
       ref={setNodeRef}
-      className={`flex-1 overflow-y-auto ${highlight ? "bg-accent-soft" : ""}`}
+      className="flex-1 overflow-y-auto"
       onContextMenu={onContextMenu}
       onDragOver={onNativeDragOver}
       onDrop={onNativeDrop}
@@ -1001,18 +1069,19 @@ function RootDroppable({
   );
 }
 
+/** 拖拽跟随物:不遮视野 —— 单个 = 小图标牌;多选 = 第一层数量徽标(Finder 习惯)。 */
 function DragPreview({ node, count = 1 }: { node: Node; count?: number }) {
-  const Icon = iconFor(node.kind);
-  const color = colorFor(node.kind);
+  if (count > 1) {
+    return (
+      <div className="w-7 h-7 rounded-full bg-accent text-white text-[12px] font-semibold flex items-center justify-center shadow-lg shadow-black/20 cursor-grabbing select-none">
+        {count}
+      </div>
+    );
+  }
+  const Icon = iconFor(node.kind, node.title);
   return (
-    <div className="flex items-center gap-1.5 px-2 py-1 rounded bg-surface border border-accent shadow-lg shadow-black/15 text-[14.5px] cursor-grabbing select-none">
-      <Icon size={14} className={color} />
-      <span className="truncate max-w-48">{node.title}</span>
-      {count > 1 && (
-        <span className="shrink-0 min-w-5 h-5 px-1 rounded-full bg-accent text-white text-[11px] font-semibold flex items-center justify-center">
-          {count}
-        </span>
-      )}
+    <div className="w-7 h-7 rounded-md bg-surface border border-border-strong shadow-lg shadow-black/15 flex items-center justify-center cursor-grabbing select-none">
+      <Icon size={14} className={colorFor(node.kind)} />
     </div>
   );
 }

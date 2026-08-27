@@ -4,8 +4,6 @@ import { api } from "../../api";
 import { ChevronRight, Folder, FileText, Bot, FileCode, FileJson, Image, Hash, FileType } from "lucide-react";
 import { useDraggable, useDroppable } from "@dnd-kit/core";
 
-export type DropPosition = "before" | "after" | "into";
-
 export type TreeControls = {
   expandedIds: Set<string>;
   toggleExpand: (id: string) => void;
@@ -23,10 +21,9 @@ export type TreeControls = {
   setRenameDraft: (s: string) => void;
   commitRename: () => void;
   cancelRename: () => void;
-  // dnd-kit:外部告诉 NodeRow 当前哪个 nodeId 被 hover 以及 drop 位置
+  // dnd-kit:当前拖拽物 id + 将被落入的目标目录 id(该目录整行亮起)
   activeId: string | null;
-  overNodeId: string | null;
-  dropPos: DropPosition | null;
+  overDirId: string | null;
   /** 文件夹徽标:workdir → 绑定的智能体数(「谁住在这」的可见性,污染归零后的替代) */
   agentDirs: Map<string, number>;
   /** 多选集(Cmd 点选 / Shift 范围选,VS Code 资源管理器同款);高亮与单选同款。 */
@@ -105,8 +102,7 @@ export function NodeRow({
     [setDragRef, setDropRef],
   );
 
-  const isOver = controls.overNodeId === node.id;
-  const dropPos = isOver ? controls.dropPos : null;
+  const isDropTarget = controls.overDirId === node.id;
 
   const loadChildren = useCallback(async () => {
     if (!isContainer) return;
@@ -133,16 +129,6 @@ export function NodeRow({
 
   return (
     <div>
-      {/* drop indicator (before) */}
-      {dropPos === "before" && (
-        <div
-          className="h-0 relative pointer-events-none"
-          style={{ marginLeft: `${depth * 0.9 + 1.7}rem` }}
-        >
-          <div className="absolute -top-px left-0 right-2 h-0.5 bg-accent rounded" />
-        </div>
-      )}
-
       <div
         ref={setRef}
         data-nid={node.id}
@@ -160,7 +146,7 @@ export function NodeRow({
           isSelected && !isRenaming ? "bg-bg-inset" : "hover:bg-bg-hover",
           isDragging ? "opacity-40" : "",
           controls.cutIds.has(node.id) ? "opacity-50" : "", // 剪切待移动
-          dropPos === "into" ? "drop-target" : "",
+          isDropTarget ? "drop-target" : "",
         ].join(" ")}
         style={{ paddingLeft: `${depth * 0.9 + 0.5}rem` }}
       >
@@ -225,16 +211,6 @@ export function NodeRow({
           <span className="text-[15px] leading-none -mt-1">⋯</span>
         </button>
       </div>
-
-      {/* drop indicator (after) */}
-      {dropPos === "after" && (
-        <div
-          className="h-0 relative pointer-events-none"
-          style={{ marginLeft: `${depth * 0.9 + 1.7}rem` }}
-        >
-          <div className="absolute -top-px left-0 right-2 h-0.5 bg-accent rounded" />
-        </div>
-      )}
 
       {expanded && isContainer && (
         <div>

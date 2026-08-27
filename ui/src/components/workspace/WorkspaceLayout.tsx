@@ -36,6 +36,8 @@ export function WorkspaceLayout({
   groups,
   activeGroupId,
   sideOpen,
+  navOpen,
+  onNewTab,
   socket,
   dirtyIds,
   drafts,
@@ -66,6 +68,8 @@ export function WorkspaceLayout({
   groups: WorkspaceGroupState[];
   activeGroupId: WorkspaceGroupId;
   sideOpen: boolean;
+  navOpen?: boolean;
+  onNewTab?: (groupId: WorkspaceGroupId) => void;
   socket: Socket;
   dirtyIds: Set<string>;
   drafts: Record<string, string>;
@@ -239,6 +243,8 @@ export function WorkspaceLayout({
               showNavButton={index === 0}
               showSideToggle={index === groups.length - 1}
               sideOpen={sideOpen}
+              navOpen={navOpen}
+              onNewTab={onNewTab}
               onFocus={onFocusGroup}
               onActivateTab={onActivateTab}
               onCloseTab={onCloseTab}
