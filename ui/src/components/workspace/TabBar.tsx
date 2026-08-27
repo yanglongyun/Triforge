@@ -314,11 +314,12 @@ export function TabBar({
 
       </div>
 
-      {/* 新标签页:贴着滚动区右缘 —— 标签不满时即贴着最后一个标签,溢出时也始终可见 */}
+      {/* 新标签页:贴着滚动区右缘 —— 标签不满时即贴着最后一个标签,溢出时也始终可见。
+          左边线补齐(-ml-px 与最后一个标签的右边线重叠,避免双线) */}
       {onNewTab && (
         <button
           onClick={onNewTab}
-          className="px-2.5 flex items-center justify-center text-text-faint hover:text-accent hover:bg-bg-hover shrink-0"
+          className="px-2.5 flex items-center justify-center text-text-faint hover:text-accent hover:bg-bg-hover shrink-0 border-l border-border -ml-px"
           title="新标签页(⌘T)"
         >
           <Plus size={15} />
