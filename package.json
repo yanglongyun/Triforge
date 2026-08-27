@@ -22,6 +22,7 @@
   "build": {
     "appId": "dev.woodchange.workbench",
     "productName": "Workbench",
+    "afterSign": "scripts/notarize.cjs",
     "directories": {
       "output": "release"
     },
@@ -55,17 +56,29 @@
     "mac": {
       "target": [
         {
-          "target": "dir",
+          "target": "dmg",
+          "arch": [
+            "arm64"
+          ]
+        },
+        {
+          "target": "zip",
           "arch": [
             "arm64"
           ]
         }
       ],
       "icon": "desktop/icon.icns",
-      "category": "public.app-category.developer-tools"
+      "category": "public.app-category.developer-tools",
+      "identity": "Chuan Zhi (Chengdu) Information Technology Co., Ltd. (92696T726U)",
+      "hardenedRuntime": true,
+      "gatekeeperAssess": false,
+      "entitlements": "desktop/build/entitlements.mac.plist",
+      "entitlementsInherit": "desktop/build/entitlements.mac.plist"
     }
   },
   "devDependencies": {
+    "@electron/notarize": "^3.1.1",
     "@tailwindcss/vite": "^4.2.4",
     "@types/node": "^25.9.1",
     "@types/react": "^19.2.15",
