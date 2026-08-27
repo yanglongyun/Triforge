@@ -7,6 +7,7 @@ import { migrateOnBoot } from "./service/agents.js";
 import { isTrustedOrigin } from "./origin.js";
 import { track } from "./telemetry.js";
 import { startGadgetRuntime } from "./gadgets.js";
+import { seedPresetApps } from "./service/apps.js";
 
 const startServer = async (port = 9506) =>
   new Promise((resolve, reject) => {
@@ -30,6 +31,7 @@ const startServer = async (port = 9506) =>
       migrateOnBoot(); // 历史 .agent.json → SQLite,用户目录从此干净
       startWatcher(); // 工作区文件监听:磁盘上的任何变化 → 树自动刷新
       track("app_open"); // 匿名遥测(仅打包应用;设置可关,见 telemetry.ts)
+      seedPresetApps(); // 预装应用落地到工作区 —— 之后它们就是用户自己的应用
       void startGadgetRuntime(port); // 应用后端运行时(workerd):失败只停用 gadget 能力,不拖垮主服务
       console.log(`Workbench running on http://127.0.0.1:${port}`);
       resolve(server);

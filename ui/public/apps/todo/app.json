@@ -2,6 +2,6 @@
   "id": "todo",
   "name": "任务",
   "icon": "☑️",
-  "mounts": { "panel": "index.html" },
-  "capabilities": ["storage"]
+  "mounts": { "tab": "/", "panel": "/" },
+  "capabilities": ["db"]
 }

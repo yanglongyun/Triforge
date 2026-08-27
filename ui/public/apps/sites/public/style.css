@@ -1,0 +1,20 @@
+:root{--color-bg:#fff;--color-bg-raised:#fbfbfa;--color-bg-inset:#f1f1ef;--color-bg-hover:#efefed;
+--color-border:#ebebea;--color-border-strong:#d3d3d1;--color-text:#37352f;--color-text-dim:#5f5e5b;
+--color-text-faint:#9b9a97;--color-accent:#2383e2;--color-surface:#fff;--color-danger:#e03e3e}
+*{box-sizing:border-box;margin:0}html,body{height:100%}
+body{font:14px/1.55 Inter,-apple-system,BlinkMacSystemFont,"PingFang SC",sans-serif;
+color:var(--color-text);background:var(--color-bg);-webkit-font-smoothing:antialiased}
+button{font:inherit;color:inherit;background:none;border:none;cursor:pointer}
+input{font:inherit;color:var(--color-text)}
+.row{display:flex;align-items:center;gap:8px;padding:6px 12px;cursor:pointer;user-select:none}
+.row:hover{background:var(--color-bg-hover)}
+.row .t{flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.row .sub{font-size:11px;color:var(--color-text-faint)}
+.del{width:20px;height:20px;border-radius:4px;color:var(--color-text-faint);opacity:0;flex-shrink:0}
+.row:hover .del{opacity:1}.del:hover{color:var(--color-danger);background:var(--color-bg-inset)}
+.bar{display:flex;gap:6px;padding:8px 12px;border-bottom:1px solid var(--color-border)}
+.bar input{flex:1;min-width:0;height:30px;padding:0 10px;border-radius:6px;border:1px solid var(--color-border-strong);outline:none;background:var(--color-surface)}
+.bar input:focus{border-color:var(--color-accent)}
+.bar button{padding:0 14px;border-radius:6px;background:var(--color-accent);color:#fff;font-size:13px}
+.empty{padding:48px 24px;text-align:center;color:var(--color-text-faint);font-size:13px;line-height:1.8}
+.wrap{max-width:720px;margin:0 auto}

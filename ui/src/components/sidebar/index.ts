@@ -1,2 +1,2 @@
 export { PanelHost } from "./PanelHost";
-export { NATIVE_PANELS, PRESET_APPS, appEntryUrl, type AppDef } from "./registry";
+export { NATIVE_PANELS, type AppDef } from "./registry";

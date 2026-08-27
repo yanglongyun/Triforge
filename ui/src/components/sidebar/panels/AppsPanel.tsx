@@ -11,7 +11,7 @@ export function AppsPanel({
   pinnedIds,
   onOpenTab,
   onTogglePin,
-  onRemovePreset,
+  onRemoveApp,
   onCreateWithAI,
 }: {
   apps: AppDef[];
@@ -19,7 +19,7 @@ export function AppsPanel({
   /** 在标签页打开(tab 挂载)。 */
   onOpenTab: (app: AppDef) => void;
   onTogglePin: (app: AppDef) => void;
-  onRemovePreset: (app: AppDef) => void;
+  onRemoveApp: (app: AppDef) => void;
   onCreateWithAI: () => void;
 }) {
   const [menu, setMenu] = useState<{ x: number; y: number; items: MenuItem[] } | null>(null);
@@ -41,9 +41,7 @@ export function AppsPanel({
         onClick: () => onTogglePin(app),
       });
     }
-    if (app.source === "preset") {
-      items.push("divider", { label: "移除", icon: <Trash2 size={13} />, danger: true, onClick: () => onRemovePreset(app) });
-    }
+    items.push("divider", { label: "删除应用", icon: <Trash2 size={13} />, danger: true, onClick: () => onRemoveApp(app) });
     setMenu({ x: e.clientX, y: e.clientY, items });
   };
 
@@ -66,14 +64,11 @@ export function AppsPanel({
               key={app.id}
               onClick={() => openApp(app)}
               onContextMenu={(e) => appMenu(e, app)}
-              title={app.source === "workspace" ? `工作区应用(apps/${app.id}/,删除目录即移除)` : app.name}
+              title={`${app.name} —— apps/${app.id}/`}
               className="group flex items-center gap-2 py-[5px] pl-3 pr-2 cursor-pointer select-none text-text hover:bg-bg-hover"
             >
               <span className="shrink-0 w-5 text-center text-[15px] leading-none">{app.icon}</span>
               <span className="flex-1 min-w-0 truncate text-[14px]">{app.name}</span>
-              {app.source === "workspace" && (
-                <span className="shrink-0 text-[10px] px-1 rounded bg-bg-inset text-text-faint">工作区</span>
-              )}
               {app.mounts.panel && (
                 <button
                   onClick={(e) => { e.stopPropagation(); onTogglePin(app); }}

@@ -1,0 +1,7 @@
+{
+  "id": "notes",
+  "name": "笔记",
+  "icon": "📝",
+  "mounts": { "tab": "/" },
+  "capabilities": ["db", "ai"]
+}

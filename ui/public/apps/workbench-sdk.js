@@ -3023,8 +3023,6 @@
   window.parent.postMessage("wb-handshake", "*", [port2]);
   var host = newMessagePortRpcSession(port1, new ClientMain());
   var call = (method, ...args) => initPromise.then(() => host[method](...args));
-  var gadgetStubPromise = null;
-  var gadgetStub = () => gadgetStubPromise ??= call("gadget");
   window.workbench = {
     /** 等宿主握手,返回 { appId, mount, route }。 */
     ready: () => initPromise,
@@ -3041,32 +3039,6 @@
     },
     /** 广播给同应用的其他实例(自己不回声)。 */
     emit: (event, payload) => call("busEmit", event, payload),
-    storage: {
-      get: () => call("storageGet"),
-      set: (value) => call("storageSet", value)
-    },
-    /** 应用私有 SQLite(能力:db)。SELECT 返回 {rows},写返回 {changes, lastInsertRowid}。 */
-    db: {
-      exec: (sql, params) => call("dbExec", sql, params || [])
-    },
-    tabs: {
-      open: (req) => call("tabsOpen", req || {}),
-      openApp: (req) => call("tabsOpenApp", req || {})
-    },
-    /** 调 AI(能力:ai):无状态单次补全,summary 必填,活动可见。返回 {text, tokens}。 */
-    ai: {
-      complete: (req) => call("aiComplete", req || {})
-    },
-    /** 派活给智能体(能力:agent):活动可见,不进会话面板。返回 {agentId, text}。 */
-    agent: {
-      run: (req) => call("agentRun", req || {})
-    },
-    /** 工作区文件(能力:fs:workspace,首次使用需用户授权)。 */
-    fs: {
-      read: (req) => call("fsRead", req || {}),
-      write: (req) => call("fsWrite", req || {}),
-      list: (req) => call("fsList", req || {})
-    },
     ui: {
       toast: (message) => call("uiToast", message)
     },
@@ -3077,16 +3049,15 @@
       openExternal: (url) => call("systemOpenExternal", url),
       copyText: (text) => call("clipboardWrite", text)
     },
-    /** 应用后端桩(manifest 声明 server 才可用):方法即 server.js 里 Gadget 类的方法。
-        懒连接:首次调用才建会话、后端 worker 也在那一刻才被装载;出错后下次调用自动重连。 */
-    gadget: new Proxy({}, {
-      get: (_t, prop) => {
-        if (typeof prop !== "string" || prop === "then") return void 0;
-        return (...args) => gadgetStub().then((g) => g[prop](...args)).catch((e) => {
-          gadgetStubPromise = null;
-          throw e;
-        });
-      }
-    })
+    /** 工作区文件(能力:fs:workspace,首次使用弹用户授权)。 */
+    fs: {
+      read: (req) => call("fsRead", req || {}),
+      write: (req) => call("fsWrite", req || {}),
+      list: (req) => call("fsList", req || {})
+    },
+    tabs: {
+      open: (req) => call("tabsOpen", req || {}),
+      openApp: (req) => call("tabsOpenApp", req || {})
+    }
   };
 })();

@@ -71,7 +71,8 @@ const parentAbsOf = (abs) => isWorkspaceRoot(abs) ? null : path.dirname(normaliz
 // 点开头不等于隐藏:.dev / .github / .gitignore 都是要看的(VS Code 同款语义)。
 // 真正藏起来的只有系统噪音文件;噪音目录走 IGNORE_DIRS(.git 在其中)。
 const IGNORE_FILES = new Set([".DS_Store", "Thumbs.db", "desktop.ini"]);
-const isHidden = (name) => IGNORE_FILES.has(name);
+// SQLite 的附属文件(应用 data.db 旁边那两个)不上树:一个库显示三个文件纯属噪音
+const isHidden = (name) => IGNORE_FILES.has(name) || /\.(db|sqlite)-(wal|shm)$/.test(name);
 // 递归(搜索 / 删除子树)时跳过的重目录 —— 跟 VSCode 一样不索引它们,
 // 否则 AI 一 npm install,node_modules 几万文件会拖垮一切。
 const IGNORE_DIRS = new Set([

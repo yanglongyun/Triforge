@@ -8,7 +8,7 @@ import { api, type GitRepositoryStatus, type Node } from "../../api";
 import { ContextMenu, dialog, type MenuItem } from "../ui";
 import { Menu, Plus, Radio, Settings, X } from "lucide-react";
 import { beginGlobalDrag, endGlobalDrag } from "../../lib/drag";
-import { NATIVE_PANELS, PRESET_APPS, type AppDef } from "./registry";
+import { NATIVE_PANELS, type AppDef } from "./registry";
 import { AgentRail } from "./panels/AgentRail";
 import { FilesPanel } from "./panels/FilesPanel";
 import { AppsPanel } from "./panels/AppsPanel";
@@ -32,37 +32,61 @@ const initialPinned = (): string[] => {
   return ["sites", ...legacy.filter((id) => id !== "sites")];
 };
 
-/** 「让 AI 造一个应用」的开工指令:自包含的契约速查表(用户工作区里没有 APP.md,全都写进提示词)。 */
+/** 「让 AI 造一个应用」的开工指令:自包含的契约速查表(用户工作区里没有 APP.md,全写进提示词)。 */
 const buildAppPrompt = (desc: string) => `请在当前工作目录为我建一个 Workbench 应用:${desc.trim()}
 
-Workbench 应用 = 工作区里的一个目录,建好即自动出现在「应用」面板(无需注册步骤):
+Workbench 应用 = 工作区里的一个目录,**本身就是一个标准 Cloudflare Worker 网站**,建好即自动
+出现在「应用」面板(没有注册步骤):
 
-apps/<id>/app.json   ← manifest,示例:
+apps/<id>/
+  app.json     manifest
+  server.js    Worker:export default { async fetch(req, env) {…} }
+  public/      静态资源(index.html 等)
+  data.db      数据(自动生成,别手建)
+
+app.json:
 { "id": "notebook", "name": "笔记本", "icon": "📔",
-  "mounts": { "tab": "index.html" },          ← 可选 "panel": 另一个 html(侧栏紧凑视图)
-  "capabilities": ["db"] }                     ← 按需声明:storage / db / tabs / ai / agent / fs:workspace / system
+  "mounts": { "tab": "/" },              ← 可选加 "panel": "/panel.html"(侧栏窄视图)
+  "capabilities": ["db"] }               ← db / ai / agent / tabs / system / fs:workspace
 
-apps/<id>/index.html ← 自包含页面(iframe 沙箱,样式用 var(--color-bg/text/border/accent…) 自动随主题),
-引入 SDK:<script src="/apps/workbench-sdk.js"></script>,await workbench.ready() 后可用:
-- workbench.storage.get()/set(v)                     KV 小状态
-- workbench.db.exec(sql, params)                     应用私有 SQLite,自由建表增删改查(推荐主力)
-- workbench.tabs.open({url}) / openApp({route})      开网页 / 打开自己的标签页(带路由)
-- workbench.ai.complete({summary, prompt, system?})  调 AI(summary 必填,活动里展示)
-- workbench.agent.run({summary, message})            派活给智能体(能用工具,较重)
-- workbench.fs.read/write/list({path, content?})     工作区文件(需 fs:workspace 能力)
-- workbench.context() / on(event,fn) / emit(event)   实例信息 / 同应用实例间事件
-- workbench.ui.toast(msg) / dialog.confirm(msg)      提示与确认
+server.js —— 和真实 Cloudflare Worker 写法完全一致:
+export default {
+  async fetch(req, env) {
+    const url = new URL(req.url);
+    if (url.pathname === "/api/notes") {
+      const { results } = await env.DB.prepare("SELECT * FROM notes ORDER BY id DESC").all();
+      return Response.json(results);
+    }
+    return env.ASSETS.fetch(req);   // 其余交给 public/ 下的静态资源
+  },
+};
 
-进阶(可选):应用可以有真后端 —— manifest 加 "server": "server.js",写 apps/<id>/server.js:
-  import { WorkerEntrypoint } from "cloudflare:workers";
-  export class Gadget extends WorkerEntrypoint {
-    async myMethod(x) { return this.env.HOST.dbExec("SELECT ...", [x]); }  // 同一张应用私有库
-  }
-它跑在 workerd 沙箱里(物理断网,只有 env.HOST:dbExec/log);前端经 workbench.gadget.myMethod(x)
-直连调用。逻辑重、要事务、要服务端校验时用它;纯 CRUD 用前端 db.exec 就够。
+env 里有三样(都不用 import):
+  env.DB      D1 接口,落在 apps/<id>/data.db:
+              env.DB.prepare(sql).bind(a, b).all() / .first() / .run()
+              env.DB.exec("CREATE TABLE IF NOT EXISTS …")   多语句建表脚本
+              env.DB.batch([stmt, stmt])                    一个事务
+  env.ASSETS  public/ 下的静态资源:return env.ASSETS.fetch(req)
+  env.HOST    Workbench 专有能力:
+              await env.HOST.ai({ summary, prompt, system })      调 AI(需 ai 能力,summary 必填)
+              await env.HOST.agent({ summary, message })          派活给智能体(需 agent 能力)
+              await env.HOST.log("…")                             日志回流到控制台,调试用
 
-要求:先 write 出 app.json 和 index.html,界面简洁贴合 Workbench 风格(浅色变量兜底),
-数据用 db 能力自建表;完成后告诉我应用名和怎么用。`;
+public/index.html —— 前端页面。它和自己的后端**同源**,直接 fetch("/api/notes") 即可,
+不需要任何 SDK。样式用 var(--color-bg / --color-text / --color-border / --color-accent /
+--color-bg-inset / --color-text-faint …) 自动随明暗主题(给浅色兜底值)。
+
+只有要用宿主 UI 能力时才引 SDK:<script src="/_wb/sdk.js"></script>
+  workbench.ui.toast(msg)                       轻提示
+  workbench.dialog.confirm(msg)                 确认框
+  workbench.tabs.open({ url })                  开网页标签(需 tabs 能力)
+  workbench.system.copyText(text)               剪贴板(需 system 能力)
+  workbench.context() / on("route", fn)         实例信息 / 侧栏与标签页实例间的路由与事件
+
+要求:
+1. 建表放在请求处理开头(CREATE TABLE IF NOT EXISTS),isolate 会重启,别依赖内存状态;
+2. 界面简洁、贴合 Workbench 风格,别引外部 CDN(应用物理断网,只有这三个 binding 能碰外界);
+3. 先 write 出 app.json / server.js / public/index.html,完成后告诉我应用名和怎么用。`;
 
 export function PanelHost({
   selectedId,
@@ -106,22 +130,13 @@ export function PanelHost({
   onCloseMobile?: () => void;
   onChanged?: () => void;
 }) {
-  // ── 应用注册状态:预装(可移除)+ 工作区(目录即安装)+ 钉住列表 ──
-  const [removedPresets, setRemovedPresets] = useState<string[]>(() => load("workbench.apps.removedPresets", []));
+  // ── 应用:全部来自工作区(<workspace>/apps/<id>/),目录即安装 ──
   const [pinned, setPinned] = useState<string[]>(initialPinned);
-  const [workspaceApps, setWorkspaceApps] = useState<AppDef[]>([]);
-  useEffect(() => {
-    let cancelled = false;
-    api.listWorkspaceApps()
-      .then((apps) => { if (!cancelled) setWorkspaceApps(apps as AppDef[]); })
-      .catch(() => {});
-    return () => { cancelled = true; };
-  }, [refreshKey]);
-
-  const apps: AppDef[] = [
-    ...PRESET_APPS.filter((p) => !removedPresets.includes(p.id)),
-    ...workspaceApps.filter((w) => !PRESET_APPS.some((p) => p.id === w.id)),
-  ];
+  const [apps, setApps] = useState<AppDef[]>([]);
+  const reloadApps = () => api.listWorkspaceApps()
+    .then((list) => setApps(list as AppDef[]))
+    .catch(() => {});
+  useEffect(() => { void reloadApps(); }, [refreshKey]);
   const pinnedApps = pinned
     .map((id) => apps.find((a) => a.id === id))
     .filter((a): a is AppDef => !!a && !!a.mounts.panel);
@@ -151,12 +166,11 @@ export function PanelHost({
     });
     switchTab(app.id);
   };
-  const removePreset = (app: AppDef) => {
-    setRemovedPresets((prev) => {
-      const next = prev.includes(app.id) ? prev : [...prev, app.id];
-      save("workbench.apps.removedPresets", next);
-      return next;
-    });
+  const removeApp = async (app: AppDef) => {
+    if (!(await dialog.confirm(`删除应用「${app.name}」?\n它的目录 apps/${app.id}/(含数据 data.db)会一并删除。`, { danger: true, confirmText: "删除" }))) return;
+    try { await api.removeApp(app.id); } catch (e: any) { void dialog.alert(e?.message || "删除失败"); return; }
+    void reloadApps();
+    onChanged?.();
     setPinned((prev) => {
       const next = prev.filter((x) => x !== app.id);
       save("workbench.apps.pinned", next);
@@ -380,7 +394,7 @@ export function PanelHost({
           pinnedIds={pinned}
           onOpenTab={(app) => onOpenApp(app)}
           onTogglePin={togglePin}
-          onRemovePreset={removePreset}
+          onRemoveApp={removeApp}
           onCreateWithAI={createAppWithAI}
         />
       )}

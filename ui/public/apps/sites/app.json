@@ -2,6 +2,6 @@
   "id": "sites",
   "name": "网站",
   "icon": "🌐",
-  "mounts": { "panel": "index.html" },
-  "capabilities": ["storage", "tabs", "system"]
+  "mounts": { "tab": "/", "panel": "/panel.html" },
+  "capabilities": ["db", "tabs", "system"]
 }

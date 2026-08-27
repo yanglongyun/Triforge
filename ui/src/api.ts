@@ -31,9 +31,9 @@ export type WorkspaceAppInfo = {
   id: string;
   name: string;
   icon: string;
+  /** 挂载点 = 应用内的路由路径(不是文件名)。 */
   mounts: { panel?: string; tab?: string };
   capabilities: string[];
-  source: "workspace";
 };
 
 /** 应用活动流水(ai.complete 的问责记录;agent.run 走 calls 表)。 */
@@ -222,39 +222,18 @@ export const api = {
   /** 工作区应用注册表(<workspace>/apps/<id>/app.json)。 */
   listWorkspaceApps: () =>
     request<{ apps: WorkspaceAppInfo[] }>("/api/apps/registry").then((r) => r.apps || []),
-  /** 应用私有数据库(一应用一库文件),经宿主桥转发。 */
-  appDb: (appId: string, sql: string, params?: unknown[]) =>
-    request<{ rows?: unknown[]; changes?: number; lastInsertRowid?: number }>("/api/app/db", { method: "POST", ...jsonBody({ appId, sql, params }) }),
-  /** 应用的 ai 能力:无状态单次补全,落活动流水。 */
-  appAi: (opts: { appId: string; summary: string; system?: string; prompt: string }) =>
-    request<{ text: string; tokens: number }>("/api/app/ai", { method: "POST", ...jsonBody(opts) }),
-  /** 应用的 agent 能力:派活给 hidden 智能体(活动可见,不进会话面板)。 */
-  appAgent: (opts: { appId: string; summary: string; message: string; workdir?: string }) =>
-    request<{ agentId: string; text: string }>("/api/app/agent", { method: "POST", ...jsonBody(opts) }),
-  /** 应用的 fs:workspace 能力:工作区内受限读写。 */
+  /** 应用的网站地址(workerd 上,带每应用一个的 token);iframe 直接指向它。 */
+  appUrl: (id: string, route = "/") =>
+    request<{ url: string }>(`/api/apps/url?id=${encodeURIComponent(id)}&route=${encodeURIComponent(route)}`).then((r) => r.url),
+  /** 应用的 fs:workspace 能力:工作区内受限读写(需用户授权,授权 UI 在宿主)。 */
   appFs: (opts: { appId: string; op: "read" | "write" | "list"; path: string; content?: string }) =>
     request<{ content?: string; entries?: { name: string; kind: string }[] }>("/api/app/fs", { method: "POST", ...jsonBody(opts) }),
-  /** 应用后端运行时(workerd)直连信息;null = 运行时不可用。 */
-  gadgetEndpoint: () =>
-    request<{ endpoint: { port: number; secret: string } | null }>("/api/apps/gadget-endpoint").then((r) => r.endpoint),
-
   /** 应用活动流水(ai 调用问责)。 */
   listActivities: () =>
     request<{ activities: Activity[] }>("/api/activities").then((r) => r.activities || []),
-
-  /** 面板私有存储:iframe 面板经 PanelFrame 桥读写(面板自己不直连 http)。 */
-  panelStorageGet: (id: string) =>
-    request<{ value: any }>(`/api/panel/storage?id=${encodeURIComponent(id)}`).then((r) => r.value),
-  panelStorageSet: (id: string, value: any) =>
-    request<{ ok: boolean }>(`/api/panel/storage?id=${encodeURIComponent(id)}`, { method: "PUT", ...jsonBody({ value }) }),
-
-  listSites: () => request<{ sites: Site[] }>("/api/sites"),
-  createSite: (opts: { url: string; title?: string }) =>
-    request<{ item: Site }>("/api/sites", { method: "POST", ...jsonBody(opts) }),
-  updateSite: (id: string, patch: { title?: string; url?: string }) =>
-    request<{ item: Site }>(`/api/sites?id=${encodeURIComponent(id)}`, { method: "PATCH", ...jsonBody(patch) }),
-  deleteSite: (id: string) =>
-    request<{ ok: boolean }>(`/api/sites?id=${encodeURIComponent(id)}`, { method: "DELETE" }),
+  /** 删除应用 = 删掉它的目录。 */
+  removeApp: (appId: string) =>
+    request<{ ok: boolean }>("/api/apps/remove", { method: "POST", ...jsonBody({ appId }) }),
 
   listWorkspaces: () => request<{ workspaces: WorkspaceRoot[] }>("/api/workspaces"),
   pickWorkspaceDirectory: () => request<{ path: string | null }>("/api/workspaces/pick", { method: "POST" }),
