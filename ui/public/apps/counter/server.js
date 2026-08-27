@@ -25,6 +25,18 @@ export class Gadget extends WorkerEntrypoint {
     return this.get();
   }
 
+  /** 长任务 + 进度回调:onProgress 由前端按引用传进来,留在同一条 RPC 调用链上
+      (workerd 禁止跨请求上下文调桩,所以回调必须随调用一起下来,不能走旁路推送)。 */
+  async runBatch(times, onProgress) {
+    const total = Math.max(1, Math.min(20, Number(times) || 5));
+    for (let i = 1; i <= total; i++) {
+      await new Promise((r) => setTimeout(r, 700));
+      const n = await this.increment(1);
+      if (onProgress) await onProgress({ i, total, n });
+    }
+    return `跑完 ${total} 次`;
+  }
+
   /** 自证清白:我在哪跑、能不能上网。 */
   async whereAmI() {
     await this.env.HOST.log("counter.whereAmI() 被调用");

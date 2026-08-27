@@ -97,6 +97,17 @@ export class Gadget extends WorkerEntrypoint {
 - **全按需**:首次调用才装载 worker,代码内容哈希做版本键 —— 改了 server.js 下次连接即新版;
 - **内存只当缓存**:isolate 随时可能重启,真状态必须经 HOST 落库;
 - workerd 端口凭每次启动随机生成的 secret 访问(`/g/<secret>/<appId>`),本机其他页面连不上;
-- v1 限制:gadget 桩暂不支持服务端→客户端回调订阅(方法调用请求-响应);定时唤醒(alarms)后续版本。
+- **服务端→客户端:回调随调用下传**(实测可用,穿透 capnweb + 原生 RPC 两跳)。
+  前端把函数当参数传进去,后端边干边调它 —— 长任务进度、分步结果都靠它,前端零轮询:
+  ```js
+  // 前端
+  await workbench.gadget.runBatch(5, (p) => render(p.i, p.total));
+  // 后端 server.js
+  async runBatch(times, onProgress) { …; if (onProgress) await onProgress({ i, total }); }
+  ```
+- **旁路推送做不到**(后端主动找一条不属于当前调用的会话推事件):workerd 判定跨请求上下文
+  并取消该请求(实测报 "promise resolved from a different request context" + hang 取消)。
+  回调必须留在同一条调用链上。真正的旁路推送要把会话搬进 Durable Object(有稳定上下文),
+  连同 alarms 定时唤醒一起,是后续版本的事。
 
 预装演示:「计数器」应用(应用面板 → 计数器)—— 前端一颗按钮,计数与持久化全在沙箱后端。

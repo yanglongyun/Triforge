@@ -30,10 +30,11 @@
 <div class="card">
   <div class="n" id="n">…</div>
   <button class="btn" id="inc">+1</button>
+  <button class="btn ghost" id="batch">后端跑 5 次</button>
   <button class="btn ghost" id="where">它在哪跑?</button>
   <div class="meta" id="meta">
-    前端只有这颗按钮 —— 计数逻辑与持久化在 <code>server.js</code>(workerd 沙箱)里,<br>
-    经 <code>workbench.gadget.increment()</code> 直连。重启 Workbench 数字不丢。
+    计数逻辑与持久化在 <code>server.js</code>(workerd 沙箱)里,经 <code>workbench.gadget</code> 直连。<br>
+    「后端跑 5 次」演示<b>回调按引用跨进程传递</b>:进度由后端逐步调回前端,不是前端轮询。
   </div>
 </div>
 <script src="/apps/workbench-sdk.js"></script>
@@ -48,6 +49,17 @@
   document.getElementById("inc").onclick = async () => {
     try { show(await workbench.gadget.increment(1)); }
     catch (e) { workbench.ui.toast("失败:" + e.message); }
+  };
+  document.getElementById("batch").onclick = async () => {
+    // 回调按引用传给后端:它每跑一步就实时调回来(同一条 RPC 调用链,workerd 允许)
+    $meta.textContent = "后端开跑…";
+    try {
+      const r = await workbench.gadget.runBatch(5, (p) => {
+        show(p.n);
+        $meta.textContent = `后端第 ${p.i}/${p.total} 步实时回调 —— 前端零轮询`;
+      });
+      $meta.textContent = r + " · 全程由服务端逐步回调驱动";
+    } catch (e) { workbench.ui.toast("失败:" + e.message); }
   };
   document.getElementById("where").onclick = async () => {
     try {

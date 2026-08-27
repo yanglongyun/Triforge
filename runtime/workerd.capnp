@@ -10,11 +10,11 @@ const config :Workerd.Config = (
         bindings = [
           ( name = "LOADER", workerLoader = ( id = "apps" ) ),
           ( name = "NODE", service = "node" ),
-          ( name = "SECRET", text = "93ae74122bc105a1a7be9456a61a9e28000b729ea76477bb" ),
+          ( name = "SECRET", text = "3c6841899382152456eb6f04dd2936e28aabccc638472c31" ),
         ],
       )
     ),
     ( name = "node", external = ( address = "127.0.0.1:9599" ) ),
   ],
-  sockets = [ ( name = "http", address = "127.0.0.1:61984", http = (), service = "overseer" ) ]
+  sockets = [ ( name = "http", address = "127.0.0.1:64760", http = (), service = "overseer" ) ]
 );

@@ -15,7 +15,10 @@ UI:HostApi.gadget() 把 workerd 会话桩跨会话代理给应用 → workbench.
 
 workerLoader 动态装载 / globalOutbound 断网 / ctx.exports 回环 props / isolate 状态保持 /
 capnweb 门面代理(原生桩需 CF OS 同款 Proxy 手法)/ secret 拦截 / db 持久化跨会话 / 日志回流。
-已知缺口:capnweb 回调经原生 RPC 转发不达(服务端→客户端推送 v1 缺席,如实记入 APP.md)。
+回调穿透实测(0.7.1 修正):**回调随调用下传可用**,穿透 capnweb WS + 原生 RPC 两跳,
+后端逐步调回前端(计数器「后端跑 5 次」即此);**旁路推送不可用** —— workerd 判定跨请求
+上下文并取消请求,要旁路推送必须把会话搬进 Durable Object。一度实现的 subscribers/publish
+机制因此删除(留着会诱导 AI 写出必然被取消的代码)。
 
 ## 取舍
 

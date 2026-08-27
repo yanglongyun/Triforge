@@ -11,7 +11,14 @@
 import { WorkerEntrypoint } from "cloudflare:workers";
 import { newWorkersWebSocketRpcResponse, RpcTarget } from "capnweb";
 
-// 原生 workers-RPC 桩 → capnweb 门面(CF OS overseer 同款 Proxy 手法)
+// 原生 workers-RPC 桩 → capnweb 门面(CF OS overseer 同款 Proxy 手法)。
+//
+// 服务端→客户端通信的唯一合法形态:**回调随调用一起下传**。前端把函数作为参数传进来,
+// capnweb 把它变成桩,这里原样转发给动态 worker;后端调它时仍在同一条调用链、同一请求
+// 上下文里,因此合法(实测穿透两层可用)。
+// 反过来的「旁路推送」(后端主动找一条不属于当前调用的会话推事件)在普通 worker 里
+// 做不到 —— workerd 会判定跨请求上下文并取消该请求。真要旁路推送需把会话搬进
+// Durable Object(有稳定上下文),这是 0.8 的事,见 APP.md。
 const facade = (stub) => new Proxy(stub, {
   get(target, prop) {
     const m = Reflect.get(target, prop, target);
