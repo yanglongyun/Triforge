@@ -99,6 +99,21 @@ export function NodeTree({
   };
   // 文件夹右键「在此新建对话」→ 切到会话面板并带上预设 workdir
   const [agentCreateReq, setAgentCreateReq] = useState<{ workdir?: string } | null>(null);
+
+  // ── 面板 tab 行的响应式:放不下「图标+文字」就整行退化为纯图标(悬停有 title)──
+  // 侧栏宽度可拖(220–420),所以不按面板数量,按实测文字宽度判断;拖宽自动恢复文字。
+  const measureCtxRef = useRef<CanvasRenderingContext2D | null>(null);
+  const labelWidth = (text: string) => {
+    if (!measureCtxRef.current) measureCtxRef.current = document.createElement("canvas").getContext("2d");
+    const ctx = measureCtxRef.current;
+    if (!ctx) return text.length * 13;
+    ctx.font = '500 13px Inter, -apple-system, BlinkMacSystemFont, "PingFang SC", "Microsoft YaHei", sans-serif';
+    return ctx.measureText(text).width;
+  };
+  const PANEL_TAB_CHROME = 8 + 13 + 6; // px-1 两侧 + 图标 + 图标文字间距
+  const panelsNeedWidth =
+    panels.reduce((sum, p) => sum + PANEL_TAB_CHROME + Math.ceil(labelWidth(p.title)), 0)
+    + 36 /* + 按钮及其边距 */ + 8 /* 呼吸余量 */;
   // 文件夹徽标:workdir → 绑定的智能体数
   const [agentDirs, setAgentDirs] = useState<Map<string, number>>(new Map());
   const [sidebarWidth, setSidebarWidth] = useState(() => {
@@ -861,7 +876,8 @@ export function NodeTree({
               ].join(" ")}
             >
               <p.icon size={13} className="shrink-0" />
-              <span className="truncate">{p.title}</span>
+              {/* 空间不够放全 → 整行纯图标,不出半截省略号 */}
+              {panelsNeedWidth <= sidebarWidth && <span className="truncate">{p.title}</span>}
             </button>
           ))}
           <button
