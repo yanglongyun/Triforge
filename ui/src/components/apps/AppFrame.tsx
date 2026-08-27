@@ -14,6 +14,7 @@ import { showToast } from "../ui/Toast";
 import { THEME_EVENT } from "../../lib/theme";
 import { appEntryUrl, type AppDef } from "../sidebar/registry";
 import { broadcastAppEvent, subscribeApp, type AppBusMessage } from "./bus";
+import { getGadgetStub } from "./gadget";
 
 const THEME_TOKENS = [
   "bg", "bg-raised", "bg-panel", "bg-inset", "bg-hover",
@@ -160,6 +161,12 @@ class HostApi extends RpcTarget {
 
   async busEmit(event: unknown, payload: unknown) {
     broadcastAppEvent(this.#deps.app.id, String(event || ""), payload, this.#deps.except);
+  }
+
+  /** 应用后端桩(manifest 声明了 server 才有):Cap'n Web 跨会话代理,应用拿到即直连自己的 Gadget。 */
+  async gadget() {
+    if (!this.#deps.app.server) throw new Error("该应用没有声明后端(app.json 的 server 字段)");
+    return getGadgetStub(this.#deps.app.id);
   }
 }
 

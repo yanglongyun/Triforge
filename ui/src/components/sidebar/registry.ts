@@ -20,6 +20,8 @@ export type AppDef = {
   icon: string; // emoji
   mounts: { panel?: string; tab?: string };
   capabilities: string[];
+  /** 应用后端入口(workerd 沙箱里跑的 server.js,导出 Gadget 类)。 */
+  server?: string;
   source: "preset" | "workspace";
 };
 
@@ -38,6 +40,16 @@ export const PRESET_APPS: AppDef[] = [
     icon: "☑️",
     mounts: { panel: "index.html" },
     capabilities: ["storage"],
+    source: "preset",
+  },
+  {
+    // 应用后端(workerd)的预装演示:前端只有一颗按钮,计数逻辑与持久化全在 server.js
+    id: "counter",
+    name: "计数器",
+    icon: "🧮",
+    mounts: { tab: "index.html" },
+    capabilities: ["db"],
+    server: "server.js",
     source: "preset",
   },
 ];

@@ -53,6 +53,14 @@ apps/<id>/index.html ← 自包含页面(iframe 沙箱,样式用 var(--color-bg/
 - workbench.context() / on(event,fn) / emit(event)   实例信息 / 同应用实例间事件
 - workbench.ui.toast(msg) / dialog.confirm(msg)      提示与确认
 
+进阶(可选):应用可以有真后端 —— manifest 加 "server": "server.js",写 apps/<id>/server.js:
+  import { WorkerEntrypoint } from "cloudflare:workers";
+  export class Gadget extends WorkerEntrypoint {
+    async myMethod(x) { return this.env.HOST.dbExec("SELECT ...", [x]); }  // 同一张应用私有库
+  }
+它跑在 workerd 沙箱里(物理断网,只有 env.HOST:dbExec/log);前端经 workbench.gadget.myMethod(x)
+直连调用。逻辑重、要事务、要服务端校验时用它;纯 CRUD 用前端 db.exec 就够。
+
 要求:先 write 出 app.json 和 index.html,界面简洁贴合 Workbench 风格(浅色变量兜底),
 数据用 db 能力自建表;完成后告诉我应用名和怎么用。`;
 

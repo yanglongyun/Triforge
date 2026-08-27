@@ -73,3 +73,30 @@
 - SDK 源码在 `ui/sdk-src/workbench-sdk.mjs`,`npm run build:sdk` 打包(捆入 capnweb)到
   `ui/public/apps/workbench-sdk.js`;应用面向的 `workbench.*` 表面与 0.6.0 完全一致;
 - 主题变量(`--color-*`)注入应用 `<html>` 并随明暗实时更新,应用 CSS 直接用 token(给浅色兜底值)。
+
+## 应用后端(server,0.7.0)
+
+应用可以有**真后端**:manifest 加 `"server": "server.js"`,该文件跑在随包的 **workerd**
+(Cloudflare Workers 开源运行时)里 —— isolate 级隔离,毫秒级冷启动,按需装载,闲时零成本。
+
+```js
+// apps/<id>/server.js —— 与 Cloudflare OS 的 Gadget 同方言
+import { WorkerEntrypoint } from "cloudflare:workers";
+export class Gadget extends WorkerEntrypoint {
+  async add(text) {
+    return this.env.HOST.dbExec("INSERT INTO notes (t) VALUES (?)", [text]);
+  }
+}
+```
+
+前端经 `workbench.gadget.<方法>(…)` 直连(Cap'n Web 跨会话代理;懒连接,首调才装载)。
+
+安全与运行模型:
+- **物理断网**:`globalOutbound: null`,后端代码连 fetch 都没有;env 里只有 `HOST` 一个回环网关;
+- `HOST.dbExec(sql, params)`(需 db 能力,与前端 `workbench.db` 同一张应用私有库)、`HOST.log(…)`(回流 Node 控制台,AI 调试用);
+- **全按需**:首次调用才装载 worker,代码内容哈希做版本键 —— 改了 server.js 下次连接即新版;
+- **内存只当缓存**:isolate 随时可能重启,真状态必须经 HOST 落库;
+- workerd 端口凭每次启动随机生成的 secret 访问(`/g/<secret>/<appId>`),本机其他页面连不上;
+- v1 限制:gadget 桩暂不支持服务端→客户端回调订阅(方法调用请求-响应);定时唤醒(alarms)后续版本。
+
+预装演示:「计数器」应用(应用面板 → 计数器)—— 前端一颗按钮,计数与持久化全在沙箱后端。

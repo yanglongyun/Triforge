@@ -234,6 +234,10 @@ export const api = {
   /** 应用的 fs:workspace 能力:工作区内受限读写。 */
   appFs: (opts: { appId: string; op: "read" | "write" | "list"; path: string; content?: string }) =>
     request<{ content?: string; entries?: { name: string; kind: string }[] }>("/api/app/fs", { method: "POST", ...jsonBody(opts) }),
+  /** 应用后端运行时(workerd)直连信息;null = 运行时不可用。 */
+  gadgetEndpoint: () =>
+    request<{ endpoint: { port: number; secret: string } | null }>("/api/apps/gadget-endpoint").then((r) => r.endpoint),
+
   /** 应用活动流水(ai 调用问责)。 */
   listActivities: () =>
     request<{ activities: Activity[] }>("/api/activities").then((r) => r.activities || []),

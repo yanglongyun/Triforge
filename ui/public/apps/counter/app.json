@@ -1,0 +1,8 @@
+{
+  "id": "counter",
+  "name": "计数器",
+  "icon": "🧮",
+  "mounts": { "tab": "index.html" },
+  "capabilities": ["db"],
+  "server": "server.js"
+}

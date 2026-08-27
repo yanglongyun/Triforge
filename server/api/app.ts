@@ -7,7 +7,9 @@ import { execAppSql } from "../service/appdb.js";
 import { runAppAi } from "../service/appai.js";
 import { runAppAgent } from "../service/appagent.js";
 import { listActivities } from "../service/activities.js";
-import { listWorkspaceApps, appFileAbs } from "../service/apps.js";
+import { listWorkspaceApps, appFileAbs, appServerCode } from "../service/apps.js";
+import { gadgetEndpoint } from "../gadgets.js";
+import { emit } from "../bus.js";
 import * as tree from "../repo/tree.js";
 
 const APP_ID = /^[a-z0-9][a-z0-9-]{0,63}$/;
@@ -69,6 +71,31 @@ export const handleAppRoutes = async (
       "Cache-Control": "no-cache",
     });
     res.end(fs.readFileSync(abs));
+    return true;
+  }
+
+  // ── 应用后端(workerd)──
+  if (url.pathname === "/api/apps/server-code" && method === "GET") {
+    const result = appServerCode(String(url.searchParams.get("id") || ""));
+    if (!result) { json(res, 404, { ok: false, error: "no server code" }); return true; }
+    json(res, 200, result);
+    return true;
+  }
+  if (url.pathname === "/api/apps/gadget-endpoint" && method === "GET") {
+    json(res, 200, { ok: true, endpoint: gadgetEndpoint() });
+    return true;
+  }
+  if (url.pathname === "/api/app/server-log" && method === "POST") {
+    try {
+      const body = await readBody(req);
+      const appId = appIdOf(body);
+      const message = String(body?.message || "").slice(0, 4000);
+      console.log(`[app:${appId}] ${message}`);
+      emit({ type: "app_server_log", appId, message });
+      json(res, 200, { ok: true });
+    } catch (e: any) {
+      json(res, 400, { ok: false, error: String(e?.message || e) });
+    }
     return true;
   }
 

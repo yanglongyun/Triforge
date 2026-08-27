@@ -37,6 +37,9 @@ const layout = () => {
       // 不埋进 Library(对照 Obsidian vault / Logseq graph 的默认位置)
       WORKBENCH_WORKSPACES: join(app.getPath("documents"), "Workbench"),
       WORKBENCH_UI_DIST: join(res, "core/ui"),
+      // 应用后端运行时(workerd):二进制与 overseer 产物都在只读资源区
+      WORKBENCH_WORKERD: join(res, "core/bin/workerd"),
+      WORKBENCH_OVERSEER: join(res, "core/overseer.js"),
     },
   };
 };

@@ -44,6 +44,9 @@ const host = newMessagePortRpcSession(port1, new ClientMain());
 
 const call = (method, ...args) => initPromise.then(() => host[method](...args));
 
+let gadgetStubPromise = null;
+const gadgetStub = () => (gadgetStubPromise ??= call("gadget"));
+
 window.workbench = {
   /** 等宿主握手,返回 { appId, mount, route }。 */
   ready: () => initPromise,
@@ -94,4 +97,12 @@ window.workbench = {
     openExternal: (url) => call("systemOpenExternal", url),
     copyText: (text) => call("clipboardWrite", text),
   },
+  /** 应用后端桩(manifest 声明 server 才可用):方法即 server.js 里 Gadget 类的方法。
+      懒连接:首次调用才建会话、后端 worker 也在那一刻才被装载;出错后下次调用自动重连。 */
+  gadget: new Proxy({}, {
+    get: (_t, prop) => {
+      if (typeof prop !== "string" || prop === "then") return undefined;
+      return (...args) => gadgetStub().then((g) => g[prop](...args)).catch((e) => { gadgetStubPromise = null; throw e; });
+    },
+  }),
 };
