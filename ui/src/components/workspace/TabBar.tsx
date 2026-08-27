@@ -1,4 +1,4 @@
-import { useRef, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { iconFor, colorFor } from "../explorer/NodeRow";
 import { X, Menu, Circle, GitBranch, GitCompare, Globe, MonitorPlay, PanelRight, Plus, Radio, Settings, Terminal } from "lucide-react";
 import { ContextMenu, Favicon, type MenuItem } from "../ui";
@@ -94,6 +94,14 @@ export function TabBar({
     if (Math.abs(e.deltaY) <= Math.abs(e.deltaX)) return;
     el.scrollLeft += e.deltaY;
   };
+
+  // 激活的标签滚进视野(新开的标签在末尾,溢出时不然会开在屏幕外)
+  useEffect(() => {
+    if (!activeId) return;
+    scrollRef.current
+      ?.querySelector<HTMLElement>(`[data-tab-id="${CSS.escape(activeId)}"]`)
+      ?.scrollIntoView({ block: "nearest", inline: "nearest" });
+  }, [activeId, tabs.length]);
 
   const reorderWithinGroup = (fromIndex: number, toIndex: number) => {
     if (fromIndex === toIndex || fromIndex + 1 === toIndex) return;
@@ -217,13 +225,11 @@ export function TabBar({
   };
 
   return (
+    // 三段结构(Firefox 式):左右功能钮钉死,只有中间标签区内滚 —— 标签再多也挤不走两端
     <div
-      ref={scrollRef}
-      onWheel={onWheel}
       data-tab-drop-group={groupId}
-      data-tab-bar-group={groupId}
       data-tab-count={tabs.length}
-      className="flex items-stretch h-11 bg-bg-raised border-b border-border overflow-x-auto no-scrollbar shrink-0"
+      className="flex items-stretch h-11 bg-bg-raised border-b border-border shrink-0"
     >
       {/* 侧边栏开关:侧栏展开时汉堡在侧栏头部,这里只在收起(或移动端)时出现 */}
       {onOpenNav && (
@@ -239,6 +245,13 @@ export function TabBar({
         </button>
       )}
 
+      {/* 标签滚动区:宽度 = min(内容, 可用),溢出内滚 */}
+      <div
+        ref={scrollRef}
+        onWheel={onWheel}
+        data-tab-bar-group={groupId}
+        className="flex items-stretch overflow-x-auto no-scrollbar min-w-0"
+      >
       {tabs.map((t, idx) => {
         const Icon = tabIconFor(t);
         const active = t.id === activeId;
@@ -299,7 +312,9 @@ export function TabBar({
         );
       })}
 
-      {/* 新标签页:加号跟随最后一个标签(浏览器习惯) */}
+      </div>
+
+      {/* 新标签页:贴着滚动区右缘 —— 标签不满时即贴着最后一个标签,溢出时也始终可见 */}
       {onNewTab && (
         <button
           onClick={onNewTab}
