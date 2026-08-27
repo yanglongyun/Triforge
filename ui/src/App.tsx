@@ -7,7 +7,7 @@ import { QuickOpen, CommandPalette, type Command } from "./components/command";
 import { NodeTree } from "./components/explorer";
 import { WorkspaceLayout, isSettingsTab, isActivityTab, isNodeTab, useTabGroups, webTab, type WorkspaceGroupId } from "./components/workspace";
 import { looksLikeUrl, normalizeUrl } from "./lib/urls";
-import { DialogHost, dialog } from "./components/ui";
+import { DialogHost, dialog, SystemNotices } from "./components/ui";
 import { FileText, Folder, FolderPlus, Bot, Globe, Search, Settings as SettingsIcon, X, MonitorPlay, PanelRight, Radio } from "lucide-react";
 import type { ManagedProcess } from "./api";
 
@@ -403,6 +403,7 @@ export function App() {
       {quickOpen && <QuickOpen onPick={(n) => openNode(n)} onClose={() => setQuickOpen(false)} />}
       {cmdOpen && <CommandPalette commands={commands} onClose={() => setCmdOpen(false)} />}
       <DialogHost />{/* 全局对话框:提示/确认/输入,全产品一套 */}
+      <SystemNotices />{/* 右下角系统气泡:更新就绪 + 官方公告 */}
 
       {/* 移动端遮罩 */}
       {mobileNavOpen && (

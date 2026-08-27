@@ -11,6 +11,8 @@ const DEFAULTS = {
   compressThreshold: "60000",
   compactPrompt: "",
   toolResultMaxChars: "30000",
+  // 匿名使用统计:on/off。只收 事件名/版本/平台/匿名安装 id(见 server/telemetry.ts)。
+  telemetry: "on",
   // 默认人格(无自定义 system 的智能体的兜底)。工具清单 / 身份 / 协作规则由 buildSystem 每次注入,
   // 这里只放一段简洁、务实的基调,避免和注入内容重复或过时。
   system:

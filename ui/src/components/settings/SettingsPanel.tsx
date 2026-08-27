@@ -13,6 +13,7 @@ const emptySettings: Settings = {
   compressThreshold: "60000",
   compactPrompt: "",
   toolResultMaxChars: "30000",
+  telemetry: "on",
 };
 
 /** 两种接口协议:URL 提示跟着走。 */
@@ -165,6 +166,22 @@ export function SettingsPanel({ onSaved }: { onSaved?: (settings: Settings) => v
                 value={form.compactPrompt || ""}
                 onChange={(e) => set("compactPrompt", e.target.value)}
               />
+            </Field>
+
+            <Field label="匿名统计">
+              <div>
+                <select
+                  className={`${inputClass} cursor-pointer`}
+                  value={form.telemetry || "on"}
+                  onChange={(e) => set("telemetry", e.target.value)}
+                >
+                  <option value="on">开启</option>
+                  <option value="off">关闭</option>
+                </select>
+                <div className="mt-1.5 text-[12px] text-text-faint">
+                  仅上报事件名、版本、平台与匿名安装 id,用于统计活跃与更新率;不含任何对话、文件或网址内容。
+                </div>
+              </div>
             </Field>
 
             <Field label="关于" alignTop>

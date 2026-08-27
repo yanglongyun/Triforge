@@ -3,7 +3,7 @@
 // 为什么用系统 node 而不是 Electron 自带的 Node:node-pty 是原生模块,按系统 node
 // 的 ABI 编译;塞进 Electron 的 Node 要 electron-rebuild 整一轮。开发期直接用系统
 // node 零 ABI 纠纷;正式打包时再换成随包 node + rebuild(见 dev/ 版本文档)。
-import { app, BrowserWindow, Menu, dialog, nativeTheme, shell } from "electron";
+import { app, BrowserWindow, Menu, dialog, ipcMain, nativeTheme, shell } from "electron";
 import { spawn } from "node:child_process";
 import { createServer } from "node:net";
 import { dirname, join } from "node:path";
@@ -30,6 +30,8 @@ const layout = () => {
     serverEntry: join(res, "core/server.mjs"),
     cwd: join(res, "core"), // node-pty 从 core/node_modules 解析
     env: {
+      WORKBENCH_PACKAGED: "1",                 // 遥测只在打包应用里发,开发态不打点
+      WORKBENCH_VERSION: app.getVersion(),
       WORKBENCH_HOME: app.getPath("userData"), // database/ 落在这里(macOS 惯例:应用数据进 Application Support)
       // 工作区是用户要在 Finder 里摸的真实文件树 —— 按「用户文档」惯例放 Documents,
       // 不埋进 Library(对照 Obsidian vault / Logseq graph 的默认位置)
@@ -105,8 +107,13 @@ const createWindow = (port) => {
     webPreferences: {
       contextIsolation: true,
       nodeIntegration: false,
+      preload: join(ROOT, "desktop/preload.cjs"), // 窄桥:仅暴露 installUpdate
       webviewTag: true, // 网页标签:界面里的 <webview>,真会话真登录态
     },
+  });
+  // 更新在窗口加载前就绪(或刷新)时,补发一次「已就绪」给界面
+  win.webContents.on("did-finish-load", () => {
+    if (updateReadyVersion) broadcastUpdateReady(updateReadyVersion);
   });
   // 外部链接去系统浏览器,别在壳里迷路
   win.webContents.setWindowOpenHandler(({ url }) => {
@@ -118,6 +125,47 @@ const createWindow = (port) => {
   });
   win.loadURL(`http://127.0.0.1:${port}`);
   return win;
+};
+
+// ── 自动更新:electron-updater 打包在 desktop/updater.mjs(开发态没有,静默跳过)──
+let updater = null;
+let updateReadyVersion = null;
+const broadcastUpdateReady = (version) => {
+  for (const win of BrowserWindow.getAllWindows()) {
+    win.webContents
+      .executeJavaScript(`window.dispatchEvent(new CustomEvent('workbench:update-ready',{detail:{version:${JSON.stringify(version)}}}))`)
+      .catch(() => {});
+  }
+};
+const setupUpdates = async () => {
+  if (!app.isPackaged) return;
+  try {
+    const { setupUpdater } = await import("./updater.mjs");
+    updater = setupUpdater({
+      onReady: (version) => {
+        updateReadyVersion = version;
+        broadcastUpdateReady(version);
+      },
+    });
+  } catch { /* 没打 updater 产物就不更新 */ }
+};
+ipcMain.handle("workbench:install-update", () => { updater?.install(); });
+
+const checkUpdatesManually = async () => {
+  if (!updater) {
+    dialog.showMessageBox({ message: "开发模式不检查更新。" });
+    return;
+  }
+  try {
+    const result = await updater.checkNow();
+    const latest = result?.updateInfo?.version;
+    if (!latest || latest === app.getVersion()) {
+      dialog.showMessageBox({ message: `已是最新版本(${app.getVersion()})。` });
+    }
+    // 有新版会自动后台下载,完成后应用内弹「重启更新」气泡
+  } catch (error) {
+    dialog.showErrorBox("检查更新失败", String(error?.message || error));
+  }
 };
 
 // 网页标签里的 window.open / target=_blank:留在原地导航,不许弹窗乱飞
@@ -157,6 +205,8 @@ const buildMenu = () => {
           },
         },
         { label: "关闭窗口", accelerator: "Shift+CmdOrCtrl+W", role: "close" },
+        { type: "separator" },
+        { label: "检查更新…", click: () => { void checkUpdatesManually(); } },
       ],
     },
     { role: "editMenu" },
@@ -171,6 +221,7 @@ app.whenReady().then(async () => {
     const port = await pickPort();
     await startServer(port);
     createWindow(port);
+    void setupUpdates();
     app.on("activate", () => {
       if (BrowserWindow.getAllWindows().length === 0) createWindow(port);
     });

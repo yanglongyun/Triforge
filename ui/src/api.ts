@@ -76,6 +76,8 @@ export type Settings = {
   compressThreshold?: string;
   compactPrompt?: string;
   toolResultMaxChars?: string;
+  /** 匿名使用统计:on/off(只收 事件名/版本/平台/匿名安装 id)。 */
+  telemetry?: string;
 };
 
 export type ManagedProcess = {

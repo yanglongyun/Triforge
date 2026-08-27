@@ -6,6 +6,7 @@ import { serve } from "./static.js";
 import { startWatcher } from "./watcher.js";
 import { migrateOnBoot } from "./service/agents.js";
 import { isTrustedOrigin } from "./origin.js";
+import { track } from "./telemetry.js";
 
 const startServer = async (port = 9506) =>
   new Promise((resolve, reject) => {
@@ -28,6 +29,7 @@ const startServer = async (port = 9506) =>
     server.listen(port, "127.0.0.1", () => {
       migrateOnBoot(); // 历史 .agent.json → SQLite,用户目录从此干净
       startWatcher(); // 工作区文件监听:磁盘上的任何变化 → 树自动刷新
+      track("app_open"); // 匿名遥测(仅打包应用;设置可关,见 telemetry.ts)
       console.log(`Workbench running on http://127.0.0.1:${port}`);
       resolve(server);
     });
