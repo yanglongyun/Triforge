@@ -1,9 +1,7 @@
 import type { Settings, Node } from "../../api";
 import { TabBar } from "./TabBar";
 import { TabContent } from "./TabContent";
-import { TerminalPanel } from "./panels/TerminalPanel";
-import { WebPanel } from "./panels/WebPanel";
-import { isTerminalTab, isWebTab, type WebTab, type WorkspaceGroupId, type WorkspaceGroupState, type WorkspaceTab } from "./types";
+import { isTerminalTab, isWebTab, type WorkspaceGroupId, type WorkspaceGroupState, type WorkspaceTab } from "./types";
 
 type Socket = {
   send: (m: any) => void;
@@ -46,7 +44,6 @@ export function WorkspaceGroup({
   onSettingsSaved,
   onGitChanged,
   onOpenGitDiff,
-  onUpdateWebTab,
 }: {
   group: WorkspaceGroupState;
   active: boolean;
@@ -80,11 +77,8 @@ export function WorkspaceGroup({
   onSettingsSaved?: (settings: Settings) => void;
   onGitChanged?: () => void;
   onOpenGitDiff: (root: string, path: string, staged?: boolean) => void;
-  onUpdateWebTab: (id: string, patch: Partial<Pick<WebTab, "title" | "url" | "favicon">>) => void;
 }) {
   const tab = activeTabOf(group);
-  const webTabs = group.tabs.filter(isWebTab);
-  const terminalTabs = group.tabs.filter(isTerminalTab);
 
   return (
     <section
@@ -117,7 +111,9 @@ export function WorkspaceGroup({
         navOpen={navOpen}
         onNewTab={onNewTab ? () => onNewTab(group.id) : undefined}
       />
-      <div className="flex-1 min-h-0 flex flex-col relative">
+      {/* data-panel-host:常驻层(WorkspaceLayout)按这块矩形投放本组的网页/终端。
+          分组只决定「摆在哪、显不显」,webview/PTY 的生命都在常驻层 —— 跨分屏移动不死 */}
+      <div data-panel-host={group.id} className="flex-1 min-h-0 flex flex-col relative">
         <TabContent
           tab={isWebTab(tab) || isTerminalTab(tab) ? null : tab}
           groupId={group.id}
@@ -137,25 +133,6 @@ export function WorkspaceGroup({
           onOpenGitDiff={onOpenGitDiff}
           onCloseProcess={() => onCloseTab(group.id, group.activeId || "")}
         />
-        {/* 网页标签常驻挂载,CSS 控显隐 —— <webview> 卸载 = 断网重载,登录态全丢 */}
-        {webTabs.map((web) => (
-          <div
-            key={web.id}
-            className={`absolute inset-0 bg-bg ${tab?.id === web.id ? "flex flex-col" : "hidden"}`}
-          >
-            <WebPanel tab={web} socket={socket} onUpdate={onUpdateWebTab} />
-          </div>
-        ))}
-        {/* 终端同样常驻挂载 —— 卸载 = 杀 PTY:切个标签不能杀掉里面跑着的进程。
-            常驻后组件卸载的唯一时机 = 标签真正关闭,那一刻发 terminal_stop 恰是正确语义 */}
-        {terminalTabs.map((t) => (
-          <div
-            key={t.id}
-            className={`absolute inset-0 bg-bg ${tab?.id === t.id ? "flex flex-col" : "hidden"}`}
-          >
-            <TerminalPanel tab={t} socket={socket} onClose={() => onCloseTab(group.id, t.id)} />
-          </div>
-        ))}
       </div>
     </section>
   );

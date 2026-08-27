@@ -413,6 +413,7 @@ export function App() {
       <div className="flex-1 flex min-w-0 min-h-0">
         <WorkspaceLayout
           groups={tabGroups.visibleGroups}
+          allGroups={[tabGroups.groups.main, tabGroups.groups.side]}
           activeGroupId={tabGroups.activeGroupId}
           sideOpen={tabGroups.sideOpen}
           navOpen={desktopNavOpen}

@@ -1,8 +1,10 @@
-import { Fragment, useCallback, useEffect, useRef, useState } from "react";
+import { Fragment, useCallback, useEffect, useLayoutEffect, useRef, useState } from "react";
 import type { Settings, Node } from "../../api";
 import { beginGlobalDrag, endGlobalDrag } from "../../lib/drag";
 import { WorkspaceGroup } from "./WorkspaceGroup";
-import type { WorkspaceGroupId, WorkspaceGroupState, WorkspaceTab } from "./types";
+import { TerminalPanel } from "./panels/TerminalPanel";
+import { WebPanel } from "./panels/WebPanel";
+import { isTerminalTab, isWebTab, type TerminalTab, type WebTab, type WorkspaceGroupId, type WorkspaceGroupState, type WorkspaceTab } from "./types";
 
 type Socket = {
   send: (m: any) => void;
@@ -33,8 +35,11 @@ type SplitDragSession = {
   percent: number;
 };
 
+type HostRect = { left: number; top: number; width: number; height: number };
+
 export function WorkspaceLayout({
   groups,
+  allGroups,
   activeGroupId,
   sideOpen,
   navOpen,
@@ -67,6 +72,8 @@ export function WorkspaceLayout({
   onUpdateWebTab,
 }: {
   groups: WorkspaceGroupState[];
+  /** 全部分组(含收起的 side):常驻层按它持有网页/终端,分屏开合不影响生命。 */
+  allGroups: WorkspaceGroupState[];
   activeGroupId: WorkspaceGroupId;
   sideOpen: boolean;
   navOpen?: boolean;
@@ -96,13 +103,48 @@ export function WorkspaceLayout({
   onSettingsSaved?: (settings: Settings) => void;
   onGitChanged?: () => void;
   onOpenGitDiff: (root: string, path: string, staged?: boolean) => void;
-  onUpdateWebTab: (id: string, patch: { title?: string; url?: string }) => void;
+  onUpdateWebTab: (id: string, patch: Partial<Pick<WebTab, "title" | "url" | "favicon">>) => void;
 }) {
   const containerRef = useRef<HTMLDivElement | null>(null);
   const splitDragRef = useRef<SplitDragSession | null>(null);
   const [splitPercent, setSplitPercent] = useState(readSavedSplit);
   const [resizingSplit, setResizingSplit] = useState(false);
   const hasSplit = groups.length > 1;
+
+  // ── 常驻层定位:量出每个分组内容区([data-panel-host])相对容器的矩形 ──
+  // 网页/终端全部活在容器级的常驻层里(同一个父节点,React 按 key 保实例),
+  // 分组只提供投影坐标 —— 标签跨分屏移动、分屏开合,webview / PTY 都不再死。
+  const [hostRects, setHostRects] = useState<Record<string, HostRect>>({});
+  const measureHosts = useCallback(() => {
+    const container = containerRef.current;
+    if (!container) return;
+    const base = container.getBoundingClientRect();
+    const next: Record<string, HostRect> = {};
+    container.querySelectorAll<HTMLElement>("[data-panel-host]").forEach((el) => {
+      const r = el.getBoundingClientRect();
+      next[el.dataset.panelHost || ""] = { left: r.left - base.left, top: r.top - base.top, width: r.width, height: r.height };
+    });
+    setHostRects((prev) => {
+      const keys = Object.keys(next);
+      const same = keys.length === Object.keys(prev).length && keys.every((k) => {
+        const a = prev[k];
+        const b = next[k];
+        return a && a.left === b.left && a.top === b.top && a.width === b.width && a.height === b.height;
+      });
+      return same ? prev : next;
+    });
+  }, []);
+  // 每次渲染后对齐一次(分屏拖动/开合/侧栏伸缩全覆盖);相同即返回 prev,不会循环
+  useLayoutEffect(() => { measureHosts(); });
+  useEffect(() => {
+    const container = containerRef.current;
+    if (!container) return;
+    const observer = new ResizeObserver(measureHosts);
+    observer.observe(container);
+    container.querySelectorAll<HTMLElement>("[data-panel-host]").forEach((el) => observer.observe(el));
+    window.addEventListener("resize", measureHosts);
+    return () => { observer.disconnect(); window.removeEventListener("resize", measureHosts); };
+  }, [measureHosts, groups.length]);
 
   useEffect(() => {
     if (!hasSplit || !containerRef.current) return;
@@ -226,7 +268,7 @@ export function WorkspaceLayout({
   }, [endSplitResize, hasSplit, splitPercent, updateSplitFromClientX]);
 
   return (
-    <div ref={containerRef} className="flex-1 flex min-w-0 min-h-0">
+    <div ref={containerRef} className="relative flex-1 flex min-w-0 min-h-0">
       {resizingSplit && <SplitResizeOverlay />}
       {groups.map((group, index) => (
         <Fragment key={group.id}>
@@ -268,11 +310,37 @@ export function WorkspaceLayout({
               onSettingsSaved={onSettingsSaved}
               onGitChanged={onGitChanged}
               onOpenGitDiff={onOpenGitDiff}
-              onUpdateWebTab={onUpdateWebTab}
             />
           </div>
         </Fragment>
       ))}
+
+      {/* ── 常驻层:全部网页/终端在此存活,分组只是投影位置 ──
+          同一个父节点 + 稳定 key:标签跨分屏移动时 React 保住实例,webview/PTY 不死;
+          side 收起时面板仅隐藏(display:none),里面的进程/登录态原地等待。
+          z-10 低于分屏把手(z-20),拖宽把手不受影响。 */}
+      {allGroups.flatMap((g) =>
+        g.tabs
+          .filter((t): t is WebTab | TerminalTab => isWebTab(t) || isTerminalTab(t))
+          .map((t) => {
+            const rect = hostRects[g.id];
+            const visible = !!rect && groups.some((v) => v.id === g.id) && g.activeId === t.id;
+            return (
+              <div
+                key={t.id}
+                onMouseDown={() => onFocusGroup(g.id)}
+                className="absolute z-10 flex-col bg-bg"
+                style={visible
+                  ? { display: "flex", left: rect.left, top: rect.top, width: rect.width, height: rect.height }
+                  : { display: "none" }}
+              >
+                {isWebTab(t)
+                  ? <WebPanel tab={t} socket={socket} onUpdate={onUpdateWebTab} />
+                  : <TerminalPanel tab={t} socket={socket} onClose={() => onCloseTab(g.id, t.id)} />}
+              </div>
+            );
+          }),
+      )}
     </div>
   );
 }
