@@ -37,8 +37,8 @@ const IMPLS = {
  * bash 输出是一次性的,截掉就没了;指引它重跑时重定向到文件再用 read 分段读。
  * (read 自己按行收口、永不进这里;详见 files.ts。)
  */
-export const truncateToolResult = (text, maxChars = 12000) => {
-  const limit = Math.max(1000, Math.min(50000, Number(maxChars) || 12000));
+export const truncateToolResult = (text, maxChars = 30000) => {
+  const limit = Math.max(1000, Math.min(50000, Number(maxChars) || 30000));
   const value = String(text || "");
   if (value.length <= limit) return value;
   const head = value.slice(0, Math.floor(limit * 0.7));

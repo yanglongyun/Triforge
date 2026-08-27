@@ -139,7 +139,7 @@ const runAgent = async (agentId, { callerId = null } = {}) => {
       createAgent,
       touchAgent,
       runAgent,
-      toolResultMaxChars: Number(settings.toolResultMaxChars) || 12000,
+      toolResultMaxChars: Number(settings.toolResultMaxChars) || 30000,
     };
 
     const emitKernel = (type, data) => {

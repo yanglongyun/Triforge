@@ -8,9 +8,9 @@ const DEFAULTS = {
   apiUrl: "",
   apiKey: "",
   model: "",
-  compressThreshold: "12000",
+  compressThreshold: "60000",
   compactPrompt: "",
-  toolResultMaxChars: "12000",
+  toolResultMaxChars: "30000",
   // 默认人格(无自定义 system 的智能体的兜底)。工具清单 / 身份 / 协作规则由 buildSystem 每次注入,
   // 这里只放一段简洁、务实的基调,避免和注入内容重复或过时。
   system:

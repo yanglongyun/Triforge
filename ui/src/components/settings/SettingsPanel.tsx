@@ -9,9 +9,9 @@ const emptySettings: Settings = {
   apiKey: "",
   model: "",
   system: "",
-  compressThreshold: "12000",
+  compressThreshold: "60000",
   compactPrompt: "",
-  toolResultMaxChars: "12000",
+  toolResultMaxChars: "30000",
 };
 
 /** 两种接口协议:URL 提示跟着走。 */
@@ -125,7 +125,7 @@ export function SettingsPanel({ onSaved }: { onSaved?: (settings: Settings) => v
                 type="number"
                 min={0}
                 step={100}
-                value={form.compressThreshold || "12000"}
+                value={form.compressThreshold || "60000"}
                 onChange={(e) => set("compressThreshold", e.target.value)}
               />
             </Field>
@@ -137,7 +137,7 @@ export function SettingsPanel({ onSaved }: { onSaved?: (settings: Settings) => v
                 min={1000}
                 max={50000}
                 step={1000}
-                value={form.toolResultMaxChars || "12000"}
+                value={form.toolResultMaxChars || "30000"}
                 onChange={(e) => set("toolResultMaxChars", e.target.value)}
               />
             </Field>
