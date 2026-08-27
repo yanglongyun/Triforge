@@ -69,9 +69,22 @@ export const read = ({ path: p, offset, limit }, ctx) => {
   const count = Math.min(Number(limit) || 2000, 2000);
   const slice = lines.slice(start - 1, start - 1 + count);
   if (!slice.length) return `(超出文件范围,共 ${lines.length} 行)`;
-  const numbered = slice.map((line, index) => `${String(start + index).padStart(5)}\t${line}`).join("\n");
-  const rest = lines.length - (start - 1 + count);
-  return numbered + (rest > 0 ? `\n… (还有 ${rest} 行,用 offset=${start + count} 继续读)` : "");
+  // 按字符预算在**行边界**收口:read 的结果绝不落进装配层的通用截断 ——
+  // 那个策略是留头留尾挖中间(为 bash 日志设计),用在带行号的文件上,
+  // 模型会看到中段凭空消失,误以为文件残缺,还无法精确续读。
+  // 这里超预算就整行停下,并给出准确的 offset 续读点。
+  const budget = Math.max(2000, (Number(ctx?.toolResultMaxChars) || 12000) - 200);
+  const numbered = [];
+  let used = 0;
+  for (let index = 0; index < slice.length; index += 1) {
+    const line = `${String(start + index).padStart(5)}\t${slice[index]}`;
+    if (numbered.length > 0 && used + line.length + 1 > budget) break;
+    numbered.push(line);
+    used += line.length + 1;
+  }
+  const included = numbered.length;
+  const rest = lines.length - (start - 1 + included);
+  return numbered.join("\n") + (rest > 0 ? `\n… (还有 ${rest} 行,用 offset=${start + included} 继续读)` : "");
 };
 
 export const editDef = {
