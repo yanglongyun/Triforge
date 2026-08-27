@@ -145,7 +145,7 @@ export function WebPanel({ tab, socket, onUpdate }: {
             if (e.key === "Escape") { setEditing(false); setAddress(displayUrl(tab.url)); (e.target as HTMLInputElement).blur(); }
           }}
           spellCheck={false}
-          className="flex-1 min-w-0 h-7 px-2.5 rounded-md border border-border bg-white text-[12.5px] font-mono text-text-dim focus:text-text focus:border-accent outline-none transition-colors"
+          className="flex-1 min-w-0 h-7 px-2.5 rounded-md border border-border bg-surface text-[12.5px] font-mono text-text-dim focus:text-text focus:border-accent outline-none transition-colors"
         />
         <button className={navBtn} title="复制链接" onClick={() => navigator.clipboard.writeText(tab.url).catch(() => {})}><Copy size={13} /></button>
         <button className={navBtn} title="在系统浏览器打开" onClick={openExternal}><ExternalLink size={13} /></button>

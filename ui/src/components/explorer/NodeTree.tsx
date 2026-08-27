@@ -1005,7 +1005,7 @@ function DragPreview({ node, count = 1 }: { node: Node; count?: number }) {
   const Icon = iconFor(node.kind);
   const color = colorFor(node.kind);
   return (
-    <div className="flex items-center gap-1.5 px-2 py-1 rounded bg-white border border-accent shadow-lg shadow-black/15 text-[14.5px] cursor-grabbing select-none">
+    <div className="flex items-center gap-1.5 px-2 py-1 rounded bg-surface border border-accent shadow-lg shadow-black/15 text-[14.5px] cursor-grabbing select-none">
       <Icon size={14} className={color} />
       <span className="truncate max-w-48">{node.title}</span>
       {count > 1 && (

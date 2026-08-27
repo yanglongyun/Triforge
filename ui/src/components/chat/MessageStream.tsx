@@ -239,7 +239,7 @@ function ChatRow({ row, always }: { row: Row; always: boolean }) {
     if (row.source === "compaction") {
       return (
         <div className="flex justify-center pb-3">
-          <details className="w-full max-w-2xl rounded-md border border-border bg-white overflow-hidden">
+          <details className="w-full max-w-2xl rounded-md border border-border bg-surface overflow-hidden">
             <summary className="cursor-pointer px-3 py-2 text-[12px] font-medium text-text-dim hover:bg-bg-hover">上下文压缩摘要</summary>
             <pre className="border-t border-border bg-bg-panel px-3 py-2 text-[12px] leading-relaxed text-text-dim whitespace-pre-wrap break-words max-h-72 overflow-auto">{row.content}</pre>
           </details>
@@ -258,7 +258,7 @@ function ChatRow({ row, always }: { row: Row; always: boolean }) {
                 alt={file.name}
                 title={file.name}
                 onClick={() => window.open(file.url, "_blank")}
-                className="max-h-44 max-w-full rounded-xl border border-border cursor-zoom-in object-contain bg-white"
+                className="max-h-44 max-w-full rounded-xl border border-border cursor-zoom-in object-contain bg-surface"
               />
             ) : (
               <a
@@ -267,7 +267,7 @@ function ChatRow({ row, always }: { row: Row; always: boolean }) {
                 target="_blank"
                 rel="noreferrer"
                 download={file.name}
-                className="inline-flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg bg-white border border-border text-[12.5px] text-text-dim hover:text-text hover:border-accent/50 transition-colors max-w-[260px]"
+                className="inline-flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg bg-surface border border-border text-[12.5px] text-text-dim hover:text-text hover:border-accent/50 transition-colors max-w-[260px]"
               >
                 <FileText size={13} className="shrink-0 text-accent" />
                 <span className="truncate">{file.name}</span>

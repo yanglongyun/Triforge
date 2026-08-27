@@ -42,7 +42,7 @@ export function ContextMenu({
   return (
     <div
       ref={ref}
-      className="fixed z-50 min-w-[180px] rounded-md border border-border bg-white shadow-[0_6px_20px_rgba(15,15,15,0.12),0_2px_4px_rgba(15,15,15,0.08)] py-1"
+      className="fixed z-50 min-w-[180px] rounded-md border border-border bg-surface shadow-[0_6px_20px_rgba(15,15,15,0.12),0_2px_4px_rgba(15,15,15,0.08)] py-1"
       style={{ left: safeX, top: safeY }}
     >
       {items.map((item, i) => {

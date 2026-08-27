@@ -190,7 +190,7 @@ export function ChatPanel({
           </div>
         )}
         <div
-          className="flex flex-col gap-1.5 rounded-lg border border-border bg-white px-3 py-2 focus-within:border-accent transition-colors"
+          className="flex flex-col gap-1.5 rounded-lg border border-border bg-surface px-3 py-2 focus-within:border-accent transition-colors"
           onDragOver={(e) => e.preventDefault()}
           onDrop={(e) => { e.preventDefault(); if (e.dataTransfer.files?.length) void upload(e.dataTransfer.files); }}
         >

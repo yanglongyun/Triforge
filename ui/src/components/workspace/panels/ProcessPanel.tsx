@@ -142,7 +142,7 @@ export function ProcessPanel({
           value={previewInput}
           onChange={(e) => { manualUrlRef.current = true; setPreviewInput(e.target.value); }}
           placeholder="http://127.0.0.1:3000"
-          className="flex-1 min-w-0 h-7 rounded border border-border bg-white px-2 text-[12.5px] font-mono text-text outline-none focus:border-accent"
+          className="flex-1 min-w-0 h-7 rounded border border-border bg-surface px-2 text-[12.5px] font-mono text-text outline-none focus:border-accent"
         />
         <button
           onClick={() => setFrameKey((n) => n + 1)}
@@ -176,7 +176,7 @@ export function ProcessPanel({
             key={`${previewUrl}:${frameKey}`}
             src={previewUrl}
             title="Preview"
-            className="w-full h-full border-0 bg-white"
+            className="w-full h-full border-0 bg-surface"
           />
         ) : (
           <div className="h-full flex items-center justify-center text-center px-6">

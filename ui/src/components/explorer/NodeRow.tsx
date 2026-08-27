@@ -197,7 +197,7 @@ export function NodeRow({
             onBlur={controls.commitRename}
             onClick={(e) => e.stopPropagation()}
             onPointerDown={(e) => e.stopPropagation()}
-            className="flex-1 min-w-0 bg-white border border-accent rounded px-1 -mx-1 py-px text-[14px] text-text outline-none"
+            className="flex-1 min-w-0 bg-surface border border-accent rounded px-1 -mx-1 py-px text-[14px] text-text outline-none"
           />
         ) : (
           <span className={`flex-1 min-w-0 truncate text-[14.5px] ${badge?.color || ""}`}>{node.title}</span>
@@ -289,7 +289,7 @@ export function InlineCreateRow({ depth, controls }: { depth: number; controls: 
         }}
         onBlur={controls.commitCreate}
         placeholder={controls.creatingKind === "file" ? "文件名…" : "文件夹名…"}
-        className="flex-1 min-w-0 bg-white border border-accent rounded px-1 -mx-1 py-px text-[14px] text-text outline-none placeholder:text-text-faint"
+        className="flex-1 min-w-0 bg-surface border border-accent rounded px-1 -mx-1 py-px text-[14px] text-text outline-none placeholder:text-text-faint"
       />
     </div>
   );

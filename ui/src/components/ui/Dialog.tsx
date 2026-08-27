@@ -81,7 +81,7 @@ export function DialogHost() {
       }}
     >
       <div
-        className="w-[400px] max-w-[90vw] rounded-xl border border-border bg-white shadow-2xl shadow-black/20 p-4 flex flex-col gap-3"
+        className="w-[400px] max-w-[90vw] rounded-xl border border-border bg-surface shadow-2xl shadow-black/20 p-4 flex flex-col gap-3"
         onMouseDown={(e) => e.stopPropagation()}
       >
         {current.title && <div className="text-[14px] font-semibold text-text">{current.title}</div>}
@@ -95,7 +95,7 @@ export function DialogHost() {
             onChange={(e) => setValue(e.target.value)}
             placeholder={current.placeholder || ""}
             spellCheck={false}
-            className="w-full h-8 px-2.5 rounded-md border border-border bg-white text-[13.5px] text-text outline-none focus:border-accent transition-colors placeholder:text-text-faint"
+            className="w-full h-8 px-2.5 rounded-md border border-border bg-surface text-[13.5px] text-text outline-none focus:border-accent transition-colors placeholder:text-text-faint"
           />
         )}
         <div className="flex items-center justify-end gap-2 pt-1">

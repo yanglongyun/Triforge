@@ -29,10 +29,40 @@
   --color-warning: #cb6b16;
   --color-danger:  #e03e3e;
 
+  /* 白色面(输入框/卡片/弹层):深色模式下是抬升的深灰,别直接用 bg-white */
+  --color-surface: #ffffff;
+
   /* 字体:Inter / 系统 */
   --font-sans: "Inter", -apple-system, BlinkMacSystemFont, "Segoe UI", "Helvetica Neue",
                "PingFang SC", "Microsoft YaHei", sans-serif;
   --font-mono: "JetBrains Mono", "SF Mono", "Menlo", "Consolas", monospace;
+}
+
+/* ───────────────────────────────────────────────
+   深色模式:变量整体翻转(Notion 暗色系)。
+   入口脚本在 index.html 里于首帧前写好 data-theme,避免闪白。
+   ─────────────────────────────────────────────── */
+:root { color-scheme: light; --scrollbar-thumb: #d9d8d4; --scrollbar-thumb-hover: #b9b8b3; }
+[data-theme="dark"] {
+  color-scheme: dark;
+  --color-bg:        #191919;
+  --color-bg-raised: #202020;
+  --color-bg-panel:  #262626;
+  --color-bg-inset:  #2e2e2e;
+  --color-bg-hover:  #2b2b2b;
+  --color-border:        #2f2f2f;
+  --color-border-strong: #4a4a4a;
+  --color-text:       #d4d4d1;
+  --color-text-dim:   #a5a5a2;
+  --color-text-faint: #767672;
+  --color-accent:      #4a9de8;
+  --color-accent-soft: #1d3247;
+  --color-success: #4dab9a;
+  --color-warning: #d9862f;
+  --color-danger:  #eb5757;
+  --color-surface: #262626;
+  --scrollbar-thumb: #3f3f3f;
+  --scrollbar-thumb-hover: #545454;
 }
 
 html, body, #app {
@@ -57,13 +87,13 @@ body {
   background: transparent;
   border-radius: 8px;
 }
-*:hover::-webkit-scrollbar-thumb { background: #d9d8d4; }
-::-webkit-scrollbar-thumb:hover { background: #b9b8b3; }
+*:hover::-webkit-scrollbar-thumb { background: var(--scrollbar-thumb); }
+::-webkit-scrollbar-thumb:hover { background: var(--scrollbar-thumb-hover); }
 * {
   scrollbar-width: thin;
   scrollbar-color: transparent transparent;
 }
-*:hover { scrollbar-color: #d9d8d4 transparent; }
+*:hover { scrollbar-color: var(--scrollbar-thumb) transparent; }
 
 ::selection {
   background: rgba(35, 131, 226, 0.18);

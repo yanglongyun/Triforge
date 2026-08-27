@@ -105,7 +105,7 @@ export function SiteRail({
             onBlur={commitCreate}
             placeholder="输入网址,回车打开…"
             spellCheck={false}
-            className="flex-1 min-w-0 bg-white border border-accent rounded px-1 -mx-1 py-px text-[13px] font-mono text-text outline-none placeholder:text-text-faint placeholder:font-sans"
+            className="flex-1 min-w-0 bg-surface border border-accent rounded px-1 -mx-1 py-px text-[13px] font-mono text-text outline-none placeholder:text-text-faint placeholder:font-sans"
           />
         </div>
       )}
@@ -130,7 +130,7 @@ export function SiteRail({
               }}
               onBlur={commitRename}
               onClick={(e) => e.stopPropagation()}
-              className="flex-1 min-w-0 bg-white border border-accent rounded px-1 -mx-1 py-px text-[14px] text-text outline-none"
+              className="flex-1 min-w-0 bg-surface border border-accent rounded px-1 -mx-1 py-px text-[14px] text-text outline-none"
             />
           ) : (
             <span className="flex-1 min-w-0 truncate text-[14.5px]">{site.title}</span>

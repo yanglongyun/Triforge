@@ -1,6 +1,7 @@
 import { useEffect, useState, type ReactNode } from "react";
 import type { Settings } from "../../api";
 import { api } from "../../api";
+import { getThemePref, setThemePref, type ThemePref } from "../../lib/theme";
 import { Check, Settings2 } from "lucide-react";
 
 const emptySettings: Settings = {
@@ -27,6 +28,9 @@ const repositoryUrl = "https://github.com/realuckyang/Workbench";
 export function SettingsPanel({ onSaved }: { onSaved?: (settings: Settings) => void }) {
   const [form, setForm] = useState<Settings>(emptySettings);
   const [saved, setSaved] = useState(false);
+  // 外观是本机视觉偏好:即改即生效,存 localStorage,不进服务端设置
+  const [themePref, setThemePrefState] = useState<ThemePref>(() => getThemePref());
+  const changeTheme = (pref: ThemePref) => { setThemePrefState(pref); setThemePref(pref); };
 
   useEffect(() => {
     let cancelled = false;
@@ -71,6 +75,18 @@ export function SettingsPanel({ onSaved }: { onSaved?: (settings: Settings) => v
       <div className="flex-1 min-h-0 overflow-y-auto">
         <div className="mx-auto w-full max-w-4xl px-5 md:px-8">
           <div className="divide-y divide-border">
+            <Field label="外观">
+              <select
+                className={`${inputClass} cursor-pointer`}
+                value={themePref}
+                onChange={(e) => changeTheme(e.target.value as ThemePref)}
+              >
+                <option value="system">跟随系统</option>
+                <option value="light">浅色</option>
+                <option value="dark">深色</option>
+              </select>
+            </Field>
+
             <Field label="接口协议">
               <select
                 className={`${inputClass} cursor-pointer`}

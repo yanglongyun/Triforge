@@ -126,7 +126,7 @@ export function AgentRail({
             }}
             onBlur={commitRename}
             onClick={(e) => e.stopPropagation()}
-            className="flex-1 min-w-0 bg-white border border-accent rounded px-1 -mx-1 py-px text-[14px] text-text outline-none"
+            className="flex-1 min-w-0 bg-surface border border-accent rounded px-1 -mx-1 py-px text-[14px] text-text outline-none"
           />
         ) : (
           <span className="flex-1 min-w-0 truncate text-[14.5px]">{agent.title}</span>

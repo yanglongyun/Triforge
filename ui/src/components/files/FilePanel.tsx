@@ -135,7 +135,7 @@ export function FilePanel({
               src={`/api/fs${encodeURI(node.id)}`}
               title={node.title}
               sandbox="allow-scripts allow-popups allow-forms"
-              className="flex-1 min-h-0 w-full border-0 bg-white"
+              className="flex-1 min-h-0 w-full border-0 bg-surface"
             />
           ) : (
             <div className="flex-1 overflow-auto px-6 md:px-12 py-8">

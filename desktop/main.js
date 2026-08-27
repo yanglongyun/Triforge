@@ -3,7 +3,7 @@
 // 为什么用系统 node 而不是 Electron 自带的 Node:node-pty 是原生模块,按系统 node
 // 的 ABI 编译;塞进 Electron 的 Node 要 electron-rebuild 整一轮。开发期直接用系统
 // node 零 ABI 纠纷;正式打包时再换成随包 node + rebuild(见 dev/ 版本文档)。
-import { app, BrowserWindow, Menu, dialog, shell } from "electron";
+import { app, BrowserWindow, Menu, dialog, nativeTheme, shell } from "electron";
 import { spawn } from "node:child_process";
 import { createServer } from "node:net";
 import { dirname, join } from "node:path";
@@ -99,7 +99,8 @@ const createWindow = (port) => {
     height: 900,
     minWidth: 900,
     minHeight: 600,
-    backgroundColor: "#ffffff",
+    // 跟系统深浅给窗口底色,避免深色用户开屏闪白(页面内联脚本随后定妆)
+    backgroundColor: nativeTheme.shouldUseDarkColors ? "#191919" : "#ffffff",
     title: "Workbench",
     webPreferences: {
       contextIsolation: true,

@@ -1,5 +1,7 @@
-import { useEffect, useRef } from "react";
+import { useEffect, useRef, useState } from "react";
 import { basicSetup, EditorView } from "codemirror";
+import { oneDark } from "@codemirror/theme-one-dark";
+import { THEME_EVENT, resolvedTheme } from "../../lib/theme";
 import { EditorState } from "@codemirror/state";
 import { keymap } from "@codemirror/view";
 import { indentWithTab } from "@codemirror/commands";
@@ -62,7 +64,15 @@ export function CodeEditor({
   onChangeRef.current = onChange;
   onSaveRef.current = onSave;
 
-  // 切换文件(docKey 变)时整体重建,光标/历史归零
+  // 主题切换时重建编辑器换配色(深色用 oneDark;切主题是罕见动作,重建可接受)
+  const [theme, setTheme] = useState(resolvedTheme());
+  useEffect(() => {
+    const onTheme = () => setTheme(resolvedTheme());
+    window.addEventListener(THEME_EVENT, onTheme);
+    return () => window.removeEventListener(THEME_EVENT, onTheme);
+  }, []);
+
+  // 切换文件(docKey 变)/ 切主题时整体重建,光标/历史归零
   useEffect(() => {
     if (!hostRef.current) return;
     const saveKeymap = keymap.of([
@@ -79,6 +89,7 @@ export function CodeEditor({
         saveKeymap,
         langFor(filename),
         editorTheme,
+        ...(theme === "dark" ? [oneDark] : []),
         EditorView.updateListener.of((u) => {
           if (u.docChanged) onChangeRef.current(u.state.doc.toString());
         }),
@@ -88,7 +99,7 @@ export function CodeEditor({
     viewRef.current = view;
     return () => { view.destroy(); viewRef.current = null; };
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [docKey]);
+  }, [docKey, theme]);
 
   // 跳转到指定行(搜索命中)
   useEffect(() => {
