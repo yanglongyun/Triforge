@@ -1,6 +1,8 @@
-// Responses API 请求。
-import { EVENTS } from './events.js';
-import { backoffMs, isRetryable, normalizeRetry, sleep } from './retry.js';
+// Responses API 驱动。
+// 只负责一件事:把统一的 { input, instructions, tools } 发出去,把流解析成统一的
+// { items, usage, status, stopReason },沿途用 onEvent 吐增量。
+// 重试、循环、工具执行都不在这儿 —— 那些是协议无关的,在上一层。
+import { EVENTS } from '../events.js';
 
 const readError = async (response) => {
     const body = await response.text().catch(() => '');
@@ -123,43 +125,4 @@ async function attempt({ url, apiKey, model, input, instructions, tools, modelOp
     return { items, usage, status: status || 'completed', stopReason };
 }
 
-export async function request({
-    url,
-    apiKey,
-    model,
-    input,
-    instructions = '',
-    tools = [],
-    modelOptions,
-    retry,
-    signal,
-    onEvent = () => {},
-    errorMaxChars,
-}) {
-    if (!url || !apiKey || !model) throw new Error('缺少 Responses URL、API Key 或模型名');
-    if (!Number.isInteger(errorMaxChars) || errorMaxChars <= 0) throw new Error('errorMaxChars 必须是正整数');
-
-    const policy = normalizeRetry(retry);
-    const args = { url, apiKey, model, input, instructions, tools, modelOptions, signal, onEvent, errorMaxChars };
-
-    for (let attemptNo = 1; ; attemptNo += 1) {
-        try {
-            return await attempt(args);
-        } catch (error) {
-            if (signal?.aborted || error?.name === 'AbortError') throw error;
-            const exhausted = attemptNo > policy.maxRetries;
-            // 已经吐过内容再重试会重复一遍正文，默认不做，交给上层报错。
-            const streamed = error?.emitted && !policy.retryAfterStream;
-            if (!policy.enabled || exhausted || streamed || !isRetryable(error)) throw error;
-
-            const delay = backoffMs(attemptNo, policy);
-            onEvent(EVENTS.RETRY, {
-                attempt: attemptNo,
-                maxRetries: policy.maxRetries,
-                delayMs: delay,
-                error: String(error?.message || error),
-            });
-            await sleep(delay, signal);
-        }
-    }
-}
+export default { id: 'responses', label: 'Responses API', attempt };

@@ -67,6 +67,8 @@ export type Call = {
 };
 
 export type Settings = {
+  /** 接口协议:'responses' = OpenAI Responses;'chat' = Chat Completions(GLM 等)。 */
+  driver?: string;
   apiUrl: string;
   apiKey: string;
   model: string;

@@ -1,12 +1,14 @@
 // 模型 → 工具 → 模型，直到模型不再调用工具。
-import { request } from './responses.js';
+import { request } from './request.js';
 import { runTools } from './runner.js';
 import { EVENTS } from './events.js';
 
 export { complete } from './complete.js';
+export { DRIVER_IDS, DEFAULT_DRIVER, DRIVERS } from './drivers/index.js';
 
 export async function runAgent({
     runId,
+    driver,
     responsesUrl,
     apiKey,
     model,
@@ -33,6 +35,7 @@ export async function runAgent({
             if (signal?.aborted) throw new DOMException('Aborted', 'AbortError');
 
             const result = await request({
+                driver,
                 url: responsesUrl,
                 apiKey,
                 model,

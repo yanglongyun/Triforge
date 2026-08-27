@@ -93,6 +93,7 @@ export const maybeCompact = async ({ agentId, settings, signal, emit }) => {
   let summary = "";
   try {
     const result = await complete({
+      driver: settings.driver,
       responsesUrl: settings.apiUrl,
       apiKey: settings.apiKey,
       model: settings.model,

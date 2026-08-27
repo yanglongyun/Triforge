@@ -4,6 +4,7 @@ import { api } from "../../api";
 import { Check, Settings2 } from "lucide-react";
 
 const emptySettings: Settings = {
+  driver: "responses",
   apiUrl: "",
   apiKey: "",
   model: "",
@@ -12,6 +13,12 @@ const emptySettings: Settings = {
   compactPrompt: "",
   toolResultMaxChars: "12000",
 };
+
+/** 两种接口协议:URL 提示跟着走。 */
+const DRIVER_OPTIONS = [
+  { id: "responses", label: "Responses API(OpenAI / DeepSeek 等)", urlPlaceholder: "https://api.openai.com/v1/responses" },
+  { id: "chat", label: "Chat Completions(GLM 等)", urlPlaceholder: "https://open.bigmodel.cn/api/paas/v4/chat/completions" },
+];
 
 const inputClass =
   "w-full border border-border bg-bg px-3 py-2 text-[13px] text-text outline-none transition-colors focus:border-accent";
@@ -64,12 +71,24 @@ export function SettingsPanel({ onSaved }: { onSaved?: (settings: Settings) => v
       <div className="flex-1 min-h-0 overflow-y-auto">
         <div className="mx-auto w-full max-w-4xl px-5 md:px-8">
           <div className="divide-y divide-border">
-            <Field label="Responses API URL">
+            <Field label="接口协议">
+              <select
+                className={`${inputClass} cursor-pointer`}
+                value={form.driver || "responses"}
+                onChange={(e) => set("driver", e.target.value)}
+              >
+                {DRIVER_OPTIONS.map((option) => (
+                  <option key={option.id} value={option.id}>{option.label}</option>
+                ))}
+              </select>
+            </Field>
+
+            <Field label="API URL">
               <input
                 className={inputClass}
                 value={form.apiUrl}
                 onChange={(e) => set("apiUrl", e.target.value)}
-                placeholder="https://api.openai.com/v1/responses"
+                placeholder={(DRIVER_OPTIONS.find((o) => o.id === (form.driver || "responses")) || DRIVER_OPTIONS[0]).urlPlaceholder}
               />
             </Field>
 
@@ -87,7 +106,7 @@ export function SettingsPanel({ onSaved }: { onSaved?: (settings: Settings) => v
                 className={inputClass}
                 value={form.model}
                 onChange={(e) => set("model", e.target.value)}
-                placeholder="填 Responses 兼容网关下的模型名"
+                placeholder="该接口下的模型名,如 glm-4.7 / deepseek-chat"
               />
             </Field>
 

@@ -2,6 +2,9 @@
 import { getDb } from "../db.js";
 
 const DEFAULTS = {
+  // 'responses' = OpenAI Responses API;'chat' = Chat Completions(GLM 等只有这个)。
+  // 两个驱动在 ai/drivers/ 下彼此独立,循环和工具执行共用。
+  driver: "responses",
   apiUrl: "",
   apiKey: "",
   model: "",

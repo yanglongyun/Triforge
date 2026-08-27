@@ -50,6 +50,7 @@ const autoTitle = async (agentId, rows, finalText, settings) => {
   let title = "";
   try {
     const result = await complete({
+      driver: settings.driver,
       responsesUrl: settings.apiUrl,
       apiKey: settings.apiKey,
       model: settings.model,
@@ -88,7 +89,7 @@ const runAgent = async (agentId, { callerId = null } = {}) => {
 
   const settings = getSettings();
   if (!settings.apiUrl || !settings.apiKey || !settings.model) {
-    throw new Error("还没配置模型(设置 → Responses API URL / API Key / 模型)");
+    throw new Error("还没配置模型(设置 → 接口协议 / API URL / API Key / 模型)");
   }
 
   const controller = new AbortController();
@@ -175,6 +176,7 @@ const runAgent = async (agentId, { callerId = null } = {}) => {
 
     const result = await runAi({
       runId: crypto.randomUUID(),
+      driver: settings.driver, // 'responses' | 'chat',协议差异全在 ai/drivers/ 内消化
       responsesUrl: settings.apiUrl,
       apiKey: settings.apiKey,
       model: settings.model,

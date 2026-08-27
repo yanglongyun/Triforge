@@ -1,7 +1,8 @@
 // 一次性无工具补全，适用于摘要和标题。
-import { request } from './responses.js';
+import { request } from './request.js';
 
 export async function complete({
+    driver,
     responsesUrl,
     apiKey,
     model,
@@ -15,6 +16,7 @@ export async function complete({
     if (!Array.isArray(input)) throw new Error('input 必须是数组');
 
     const result = await request({
+        driver,
         url: responsesUrl,
         apiKey,
         model,
