@@ -1,16 +1,19 @@
-// 应用装载器:一块 iframe 沙箱 + 一座 postMessage 桥(应用契约的宿主端,见 APP.md)。
+// 应用装载器:一块 iframe 沙箱 + 一条 Cap'n Web RPC 会话(应用契约的宿主端,见 APP.md)。
 //
-// - sandbox="allow-scripts"(不给 same-origin):应用代码摸不到宿主 DOM / localStorage / 本地端口
-//   (Origin 门卫已拒绝字面 "null" 源的写请求,应用只有这座桥一条路);
-// - 能力网关:manifest 未声明的能力,桥直接拒绝;
-// - 同应用多实例(面板 + 标签页)经 bus 转发事件与 route,数据真身在宿主侧。
+// - sandbox="allow-scripts"(不给 same-origin):应用是不透明源,摸不到宿主 DOM / localStorage,
+//   Origin 门卫又拒绝字面 "null" 源的写请求 —— 这条会话是应用与世界的唯一通道;
+// - 握手:应用(SDK)建 MessageChannel,把 port 递上来;宿主校验 source + origin === "null" 后
+//   在 port 上起 Cap'n Web 会话 —— 宿主暴露 HostApi(能力网关),应用暴露 ClientMain(回调面);
+// - 主题/路由/实例事件都是对 ClientMain 桩的真调用,不再手刻报文;
+//   函数可按引用传递 —— 这也是将来 workerd 后端应用(gadget 桩)的同一条铁轨。
 import { useEffect, useRef } from "react";
+import { RpcTarget, newMessagePortRpcSession } from "capnweb";
 import { api } from "../../api";
 import { dialog } from "../ui";
 import { showToast } from "../ui/Toast";
 import { THEME_EVENT } from "../../lib/theme";
 import { appEntryUrl, type AppDef } from "../sidebar/registry";
-import { broadcastAppEvent, pushAppRoute, subscribeApp, type AppBusMessage } from "./bus";
+import { broadcastAppEvent, subscribeApp, type AppBusMessage } from "./bus";
 
 const THEME_TOKENS = [
   "bg", "bg-raised", "bg-panel", "bg-inset", "bg-hover",
@@ -29,27 +32,136 @@ const themePayload = () => {
   return { vars, dark: document.documentElement.dataset.theme === "dark" };
 };
 
-/** 方法 → 所需能力(null = 基础 SDK,人人可用)。 */
-const CAP_OF: Record<string, string | null> = {
-  "storage.get": "storage",
-  "storage.set": "storage",
-  "db.exec": "db",
-  "tabs.open": "tabs",
-  "tabs.openApp": "tabs",
-  "ai.complete": "ai",
-  "agent.run": "agent",
-  "fs.read": "fs:workspace",
-  "fs.write": "fs:workspace",
-  "fs.list": "fs:workspace",
-  "system.openExternal": "system",
-  "clipboard.write": "system",
-  "dialog.confirm": null,
-  "ui.toast": null,
-  "bus.emit": null,
-};
-
 const fsGranted = (appId: string) => localStorage.getItem(`workbench.apps.fsGrant.${appId}`) === "1";
 const grantFs = (appId: string) => localStorage.setItem(`workbench.apps.fsGrant.${appId}`, "1");
+
+type HostDeps = {
+  app: AppDef;
+  onOpenUrl: (url: string, title?: string) => void;
+  onOpenApp?: (app: AppDef, route?: string) => void;
+  /** 本实例的总线身份:busEmit 广播时把自己排除(不回声)。 */
+  except: (msg: AppBusMessage) => void;
+};
+
+/** 宿主 API:应用拿到它的桩。每个方法自带能力网关 —— manifest 没声明的能力,调了就抛。 */
+class HostApi extends RpcTarget {
+  #deps: HostDeps;
+
+  constructor(deps: HostDeps) {
+    super();
+    this.#deps = deps;
+  }
+
+  #need(cap: string) {
+    if (!this.#deps.app.capabilities.includes(cap)) {
+      throw new Error(`未声明能力:${cap}(在 app.json 的 capabilities 里加上它)`);
+    }
+  }
+
+  async storageGet() {
+    this.#need("storage");
+    return api.panelStorageGet(this.#deps.app.id);
+  }
+
+  async storageSet(value: unknown) {
+    this.#need("storage");
+    await api.panelStorageSet(this.#deps.app.id, value);
+  }
+
+  async dbExec(sql: unknown, params: unknown) {
+    this.#need("db");
+    return api.appDb(this.#deps.app.id, String(sql || ""), Array.isArray(params) ? params : []);
+  }
+
+  async tabsOpen(req: { url?: unknown; title?: unknown }) {
+    this.#need("tabs");
+    if (req?.url) this.#deps.onOpenUrl(String(req.url), req.title ? String(req.title) : undefined);
+  }
+
+  async tabsOpenApp(req: { route?: unknown }) {
+    this.#need("tabs");
+    this.#deps.onOpenApp?.(this.#deps.app, req?.route ? String(req.route) : "");
+  }
+
+  async aiComplete(req: { summary?: unknown; system?: unknown; prompt?: unknown }) {
+    this.#need("ai");
+    return api.appAi({
+      appId: this.#deps.app.id,
+      summary: String(req?.summary || ""),
+      system: req?.system ? String(req.system) : undefined,
+      prompt: String(req?.prompt || ""),
+    });
+  }
+
+  async agentRun(req: { summary?: unknown; message?: unknown; workdir?: unknown }) {
+    this.#need("agent");
+    return api.appAgent({
+      appId: this.#deps.app.id,
+      summary: String(req?.summary || ""),
+      message: String(req?.message || ""),
+      workdir: req?.workdir ? String(req.workdir) : undefined,
+    });
+  }
+
+  async #ensureFsGrant() {
+    const { app } = this.#deps;
+    if (fsGranted(app.id)) return;
+    const ok = await dialog.confirm(
+      `应用「${app.name}」请求读写工作区文件。\n允许后它可以读取和修改工作区内的内容。`,
+      { confirmText: "允许" },
+    );
+    if (!ok) throw new Error("用户拒绝了工作区文件访问");
+    grantFs(app.id);
+  }
+
+  async fsRead(req: { path?: unknown }) {
+    this.#need("fs:workspace");
+    await this.#ensureFsGrant();
+    return api.appFs({ appId: this.#deps.app.id, op: "read", path: String(req?.path || "") });
+  }
+
+  async fsWrite(req: { path?: unknown; content?: unknown }) {
+    this.#need("fs:workspace");
+    await this.#ensureFsGrant();
+    return api.appFs({
+      appId: this.#deps.app.id,
+      op: "write",
+      path: String(req?.path || ""),
+      content: req?.content !== undefined ? String(req.content) : "",
+    });
+  }
+
+  async fsList(req: { path?: unknown }) {
+    this.#need("fs:workspace");
+    await this.#ensureFsGrant();
+    return api.appFs({ appId: this.#deps.app.id, op: "list", path: String(req?.path || "") });
+  }
+
+  async systemOpenExternal(url: unknown) {
+    this.#need("system");
+    if (/^https?:\/\//i.test(String(url || ""))) window.open(String(url), "_blank");
+  }
+
+  async clipboardWrite(text: unknown) {
+    this.#need("system");
+    await navigator.clipboard.writeText(String(text || "")).catch(() => {});
+  }
+
+  async dialogConfirm(message: unknown, opts: { danger?: unknown; confirmText?: unknown }) {
+    return dialog.confirm(String(message || ""), {
+      danger: !!opts?.danger,
+      confirmText: opts?.confirmText ? String(opts.confirmText) : undefined,
+    });
+  }
+
+  async uiToast(message: unknown) {
+    showToast(String(message || ""));
+  }
+
+  async busEmit(event: unknown, payload: unknown) {
+    broadcastAppEvent(this.#deps.app.id, String(event || ""), payload, this.#deps.except);
+  }
+}
 
 export function AppFrame({
   app,
@@ -74,125 +186,51 @@ export function AppFrame({
   routeRef.current = route;
 
   useEffect(() => {
-    const post = (msg: Record<string, unknown>) =>
-      frameRef.current?.contentWindow?.postMessage({ wb: 1, ...msg }, "*");
-    const sendTheme = () => post({ type: "theme", ...themePayload() });
+    // client = 应用侧 ClientMain 的桩(init/theme/route/appEvent 都是对它的真调用)
+    let client: any = null;
+    const dropSession = () => {
+      try { client?.[Symbol.dispose]?.(); } catch { /* 已断开 */ }
+      client = null;
+    };
 
-    // 总线:别的实例发来的事件 / route 推送 → 转进 iframe
+    // 总线:别的实例发来的事件 / route 推送 → 调进应用
     const busListener = (msg: AppBusMessage) => {
-      if (msg.type === "event") post({ type: "appevent", event: msg.event, payload: msg.payload });
-      else if (msg.type === "route") post({ type: "route", route: msg.route });
+      if (!client) return;
+      if (msg.type === "event") void Promise.resolve(client.appEvent(msg.event, msg.payload)).catch(() => {});
+      else if (msg.type === "route") {
+        routeRef.current = msg.route;
+        void Promise.resolve(client.route(msg.route)).catch(() => {});
+      }
     };
     const unsubscribe = subscribeApp(app.id, busListener);
 
-    const onMessage = async (e: MessageEvent) => {
-      if (e.source !== frameRef.current?.contentWindow) return;
-      const d = e.data;
-      if (!d || d.wb !== 1) return;
-      if (d.type === "hello") {
-        post({ type: "init", ctx: { appId: app.id, mount, route: routeRef.current || "" } });
-        sendTheme();
-        return;
-      }
-      if (d.type !== "rpc") return;
-      const reply = (ok: boolean, value: unknown = null, error?: string) =>
-        post({ type: "result", id: d.id, ok, value, error });
-      const p = d.params || {};
-      const method = String(d.method || "");
+    const sendTheme = () => { if (client) void Promise.resolve(client.theme(themePayload())).catch(() => {}); };
+    window.addEventListener(THEME_EVENT, sendTheme);
 
-      // ── 能力网关 ──
-      const cap = CAP_OF[method];
-      if (cap === undefined) { reply(false, null, `unknown method: ${method}`); return; }
-      if (cap && !app.capabilities.includes(cap)) {
-        reply(false, null, `未声明能力:${cap}(在 app.json 的 capabilities 里加上它)`);
-        return;
-      }
-
-      try {
-        switch (method) {
-          case "storage.get":
-            reply(true, await api.panelStorageGet(app.id));
-            break;
-          case "storage.set":
-            await api.panelStorageSet(app.id, p.value);
-            reply(true);
-            break;
-          case "db.exec":
-            reply(true, await api.appDb(app.id, String(p.sql || ""), Array.isArray(p.params) ? p.params : []));
-            break;
-          case "tabs.open":
-            if (p.url) onOpenUrlRef.current(String(p.url), p.title ? String(p.title) : undefined);
-            reply(true);
-            break;
-          case "tabs.openApp":
-            onOpenAppRef.current?.(app, p.route ? String(p.route) : "");
-            reply(true);
-            break;
-          case "ai.complete":
-            reply(true, await api.appAi({
-              appId: app.id,
-              summary: String(p.summary || ""),
-              system: p.system ? String(p.system) : undefined,
-              prompt: String(p.prompt || ""),
-            }));
-            break;
-          case "agent.run":
-            reply(true, await api.appAgent({
-              appId: app.id,
-              summary: String(p.summary || ""),
-              message: String(p.message || ""),
-              workdir: p.workdir ? String(p.workdir) : undefined,
-            }));
-            break;
-          case "fs.read":
-          case "fs.write":
-          case "fs.list": {
-            if (!fsGranted(app.id)) {
-              const ok = await dialog.confirm(
-                `应用「${app.name}」请求读写工作区文件。\n允许后它可以读取和修改工作区内的内容。`,
-                { confirmText: "允许" },
-              );
-              if (!ok) { reply(false, null, "用户拒绝了工作区文件访问"); return; }
-              grantFs(app.id);
-            }
-            const op = method.slice(3) as "read" | "write" | "list";
-            reply(true, await api.appFs({ appId: app.id, op, path: String(p.path || ""), content: p.content !== undefined ? String(p.content) : undefined }));
-            break;
-          }
-          case "system.openExternal":
-            if (/^https?:\/\//i.test(String(p.url || ""))) window.open(String(p.url), "_blank");
-            reply(true);
-            break;
-          case "clipboard.write":
-            await navigator.clipboard.writeText(String(p.text || "")).catch(() => {});
-            reply(true);
-            break;
-          case "dialog.confirm":
-            reply(true, await dialog.confirm(String(p.message || ""), {
-              danger: !!p.danger,
-              confirmText: p.confirmText ? String(p.confirmText) : undefined,
-            }));
-            break;
-          case "ui.toast":
-            showToast(String(p.message || ""));
-            reply(true);
-            break;
-          case "bus.emit":
-            broadcastAppEvent(app.id, String(p.event || ""), p.payload, busListener);
-            reply(true);
-            break;
-        }
-      } catch (err: any) {
-        reply(false, null, String(err?.message || err));
-      }
+    const onMessage = (e: MessageEvent) => {
+      // 只认自己这块沙箱 iframe 的握手(不透明源的 origin 是字面 "null")
+      const frameWindow = frameRef.current?.contentWindow;
+      if (!frameWindow || e.source !== frameWindow || e.origin !== "null") return;
+      if (e.data !== "wb-handshake" || !e.ports || !e.ports[0]) return;
+      dropSession(); // iframe 重载会再次握手:旧会话作废
+      const hostApi = new HostApi({
+        app,
+        onOpenUrl: (url, title) => onOpenUrlRef.current(url, title),
+        onOpenApp: (a, r) => onOpenAppRef.current?.(a, r),
+        except: busListener,
+      });
+      client = newMessagePortRpcSession(e.ports[0], hostApi);
+      void Promise.resolve(
+        client.init({ appId: app.id, mount, route: routeRef.current || "" }, themePayload()),
+      ).catch(() => {});
     };
 
     window.addEventListener("message", onMessage);
-    window.addEventListener(THEME_EVENT, sendTheme);
     return () => {
       window.removeEventListener("message", onMessage);
       window.removeEventListener(THEME_EVENT, sendTheme);
       unsubscribe();
+      dropSession();
     };
   }, [app, mount]);
 
@@ -208,5 +246,3 @@ export function AppFrame({
     />
   );
 }
-
-export { pushAppRoute };

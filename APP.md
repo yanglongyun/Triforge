@@ -1,4 +1,4 @@
-# Workbench 应用契约(v1,0.6.0)
+# Workbench 应用契约(v1,0.6.x)
 
 活动栏三原生 = 产品的三个名词:**会话**(AI)、**文件**(资产)、**应用**(软件形态),焊死不可移除。
 其余一切都是应用:预装的(网站/任务,可移除)、工作区里的、将来大多由 AI 生成的。
@@ -60,8 +60,16 @@
 3. 敏感能力分级:`fs:workspace` 首次使用弹授权;`ai`/`agent` 靠活动流水全程可见 + `summary` 必填;
 4. 桥只认 `e.source === iframe.contentWindow`。
 
-## 线协议(宿主端 `components/apps/AppFrame.tsx`)
+## 线协议(0.6.1 起:Cap'n Web,宿主端 `components/apps/AppFrame.tsx`)
 
-`{ wb:1, type:"hello"|"init"|"theme"|"route"|"appevent"|"rpc"|"result", … }`;
-应用启动发 `hello`,宿主回 `init`(ctx)+ `theme`;RPC 带自增 id,宿主以 `result` 应答;
-主题变量(`--color-*`)注入应用 `<html>` 并随明暗实时更新,应用 CSS 直接用 token(给浅色兜底值)。
+应用与宿主之间是一条 **Cap'n Web RPC 会话**(双向对象能力协议,跑在 MessageChannel 上):
+
+- 握手:SDK 加载即 `new MessageChannel()`,把 port `postMessage` 给宿主;宿主校验
+  `source === iframe.contentWindow && origin === "null"` 后在 port 上起会话;
+- 宿主暴露 `HostApi`(每个方法自带能力网关),应用暴露 `ClientMain`(init/theme/route/appEvent);
+  主题、路由、实例事件都是对桩的真调用,没有手刻报文;
+- **函数可按引用传递**:回调/订阅是语言级能力 —— 这也是将来 workerd 后端应用
+  (`workbench.gadget` 桩直通应用的 Durable Object)的同一条铁轨;
+- SDK 源码在 `ui/sdk-src/workbench-sdk.mjs`,`npm run build:sdk` 打包(捆入 capnweb)到
+  `ui/public/apps/workbench-sdk.js`;应用面向的 `workbench.*` 表面与 0.6.0 完全一致;
+- 主题变量(`--color-*`)注入应用 `<html>` 并随明暗实时更新,应用 CSS 直接用 token(给浅色兜底值)。
