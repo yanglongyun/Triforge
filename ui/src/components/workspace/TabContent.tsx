@@ -2,8 +2,8 @@ import type { Settings, Node } from "../../api";
 import { ChatPanel } from "../chat";
 import { FilePanel } from "../files";
 import { SettingsPanel } from "../settings";
-import { ActivityPanel, EmptyPanel, GitDiffPanel, GitView, LauncherPanel, ProcessPanel, TerminalPanel } from "./panels";
-import { isActivityTab, isGitDiffTab, isGitTab, isLauncherTab, isProcessTab, isSettingsTab, isNodeTab, isTerminalTab, type WorkspaceGroupId, type WorkspaceTab } from "./types";
+import { ActivityPanel, EmptyPanel, GitDiffPanel, GitView, LauncherPanel, ProcessPanel } from "./panels";
+import { isActivityTab, isGitDiffTab, isGitTab, isLauncherTab, isProcessTab, isSettingsTab, isNodeTab, type WorkspaceGroupId, type WorkspaceTab } from "./types";
 
 type Socket = {
   send: (m: any) => void;
@@ -28,7 +28,6 @@ export function TabContent({
   onGitChanged,
   onOpenGitDiff,
   onCloseProcess,
-  onCloseTerminal,
 }: {
   tab: WorkspaceTab | null;
   groupId: WorkspaceGroupId;
@@ -47,7 +46,6 @@ export function TabContent({
   onGitChanged?: () => void;
   onOpenGitDiff: (root: string, path: string, staged?: boolean) => void;
   onCloseProcess: () => void;
-  onCloseTerminal: () => void;
 }) {
   if (!tab) return <EmptyPanel />;
 
@@ -59,9 +57,7 @@ export function TabContent({
     return <ProcessPanel socket={socket} onClose={onCloseProcess} />;
   }
 
-  if (isTerminalTab(tab)) {
-    return <TerminalPanel tab={tab} socket={socket} onClose={onCloseTerminal} />;
-  }
+  // 终端不在这里:它和网页标签一样常驻挂载在 WorkspaceGroup(卸载 = 杀 PTY)
 
   if (isGitTab(tab)) {
     return (

@@ -66,8 +66,12 @@ export function TerminalPanel({
         rows: Math.max(5, term.rows || 30),
       };
     };
-    const startWithCurrentSize = () => start(fitTerminal());
+    // 常驻挂载后标签可能处于 display:none:0×0 时 fit 会算出 20×5 的下限,
+    // 把 PTY 捏成小窗、打乱里面的 TUI —— 隐藏态一律跳过,切回可见时 observer 自会补一发。
+    const hostHidden = () => !host.offsetWidth || !host.offsetHeight;
+    const startWithCurrentSize = () => (hostHidden() ? start() : start(fitTerminal()));
     const sendResize = () => {
+      if (hostHidden()) return;
       const size = fitTerminal();
       socket.send({ type: "terminal_resize", terminalId: tab.id, ...size });
     };
