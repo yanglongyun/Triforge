@@ -10,8 +10,6 @@
 //   APPLE_ID=you@example.com APPLE_APP_SPECIFIC_PASSWORD=xxxx-xxxx-xxxx-xxxx \
 //   APPLE_TEAM_ID=92696T726U npm run dist:mac
 const { notarize } = require("@electron/notarize");
-const { execFileSync } = require("node:child_process");
-const { existsSync } = require("node:fs");
 
 exports.default = async function notarizing(context) {
   const { electronPlatformName, appOutDir } = context;
@@ -25,20 +23,9 @@ exports.default = async function notarizing(context) {
 
   const appName = context.packager.appInfo.productFilename;
   const appPath = `${appOutDir}/${appName}.app`;
-
-  // 随包的系统 node 在 extraResources(资源区),electron-builder 不会自动签它 ——
-  // 公证要求 .app 内每个可执行都带 Hardened Runtime 签名,漏签会被拒。手动深签一次。
-  const identity = "Chuan Zhi (Chengdu) Information Technology Co., Ltd. (92696T726U)";
-  const nodeBin = `${appPath}/Contents/Resources/core/bin/node`;
-  if (existsSync(nodeBin)) {
-    console.log(`[notarize] 深签随包 node:${nodeBin}`);
-    execFileSync("codesign", [
-      "--force", "--timestamp", "--options", "runtime",
-      "--entitlements", "desktop/build/entitlements.mac.plist",
-      "--sign", identity, nodeBin,
-    ], { stdio: "inherit" });
-  }
-
+  // 随包 node(extraResources)由 electron-builder 在 distribution 签名时一并带上
+  // Hardened Runtime —— afterSign 里再 --force 重签它会破坏外层 app 的封印
+  // (a sealed resource is missing or invalid),故不再手动深签,直接提交公证。
   console.log(`[notarize] 提交公证:${appPath}(团队 ${APPLE_TEAM_ID})…可能需要几分钟。`);
 
   await notarize({
