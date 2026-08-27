@@ -186,6 +186,21 @@ const gitDiff = ({ root, filePath, staged = false }) => {
   return "";
 };
 
+// 两份完整内容(merge 视图用):unstaged 比「暂存区 vs 工作树」,staged 比「HEAD vs 暂存区」。
+// 新文件/未跟踪 → before 为空;删除 → after 为空;含 \0 视为二进制,不出文本。
+const gitFilePair = ({ root, filePath, staged = false }) => {
+  const repo = repoByRoot(root);
+  const file = ensureRelativePath(filePath);
+  const show = (ref) => runGit(repo.root, ["show", `${ref}:${file}`], { allowError: true });
+  const readWorktree = () => {
+    try { return fs.readFileSync(path.join(repo.root, file), "utf8").replace(/\n$/, ""); } catch { return ""; }
+  };
+  const before = staged ? show("HEAD") : show(":0");
+  const after = staged ? show(":0") : readWorktree();
+  if (before.includes("\u0000") || after.includes("\u0000")) return { before: "", after: "", binary: true };
+  return { before, after, binary: false };
+};
+
 const gitBranches = (root) => {
   const repo = repoByRoot(root);
   const current = runGit(repo.root, ["branch", "--show-current"]);
@@ -263,6 +278,7 @@ export {
   gitCheckout,
   gitCommit,
   gitDiff,
+  gitFilePair,
   gitDiscard,
   gitInit,
   gitRemoteAction,

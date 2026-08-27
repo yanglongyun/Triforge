@@ -1,7 +1,8 @@
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useState } from "react";
 import type { ReactNode } from "react";
 import { Copy, GitCompare, Minus, Plus, RefreshCw, RotateCcw } from "lucide-react";
 import { api, type GitFileStatus } from "../../../api";
+import { DiffView } from "../../files/DiffView";
 import { dialog } from "../../ui";
 import type { GitDiffTab } from "../types";
 
@@ -12,7 +13,7 @@ type GitDiffPanelProps = {
 };
 
 export function GitDiffPanel({ tab, refreshKey = 0, onChanged }: GitDiffPanelProps) {
-  const [diff, setDiff] = useState("");
+  const [pair, setPair] = useState<{ before: string; after: string; binary: boolean } | null>(null);
   const [fileStatus, setFileStatus] = useState<GitFileStatus | null>(null);
   const [loading, setLoading] = useState(false);
   const [busy, setBusy] = useState<string | null>(null);
@@ -23,14 +24,14 @@ export function GitDiffPanel({ tab, refreshKey = 0, onChanged }: GitDiffPanelPro
     setLoading(true);
     setError(null);
     try {
-      const result = await api.gitDiff({ root: tab.root, path: tab.path, staged: tab.staged });
+      const result = await api.gitFilePair({ root: tab.root, path: tab.path, staged: tab.staged });
       const status = await api.gitStatus();
       const repo = status.repositories.find((item) => item.root === tab.root);
       const file = repo?.files.find((item) => item.path === tab.path || item.originalPath === tab.path) || null;
-      setDiff(result.diff || "");
+      setPair(result);
       setFileStatus(file);
     } catch (e: any) {
-      setDiff("");
+      setPair(null);
       setFileStatus(null);
       setError(e.message || "读取 diff 失败");
     } finally {
@@ -40,7 +41,6 @@ export function GitDiffPanel({ tab, refreshKey = 0, onChanged }: GitDiffPanelPro
 
   useEffect(() => { load(); }, [tab.root, tab.path, tab.staged, refreshKey]);
 
-  const lines = useMemo(() => diff.split(/\r?\n/), [diff]);
   const canStage = !tab.staged && fileStatus?.status !== "conflict" && !!(fileStatus?.unstaged || fileStatus?.status === "untracked");
   const canUnstage = !!tab.staged && !!fileStatus?.staged;
   const canDiscard = !tab.staged && fileStatus?.status !== "conflict" && !!(fileStatus?.unstaged || fileStatus?.status === "untracked");
@@ -125,17 +125,14 @@ export function GitDiffPanel({ tab, refreshKey = 0, onChanged }: GitDiffPanelPro
       {(notice && !error) && <div className="px-3 py-1.5 text-[12px] text-success bg-success/10">{notice}</div>}
       {error ? (
         <div className="p-4 text-[13px] text-danger">{error}</div>
-      ) : !loading && !diff ? (
+      ) : pair?.binary ? (
+        <div className="p-4 text-[13px] text-text-faint">二进制文件,不展示文本差异</div>
+      ) : !loading && pair && pair.before === pair.after ? (
         <div className="p-4 text-[13px] text-text-faint">没有可显示的差异</div>
-      ) : (
-        <div className="flex-1 min-h-0 overflow-auto bg-[#111315] py-2">
-          <pre className="min-w-full text-[12.5px] leading-[1.55] font-mono text-[#d7d7d7]">
-            {lines.map((line, index) => (
-              <DiffLine key={index} line={line} index={index + 1} />
-            ))}
-          </pre>
-        </div>
-      )}
+      ) : pair ? (
+        // 左 = 变更前,右 = 变更后:词级高亮 + 语法着色 + 未变段折叠(@codemirror/merge)
+        <DiffView before={pair.before} after={pair.after} filename={tab.path} />
+      ) : null}
     </div>
   );
 }
@@ -165,24 +162,5 @@ function DiffActionButton({
     >
       {children}
     </button>
-  );
-}
-
-function DiffLine({ line, index }: { line: string; index: number }) {
-  const isAdd = line.startsWith("+") && !line.startsWith("+++");
-  const isDel = line.startsWith("-") && !line.startsWith("---");
-  const isMeta = line.startsWith("diff --git") || line.startsWith("index ") || line.startsWith("@@") || line.startsWith("---") || line.startsWith("+++");
-  const cls = isAdd
-    ? "bg-success/15 text-[#b8f3c4]"
-    : isDel
-      ? "bg-danger/15 text-[#ffb7b7]"
-      : isMeta
-        ? "text-[#8ab4f8]"
-        : "text-[#d7d7d7]";
-  return (
-    <div className={["flex min-w-max px-3", cls].join(" ")}>
-      <span className="w-12 shrink-0 select-none pr-3 text-right text-[#777]">{index}</span>
-      <span className="whitespace-pre">{line || " "}</span>
-    </div>
   );
 }

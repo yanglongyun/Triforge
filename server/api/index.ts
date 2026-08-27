@@ -300,6 +300,17 @@ const handleApi = async (req, res) => {
         }),
       });
     }
+    // merge 视图用:两份完整内容(unstaged = 暂存区 vs 工作树;staged = HEAD vs 暂存区)
+    if (path === "/api/git/file-pair" && method === "GET") {
+      return json(res, 200, {
+        ok: true,
+        ...gitFilePair({
+          root: url.searchParams.get("root"),
+          filePath: url.searchParams.get("path"),
+          staged: url.searchParams.get("staged") === "1",
+        }),
+      });
+    }
     if (path === "/api/git/branches" && method === "GET") {
       return json(res, 200, { ok: true, ...gitBranches(url.searchParams.get("root")) });
     }

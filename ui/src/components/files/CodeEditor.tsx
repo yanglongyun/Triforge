@@ -11,18 +11,53 @@ import { json } from "@codemirror/lang-json";
 import { html } from "@codemirror/lang-html";
 import { css } from "@codemirror/lang-css";
 import { python } from "@codemirror/lang-python";
+import { yaml } from "@codemirror/lang-yaml";
+import { go } from "@codemirror/lang-go";
+import { rust } from "@codemirror/lang-rust";
+import { sql } from "@codemirror/lang-sql";
+import { cpp } from "@codemirror/lang-cpp";
+import { java } from "@codemirror/lang-java";
+import { php } from "@codemirror/lang-php";
+import { xml } from "@codemirror/lang-xml";
+import { StreamLanguage } from "@codemirror/language";
+import { shell } from "@codemirror/legacy-modes/mode/shell";
+import { toml } from "@codemirror/legacy-modes/mode/toml";
+import { ruby } from "@codemirror/legacy-modes/mode/ruby";
+import { swift } from "@codemirror/legacy-modes/mode/swift";
+import { lua } from "@codemirror/legacy-modes/mode/lua";
+import { diff as diffMode } from "@codemirror/legacy-modes/mode/diff";
+import { kotlin } from "@codemirror/legacy-modes/mode/clike";
+import { dockerFile } from "@codemirror/legacy-modes/mode/dockerfile";
 
-// 按文件扩展名挑语言(认不出就纯文本)
-function langFor(filename: string) {
-  const ext = filename.split(".").pop()?.toLowerCase() || "";
+// 按文件名挑语言(认不出就纯文本)。编辑器与 diff 视图共用。
+export function langFor(filename: string) {
+  const base = filename.split("/").pop()?.toLowerCase() || "";
+  if (base === "dockerfile" || base.startsWith("dockerfile.")) return StreamLanguage.define(dockerFile);
+  if (base === "makefile") return StreamLanguage.define(shell);
+  const ext = base.split(".").pop() || "";
   switch (ext) {
     case "js": case "jsx": case "mjs": case "cjs": return javascript({ jsx: true });
-    case "ts": case "tsx": return javascript({ jsx: true, typescript: true });
-    case "json": return json();
+    case "ts": case "tsx": case "mts": case "cts": return javascript({ jsx: true, typescript: true });
+    case "json": case "jsonc": return json();
     case "md": case "markdown": return markdown();
-    case "html": case "htm": case "xml": case "vue": case "svelte": return html();
+    case "html": case "htm": case "vue": case "svelte": return html();
+    case "xml": case "svg": case "plist": case "xib": case "storyboard": return xml();
     case "css": case "scss": case "less": return css();
     case "py": return python();
+    case "yml": case "yaml": return yaml();
+    case "go": return go();
+    case "rs": return rust();
+    case "sql": return sql();
+    case "c": case "h": case "cpp": case "cc": case "cxx": case "hpp": case "hh": case "m": case "mm": return cpp();
+    case "java": return java();
+    case "kt": case "kts": return StreamLanguage.define(kotlin);
+    case "php": return php();
+    case "sh": case "bash": case "zsh": return StreamLanguage.define(shell);
+    case "toml": return StreamLanguage.define(toml);
+    case "rb": return StreamLanguage.define(ruby);
+    case "swift": return StreamLanguage.define(swift);
+    case "lua": return StreamLanguage.define(lua);
+    case "diff": case "patch": return StreamLanguage.define(diffMode);
     default: return [];
   }
 }

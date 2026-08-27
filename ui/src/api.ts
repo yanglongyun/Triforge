@@ -234,6 +234,9 @@ export const api = {
     request<{ repository: GitRepositoryStatus | null }>(`/api/git/repository?path=${encodeURIComponent(path)}`),
   gitDiff: (opts: { root: string; path: string; staged?: boolean }) =>
     request<{ diff: string }>(`/api/git/diff?root=${encodeURIComponent(opts.root)}&path=${encodeURIComponent(opts.path)}${opts.staged ? "&staged=1" : ""}`),
+  /** merge 视图用的两份完整内容(unstaged = 暂存区 vs 工作树;staged = HEAD vs 暂存区)。 */
+  gitFilePair: (opts: { root: string; path: string; staged?: boolean }) =>
+    request<{ before: string; after: string; binary: boolean }>(`/api/git/file-pair?root=${encodeURIComponent(opts.root)}&path=${encodeURIComponent(opts.path)}${opts.staged ? "&staged=1" : ""}`),
   gitBranches: (root: string) =>
     request<GitBranches>(`/api/git/branches?root=${encodeURIComponent(root)}`),
   gitStage: (opts: { root: string; path?: string; all?: boolean }) =>

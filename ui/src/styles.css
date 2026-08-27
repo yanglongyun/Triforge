@@ -99,6 +99,25 @@ body {
   background: rgba(35, 131, 226, 0.18);
 }
 
+/* ── diff 对照视图(@codemirror/merge):变更配色跟主题 ── */
+.wb-diff .cm-mergeView { min-height: 100%; }
+.wb-diff .cm-mergeView .cm-editor { background: transparent; }
+.wb-diff .cm-merge-a .cm-changedLine { background: rgba(224, 62, 62, 0.07); }
+.wb-diff .cm-merge-a .cm-changedText { background: rgba(224, 62, 62, 0.22); }
+.wb-diff .cm-merge-b .cm-changedLine { background: rgba(15, 123, 108, 0.08); }
+.wb-diff .cm-merge-b .cm-changedText { background: rgba(15, 123, 108, 0.25); }
+.wb-diff .cm-deletedChunk { background: rgba(224, 62, 62, 0.07); }
+.wb-diff .cm-collapsedLines {
+  color: var(--color-text-faint);
+  background: var(--color-bg-inset);
+  padding: 2px 12px;
+}
+[data-theme="dark"] .wb-diff .cm-merge-a .cm-changedLine { background: rgba(235, 87, 87, 0.10); }
+[data-theme="dark"] .wb-diff .cm-merge-a .cm-changedText { background: rgba(235, 87, 87, 0.30); }
+[data-theme="dark"] .wb-diff .cm-merge-b .cm-changedLine { background: rgba(77, 171, 154, 0.10); }
+[data-theme="dark"] .wb-diff .cm-merge-b .cm-changedText { background: rgba(77, 171, 154, 0.30); }
+[data-theme="dark"] .wb-diff .cm-deletedChunk { background: rgba(235, 87, 87, 0.10); }
+
 /* 拖拽 */
 /* 拖拽进行中(lib/drag.ts 挂类):webview/iframe 会吞掉 pointermove/up,
    造成「松手后还跟手」。拖拽期让它们对指针失明,事件全回宿主。 */
