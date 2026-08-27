@@ -1,6 +1,7 @@
 import { useState } from "react";
 import { api, type Node } from "../../api";
 import { dialog } from "../ui";
+import { beginGlobalDrag, endGlobalDrag } from "../../lib/drag";
 import {
   PointerSensor,
   TouchSensor,
@@ -75,6 +76,7 @@ export function useTreeDnd({
 
   // ── dnd-kit 事件 ──
   const onDragStart = (e: DragStartEvent) => {
+    beginGlobalDrag(); // webview/iframe 失明,end/cancel 恢复
     const node = (e.active.data.current as any)?.node as Node | undefined;
     if (node) setActiveNode(node);
   };
@@ -92,6 +94,7 @@ export function useTreeDnd({
   };
 
   const onDragEnd = async (_e: DragEndEvent) => {
+    endGlobalDrag();
     const src = activeId;
     const dirId = overDirId;
     setActiveNode(null);
@@ -112,6 +115,7 @@ export function useTreeDnd({
   };
 
   const onDragCancel = () => {
+    endGlobalDrag();
     setActiveNode(null);
     setOverDirId(null);
   };

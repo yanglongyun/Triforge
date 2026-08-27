@@ -10,6 +10,7 @@ import { Settings, Folder, FolderPlus, FolderOpen, FileText, FilePlus, Bot, Tras
 const REVEAL_LABEL = /Mac/i.test(navigator.platform) ? "在 Finder 中显示"
   : /Win/i.test(navigator.platform) ? "在资源管理器中显示" : "在文件管理器中显示";
 import { DndContext, DragOverlay, useDroppable } from "@dnd-kit/core";
+import { beginGlobalDrag, endGlobalDrag } from "../../lib/drag";
 import { useTreeDnd, ROOT_ID } from "./useTreeDnd";
 import { AddWorkspaceDialog } from "./AddWorkspaceDialog";
 
@@ -532,17 +533,20 @@ export function NodeTree({
     let currentWidth = startWidth;
     document.body.style.cursor = "col-resize";
     document.body.style.userSelect = "none";
-    const onMove = (ev: PointerEvent) => {
-      const next = Math.max(220, Math.min(420, startWidth + ev.clientX - startX));
-      currentWidth = next;
-      setSidebarWidth(next);
-    };
+    beginGlobalDrag(); // 拖拽期让 webview/iframe 失明,pointerup 不再被网页吞掉
     const onUp = () => {
       window.removeEventListener("pointermove", onMove);
       window.removeEventListener("pointerup", onUp);
       document.body.style.cursor = previousCursor;
       document.body.style.userSelect = previousSelect;
+      endGlobalDrag();
       localStorage.setItem("workbench.sidebarWidth", String(Math.round(currentWidth)));
+    };
+    const onMove = (ev: PointerEvent) => {
+      if (ev.buttons === 0) { onUp(); return; } // 松手事件丢了也能自愈
+      const next = Math.max(220, Math.min(420, startWidth + ev.clientX - startX));
+      currentWidth = next;
+      setSidebarWidth(next);
     };
     window.addEventListener("pointermove", onMove);
     window.addEventListener("pointerup", onUp);

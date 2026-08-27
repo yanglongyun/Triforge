@@ -1,5 +1,6 @@
 import { Fragment, useCallback, useEffect, useRef, useState } from "react";
 import type { Settings, Node } from "../../api";
+import { beginGlobalDrag, endGlobalDrag } from "../../lib/drag";
 import { WorkspaceGroup } from "./WorkspaceGroup";
 import type { WorkspaceGroupId, WorkspaceGroupState, WorkspaceTab } from "./types";
 
@@ -128,6 +129,7 @@ export function WorkspaceLayout({
     setResizingSplit(false);
     document.body.style.cursor = session.bodyCursor;
     document.body.style.userSelect = session.bodyUserSelect;
+    endGlobalDrag();
     try {
       session.handle.releasePointerCapture(session.pointerId);
     } catch {
@@ -179,6 +181,7 @@ export function WorkspaceLayout({
       splitDragRef.current = null;
       document.body.style.cursor = session.bodyCursor;
       document.body.style.userSelect = session.bodyUserSelect;
+      endGlobalDrag();
       try {
         session.handle.releasePointerCapture(session.pointerId);
       } catch {
@@ -212,6 +215,7 @@ export function WorkspaceLayout({
 
     document.body.style.cursor = "col-resize";
     document.body.style.userSelect = "none";
+    beginGlobalDrag(); // webview/iframe 失明,松手事件不再被网页吞掉
     try {
       e.currentTarget.setPointerCapture(e.pointerId);
     } catch {

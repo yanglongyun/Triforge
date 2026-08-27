@@ -2,6 +2,7 @@ import { useEffect, useRef, useState } from "react";
 import { iconFor, colorFor } from "../explorer/NodeRow";
 import { X, Menu, Circle, GitBranch, GitCompare, Globe, MonitorPlay, PanelRight, Plus, Radio, Settings, Terminal } from "lucide-react";
 import { ContextMenu, Favicon, type MenuItem } from "../ui";
+import { beginGlobalDrag, endGlobalDrag } from "../../lib/drag";
 import type { WorkspaceGroupId, WorkspaceTab } from "./types";
 
 const tabIconFor = (tab: WorkspaceTab) =>
@@ -167,11 +168,13 @@ export function TabBar({
     const onMove = (ev: PointerEvent) => {
       const drag = pointerDrag.current;
       if (!drag) return;
+      if (ev.buttons === 0) { onUp(ev); return; } // 松手事件被 webview 吞掉时自愈
       const dist = Math.abs(ev.clientX - drag.startX) + Math.abs(ev.clientY - drag.startY);
       if (!drag.dragging && dist > 6) {
         drag.dragging = true;
         document.body.style.cursor = "grabbing";
         setDraggingTabId(tab.id);
+        beginGlobalDrag(); // 拖拽期让 webview/iframe 失明
       }
       if (!drag.dragging) return;
       ev.preventDefault();
@@ -191,6 +194,7 @@ export function TabBar({
       setDraggingTabId(null);
       setDragPreview(null);
       setDropGuide(null);
+      if (drag?.dragging) endGlobalDrag();
       if (!drag?.dragging) return;
       suppressClick.current = true;
       window.setTimeout(() => { suppressClick.current = false; }, 0);
