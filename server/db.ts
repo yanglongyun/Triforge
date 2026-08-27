@@ -104,14 +104,30 @@ const initDb = () => {
   `);
 
   db.exec(`
-    -- 面板私有存储:每个侧栏面板(含 iframe 扩展面板)一份 JSON。
-    -- 面板经宿主桥读写,自己永远不直连 http —— 见 PANEL.md。
+    -- 应用私有存储(KV):每个应用一份 JSON。应用经宿主桥读写,自己永远不直连 http —— 见 APP.md。
     CREATE TABLE IF NOT EXISTS panel_kv (
       id         TEXT PRIMARY KEY,
       value      TEXT NOT NULL,
       updated_at TEXT NOT NULL DEFAULT (datetime('now'))
     );
+
+    -- 应用活动:应用调用 AI(ai.complete)的问责流水;agent.run 走 calls 表(caller = app:<id>)。
+    CREATE TABLE IF NOT EXISTS activities (
+      id           INTEGER PRIMARY KEY AUTOINCREMENT,
+      source       TEXT NOT NULL,                -- app:<id>
+      kind         TEXT NOT NULL,                -- 'ai'
+      summary      TEXT NOT NULL,
+      status       TEXT NOT NULL DEFAULT 'running',
+      detail       TEXT NOT NULL DEFAULT '',
+      tokens       INTEGER NOT NULL DEFAULT 0,
+      created_at   TEXT NOT NULL DEFAULT (datetime('now')),
+      completed_at TEXT
+    );
+    CREATE INDEX IF NOT EXISTS idx_activities_id ON activities(id DESC);
   `);
+
+  // 隐藏智能体(应用 agent.run 的执行体):会话面板不显示,活动里可点开审查
+  try { db.exec("ALTER TABLE agents ADD COLUMN hidden INTEGER NOT NULL DEFAULT 0"); } catch { /* 已存在 */ }
 
   return db;
 };

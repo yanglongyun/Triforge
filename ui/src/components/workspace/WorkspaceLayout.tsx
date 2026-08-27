@@ -220,6 +220,8 @@ export function WorkspaceLayout({
         onUpdateWebTab={onUpdateWebTab}
         onCloseTab={tabs.close}
         onFocusGroup={tabs.focusGroup}
+        onOpenUrl={content.onOpenUrl}
+        onOpenApp={content.onOpenApp}
       />
     </div>
   );

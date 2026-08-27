@@ -19,7 +19,10 @@ const isLoopbackHost = (host: string) =>
 /** 请求的 Origin 是否可信(port 保留参数,当前策略只认「回环主机」不卡端口)。 */
 export const isTrustedOrigin = (origin: unknown, _port?: number) => {
   const value = String(origin || "").trim();
-  if (!value || value === "null") return true; // 无源 / file:// 归一成的 "null"
+  if (!value) return true; // 无 Origin 头:curl 等非浏览器客户端(浏览器跨源写一定带 Origin)
+  // 字面 "null" = 沙箱 iframe(应用)的不透明源 —— 应用只许走宿主桥,不许直连本地端口。
+  // (壳加载的是 http://127.0.0.1,不存在 file:// 归一成 "null" 的情形,可以放心拒绝。)
+  if (value === "null") return false;
   let parsed;
   try { parsed = new URL(value); } catch { return false; }
   if (parsed.protocol === "file:") return true;

@@ -24,6 +24,7 @@ const toNode = (row) => row && ({
   position: null,
   workdir: row.workdir,
   pinned: !!row.pinned,
+  hidden: !!row.hidden, // 应用 agent.run 的执行体:会话面板不显示,活动里可点开审查
   last_read_at: row.last_read_at ?? null,
   created_at: row.created_at,
   updated_at: row.updated_at,
@@ -34,12 +35,12 @@ const getAgent = (id) => toNode(getDb().prepare("SELECT * FROM agents WHERE id =
 const listAgents = () =>
   getDb().prepare("SELECT * FROM agents ORDER BY pinned DESC, updated_at DESC, created_at DESC").all().map(toNode);
 
-const createAgent = ({ title, system = null, workdir } = {}) => {
+const createAgent = ({ title, system = null, workdir, hidden = false } = {}) => {
   const id = randomUUID();
   const home = String(workdir || "").trim() || (listWorkspaces()[0]?.path || ensureRoot());
   getDb().prepare(`
-    INSERT INTO agents (id, title, system, workdir) VALUES (?, ?, ?, ?)
-  `).run(id, String(title || DEFAULT_TITLE).trim() || DEFAULT_TITLE, system == null ? null : String(system), home);
+    INSERT INTO agents (id, title, system, workdir, hidden) VALUES (?, ?, ?, ?, ?)
+  `).run(id, String(title || DEFAULT_TITLE).trim() || DEFAULT_TITLE, system == null ? null : String(system), home, hidden ? 1 : 0);
   return getAgent(id);
 };
 

@@ -9,7 +9,8 @@ const changed = () => emit({ type: "agents_changed" });
 type AgentPatch = { title?: string; system?: string | null; workdir?: string; pinned?: boolean };
 
 const list = () => {
-  const rows = repo.listAgents() as any[];
+  // hidden = 应用 agent.run 的执行体,不进会话面板(活动里可点开审查)
+  const rows = (repo.listAgents() as any[]).filter((r) => !r.hidden);
   const unread = repo.unreadMap(rows.map((r) => r.id)) as Record<string, boolean>;
   return rows.map((r) => ({ ...r, unread: !!unread[r.id] }));
 };

@@ -26,6 +26,29 @@ export type SearchResult = { id: string; title: string; matches: SearchMatch[] }
 /** 侧栏「网站」页收藏的链接。 */
 export type Site = { id: string; title: string; url: string; created_at: string };
 
+/** 工作区应用(server 扫描 <workspace>/apps/<id>/app.json 得来)。 */
+export type WorkspaceAppInfo = {
+  id: string;
+  name: string;
+  icon: string;
+  mounts: { panel?: string; tab?: string };
+  capabilities: string[];
+  source: "workspace";
+};
+
+/** 应用活动流水(ai.complete 的问责记录;agent.run 走 calls 表)。 */
+export type Activity = {
+  id: number;
+  source: string;
+  kind: string;
+  summary: string;
+  status: "running" | "done" | "error";
+  detail: string;
+  tokens: number;
+  created_at: string;
+  completed_at: string | null;
+};
+
 /** 消息附件(图片/文件):内容寻址存储,消息里只存元数据。 */
 export type Attachment = { id: string; name: string; path: string; mimeType: string; size: number; url: string };
 
@@ -196,6 +219,25 @@ export const api = {
     request<{ attachment: Attachment }>("/api/upload", { method: "POST", ...jsonBody(opts) }),
 
   // ── 网站收藏 ──
+  /** 工作区应用注册表(<workspace>/apps/<id>/app.json)。 */
+  listWorkspaceApps: () =>
+    request<{ apps: WorkspaceAppInfo[] }>("/api/apps/registry").then((r) => r.apps || []),
+  /** 应用私有数据库(一应用一库文件),经宿主桥转发。 */
+  appDb: (appId: string, sql: string, params?: unknown[]) =>
+    request<{ rows?: unknown[]; changes?: number; lastInsertRowid?: number }>("/api/app/db", { method: "POST", ...jsonBody({ appId, sql, params }) }),
+  /** 应用的 ai 能力:无状态单次补全,落活动流水。 */
+  appAi: (opts: { appId: string; summary: string; system?: string; prompt: string }) =>
+    request<{ text: string; tokens: number }>("/api/app/ai", { method: "POST", ...jsonBody(opts) }),
+  /** 应用的 agent 能力:派活给 hidden 智能体(活动可见,不进会话面板)。 */
+  appAgent: (opts: { appId: string; summary: string; message: string; workdir?: string }) =>
+    request<{ agentId: string; text: string }>("/api/app/agent", { method: "POST", ...jsonBody(opts) }),
+  /** 应用的 fs:workspace 能力:工作区内受限读写。 */
+  appFs: (opts: { appId: string; op: "read" | "write" | "list"; path: string; content?: string }) =>
+    request<{ content?: string; entries?: { name: string; kind: string }[] }>("/api/app/fs", { method: "POST", ...jsonBody(opts) }),
+  /** 应用活动流水(ai 调用问责)。 */
+  listActivities: () =>
+    request<{ activities: Activity[] }>("/api/activities").then((r) => r.activities || []),
+
   /** 面板私有存储:iframe 面板经 PanelFrame 桥读写(面板自己不直连 http)。 */
   panelStorageGet: (id: string) =>
     request<{ value: any }>(`/api/panel/storage?id=${encodeURIComponent(id)}`).then((r) => r.value),

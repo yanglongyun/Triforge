@@ -1,6 +1,6 @@
 import { useEffect, useRef, useState } from "react";
 import { iconFor, colorFor } from "../sidebar/panels/NodeRow";
-import { X, Menu, Circle, GitBranch, GitCompare, Globe, MonitorPlay, PanelRight, Plus, Radio, Settings, Terminal } from "lucide-react";
+import { X, LayoutGrid, Menu, Circle, GitBranch, GitCompare, Globe, MonitorPlay, PanelRight, Plus, Radio, Settings, Terminal } from "lucide-react";
 import { ContextMenu, Favicon, type MenuItem } from "../ui";
 import { beginGlobalDrag, endGlobalDrag } from "../../lib/drag";
 import type { TabActions, WorkspaceGroupId, WorkspaceTab } from "./types";
@@ -13,6 +13,7 @@ const tabIconFor = (tab: WorkspaceTab) =>
   tab.kind === "terminal" ? Terminal :
   tab.kind === "process" ? MonitorPlay :
   tab.kind === "launcher" ? Plus :
+  tab.kind === "app" ? LayoutGrid :
   tab.kind === "web" ? Globe : iconFor(tab.kind, tab.title);
 
 const tabColorFor = (tab: WorkspaceTab) =>
@@ -23,6 +24,7 @@ const tabColorFor = (tab: WorkspaceTab) =>
   tab.kind === "terminal" ? "text-success" :
   tab.kind === "process" ? "text-accent" :
   tab.kind === "launcher" ? "text-accent" :
+  tab.kind === "app" ? "text-accent" :
   tab.kind === "web" ? "text-accent" : colorFor(tab.kind);
 
 type DropGuide = {
@@ -270,6 +272,8 @@ export function TabBar({
             <span className="relative shrink-0">
               {t.kind === "web" ? (
                 <Favicon url={t.url} override={t.favicon} size={13} className={active ? "" : "opacity-70"} />
+              ) : t.kind === "app" ? (
+                <span className={`block text-[13px] leading-none ${active ? "" : "opacity-70"}`}>{t.app.icon}</span>
               ) : (
                 <Icon size={13} className={active ? tabColorFor(t) : "opacity-70"} />
               )}

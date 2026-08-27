@@ -7,6 +7,7 @@ import * as tree from "../service/tree.js";
 import * as agents from "../service/agents.js";
 import * as sites from "../service/sites.js";
 import * as panels from "../service/panels.js";
+import { handleAppRoutes } from "./app.js";
 import { listRows } from "../repo/messages.js";
 import { runningIds } from "../runs/index.js";
 import { listCalls } from "../repo/calls.js";
@@ -68,6 +69,9 @@ const handleApi = async (req, res) => {
 
   try {
     if (path === "/health") return json(res, 200, { ok: true });
+
+    // 应用契约的路由面(registry / workspace-apps 静态 / db / ai / agent / fs / activities)
+    if (await handleAppRoutes(req, res, url, String(method || "GET").toUpperCase())) return true;
 
     // ---- 附件(图片/文件上传;内容寻址,消息里只存元数据)----
     if (path === "/api/upload" && method === "POST") {

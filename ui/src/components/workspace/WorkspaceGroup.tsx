@@ -1,7 +1,8 @@
 import type { Settings, Node } from "../../api";
 import { TabBar } from "./TabBar";
 import { TabContent } from "./TabContent";
-import { isTerminalTab, isWebTab, type TabActions, type WorkspaceGroupState } from "./types";
+import { isAppTab, isTerminalTab, isWebTab, type TabActions, type WorkspaceGroupState } from "./types";
+import type { AppDef } from "../sidebar/registry";
 
 type Socket = {
   send: (m: any) => void;
@@ -23,6 +24,9 @@ export type TabContentProps = {
   onSettingsSaved?: (settings: Settings) => void;
   onGitChanged?: () => void;
   onOpenGitDiff: (root: string, path: string, staged?: boolean) => void;
+  /** 应用桥要用:开网页标签 / 打开应用标签页(常驻层的 AppFrame 消费)。 */
+  onOpenUrl: (url: string, title?: string) => void;
+  onOpenApp: (app: AppDef, route?: string) => void;
 };
 
 const activeTabOf = (group: WorkspaceGroupState) =>
@@ -80,7 +84,7 @@ export function WorkspaceGroup({
           分组只决定「摆在哪、显不显」,webview/PTY 的生命都在常驻层 —— 跨分屏移动不死 */}
       <div data-panel-host={group.id} className="flex-1 min-h-0 flex flex-col relative">
         <TabContent
-          tab={isWebTab(tab) || isTerminalTab(tab) ? null : tab}
+          tab={isWebTab(tab) || isTerminalTab(tab) || isAppTab(tab) ? null : tab}
           groupId={group.id}
           {...content}
           onOpenNav={showNavButton ? onOpenNav : undefined}

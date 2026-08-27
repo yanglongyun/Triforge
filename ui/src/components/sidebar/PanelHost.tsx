@@ -1,25 +1,67 @@
 // 面板宿主:侧边栏的「壳」。
 //
-// 职责边界(见 PANEL.md):宿主只管 —— 品牌行与汉堡、面板 tab 行(含空间不足退化为纯图标)、
-// 面板的装卸与切换(+ = 添加面板)、宽度拖拽、移动端抽屉、底部 活动/设置。
-// 每个面板的「身体」自治:会话/文件是原生组件,其余(预置示例「网站」与安装的扩展)进 iframe 沙箱。
+// 活动栏 = 原生三件(会话/文件/应用,焊死)+ 钉上来的应用面板(panel 挂载)。
+// 宿主只管:品牌行与汉堡、tab 行(空间不足退化纯图标)、应用的钉与卸、宽度、移动端抽屉、
+// 底部 活动/设置。应用的身体一律 iframe 沙箱(AppFrame),契约见 APP.md。
 import { useEffect, useRef, useState } from "react";
-import type { GitRepositoryStatus, Node } from "../../api";
-import { ContextMenu, type MenuItem } from "../ui";
-import { Menu, Plus, Radio, Settings, Sparkles, X } from "lucide-react";
+import { api, type GitRepositoryStatus, type Node } from "../../api";
+import { ContextMenu, dialog, type MenuItem } from "../ui";
+import { Menu, Plus, Radio, Settings, X } from "lucide-react";
 import { beginGlobalDrag, endGlobalDrag } from "../../lib/drag";
-import { BUILTIN_PANELS, EXT_PANELS, type PanelDef } from "./registry";
+import { NATIVE_PANELS, PRESET_APPS, type AppDef } from "./registry";
 import { AgentRail } from "./panels/AgentRail";
 import { FilesPanel } from "./panels/FilesPanel";
-import { PanelFrame } from "./panels/PanelFrame";
+import { AppsPanel } from "./panels/AppsPanel";
+import { AppFrame } from "../apps/AppFrame";
 
 type Socket = { send: (m: any) => void; on: (t: string, fn: (p: any) => void) => () => void };
+
+const load = <T,>(key: string, fallback: T): T => {
+  try {
+    const raw = localStorage.getItem(key);
+    return raw == null ? fallback : (JSON.parse(raw) as T);
+  } catch { return fallback; }
+};
+const save = (key: string, value: unknown) => localStorage.setItem(key, JSON.stringify(value));
+
+/** 首次迁移:0.5.x 的 extPanels(装过的扩展面板)并入钉住列表;网站默认在栏上。 */
+const initialPinned = (): string[] => {
+  const saved = load<string[] | null>("workbench.apps.pinned", null);
+  if (saved) return saved.filter((id) => typeof id === "string");
+  const legacy = load<string[]>("workbench.extPanels", []);
+  return ["sites", ...legacy.filter((id) => id !== "sites")];
+};
+
+/** 「让 AI 造一个应用」的开工指令:自包含的契约速查表(用户工作区里没有 APP.md,全都写进提示词)。 */
+const buildAppPrompt = (desc: string) => `请在当前工作目录为我建一个 Workbench 应用:${desc.trim()}
+
+Workbench 应用 = 工作区里的一个目录,建好即自动出现在「应用」面板(无需注册步骤):
+
+apps/<id>/app.json   ← manifest,示例:
+{ "id": "notebook", "name": "笔记本", "icon": "📔",
+  "mounts": { "tab": "index.html" },          ← 可选 "panel": 另一个 html(侧栏紧凑视图)
+  "capabilities": ["db"] }                     ← 按需声明:storage / db / tabs / ai / agent / fs:workspace / system
+
+apps/<id>/index.html ← 自包含页面(iframe 沙箱,样式用 var(--color-bg/text/border/accent…) 自动随主题),
+引入 SDK:<script src="/apps/workbench-sdk.js"></script>,await workbench.ready() 后可用:
+- workbench.storage.get()/set(v)                     KV 小状态
+- workbench.db.exec(sql, params)                     应用私有 SQLite,自由建表增删改查(推荐主力)
+- workbench.tabs.open({url}) / openApp({route})      开网页 / 打开自己的标签页(带路由)
+- workbench.ai.complete({summary, prompt, system?})  调 AI(summary 必填,活动里展示)
+- workbench.agent.run({summary, message})            派活给智能体(能用工具,较重)
+- workbench.fs.read/write/list({path, content?})     工作区文件(需 fs:workspace 能力)
+- workbench.context() / on(event,fn) / emit(event)   实例信息 / 同应用实例间事件
+- workbench.ui.toast(msg) / dialog.confirm(msg)      提示与确认
+
+要求:先 write 出 app.json 和 index.html,界面简洁贴合 Workbench 风格(浅色变量兜底),
+数据用 db 能力自建表;完成后告诉我应用名和怎么用。`;
 
 export function PanelHost({
   selectedId,
   onSelect,
   socket,
   onOpenUrl,
+  onOpenApp,
   onToggleNav,
   onOpenSide,
   onOpenTerminal,
@@ -39,7 +81,8 @@ export function PanelHost({
   onSelect: (n: Node | null) => void;
   socket: Socket;
   onOpenUrl: (url: string, title?: string) => void;
-  /** 侧栏头部汉堡:收起侧边栏(桌面端;展开入口在标签栏左端)。 */
+  /** 在标签页打开应用(tab 挂载;去重聚焦与 route 推送在工作区层)。 */
+  onOpenApp: (app: AppDef, route?: string) => void;
   onToggleNav?: () => void;
   onOpenSide?: (n: Node) => void;
   onOpenTerminal?: (n: Node, opts?: { command?: string; titlePrefix?: string }) => void;
@@ -55,35 +98,81 @@ export function PanelHost({
   onCloseMobile?: () => void;
   onChanged?: () => void;
 }) {
-  // ── 面板装卸状态:已安装的扩展面板 + 当前面板,均跨启动记住 ──
-  const [extPanels, setExtPanels] = useState<string[]>(() => {
-    try {
-      const saved = JSON.parse(localStorage.getItem("workbench.extPanels") || "[]");
-      return Array.isArray(saved) ? saved.filter((id) => typeof id === "string" && EXT_PANELS[id]) : [];
-    } catch { return []; }
-  });
-  const panels: PanelDef[] = [...BUILTIN_PANELS, ...extPanels.map((id) => EXT_PANELS[id]).filter(Boolean)];
+  // ── 应用注册状态:预装(可移除)+ 工作区(目录即安装)+ 钉住列表 ──
+  const [removedPresets, setRemovedPresets] = useState<string[]>(() => load("workbench.apps.removedPresets", []));
+  const [pinned, setPinned] = useState<string[]>(initialPinned);
+  const [workspaceApps, setWorkspaceApps] = useState<AppDef[]>([]);
+  useEffect(() => {
+    let cancelled = false;
+    api.listWorkspaceApps()
+      .then((apps) => { if (!cancelled) setWorkspaceApps(apps as AppDef[]); })
+      .catch(() => {});
+    return () => { cancelled = true; };
+  }, [refreshKey]);
+
+  const apps: AppDef[] = [
+    ...PRESET_APPS.filter((p) => !removedPresets.includes(p.id)),
+    ...workspaceApps.filter((w) => !PRESET_APPS.some((p) => p.id === w.id)),
+  ];
+  const pinnedApps = pinned
+    .map((id) => apps.find((a) => a.id === id))
+    .filter((a): a is AppDef => !!a && !!a.mounts.panel);
+
   const [sideTab, setSideTab] = useState<string>(() => localStorage.getItem("workbench.sideTab") || "agents");
-  const activePanelId = panels.some((p) => p.id === sideTab) ? sideTab : "agents";
+  const nativeIds = NATIVE_PANELS.map((p) => p.id as string);
+  const activePanelId = nativeIds.includes(sideTab) || pinnedApps.some((a) => a.id === sideTab) ? sideTab : "agents";
   const switchTab = (tab: string) => {
     setSideTab(tab);
     localStorage.setItem("workbench.sideTab", tab);
   };
-  const installPanel = (id: string) => {
-    setExtPanels((prev) => {
-      const next = prev.includes(id) ? prev : [...prev, id];
-      localStorage.setItem("workbench.extPanels", JSON.stringify(next));
+
+  const togglePin = (app: AppDef) => {
+    setPinned((prev) => {
+      const next = prev.includes(app.id) ? prev.filter((x) => x !== app.id) : [...prev, app.id];
+      save("workbench.apps.pinned", next);
       return next;
     });
-    switchTab(id);
+    if (sideTab === app.id) switchTab("apps");
   };
-  const removePanel = (id: string) => {
-    setExtPanels((prev) => {
-      const next = prev.filter((x) => x !== id);
-      localStorage.setItem("workbench.extPanels", JSON.stringify(next));
+  const pinAndShow = (app: AppDef) => {
+    setPinned((prev) => {
+      if (prev.includes(app.id)) return prev;
+      const next = [...prev, app.id];
+      save("workbench.apps.pinned", next);
       return next;
     });
-    if (sideTab === id) switchTab("agents");
+    switchTab(app.id);
+  };
+  const removePreset = (app: AppDef) => {
+    setRemovedPresets((prev) => {
+      const next = prev.includes(app.id) ? prev : [...prev, app.id];
+      save("workbench.apps.removedPresets", next);
+      return next;
+    });
+    setPinned((prev) => {
+      const next = prev.filter((x) => x !== app.id);
+      save("workbench.apps.pinned", next);
+      return next;
+    });
+    if (sideTab === app.id) switchTab("apps");
+  };
+
+  // 让 AI 造一个应用:一句话 → 新对话 → agent 在工作区 apps/ 里写出目录 → 自动出现
+  const createAppWithAI = async () => {
+    const desc = await dialog.prompt("", {
+      title: "让 AI 造一个应用",
+      placeholder: "描述你要的应用,如:记账本,支持分类和月度统计",
+      confirmText: "开工",
+    });
+    if (!desc || !desc.trim()) return;
+    try {
+      const r = await api.createAgent({ title: "", workdir: createParentId || undefined });
+      onSelect(r.node);
+      socket.send({ type: "send", agentId: r.node.id, prompt: buildAppPrompt(desc) });
+      switchTab("agents");
+    } catch (e: any) {
+      void dialog.alert(e?.message || "创建失败");
+    }
   };
 
   // 文件面板的「在此新建对话」:切到会话面板并带上预设 workdir
@@ -115,7 +204,7 @@ export function PanelHost({
     let currentWidth = startWidth;
     document.body.style.cursor = "col-resize";
     document.body.style.userSelect = "none";
-    beginGlobalDrag(); // 拖拽期让 webview/iframe 失明,pointerup 不再被网页吞掉
+    beginGlobalDrag();
     const onUp = () => {
       window.removeEventListener("pointermove", onMove);
       window.removeEventListener("pointerup", onUp);
@@ -125,7 +214,7 @@ export function PanelHost({
       localStorage.setItem("workbench.sidebarWidth", String(Math.round(currentWidth)));
     };
     const onMove = (ev: PointerEvent) => {
-      if (ev.buttons === 0) { onUp(); return; } // 松手事件丢了也能自愈
+      if (ev.buttons === 0) { onUp(); return; }
       const next = Math.max(220, Math.min(420, startWidth + ev.clientX - startX));
       currentWidth = next;
       setSidebarWidth(next);
@@ -134,7 +223,7 @@ export function PanelHost({
     window.addEventListener("pointerup", onUp);
   };
 
-  // ── tab 行的响应式:放不下「图标+文字」就整行退化为纯图标(悬停有 title)──
+  // ── tab 行响应式:放不下「图标+文字」就整行纯图标 ──
   const measureCtxRef = useRef<CanvasRenderingContext2D | null>(null);
   const labelWidth = (text: string) => {
     if (!measureCtxRef.current) measureCtxRef.current = document.createElement("canvas").getContext("2d");
@@ -143,38 +232,30 @@ export function PanelHost({
     ctx.font = '500 13px Inter, -apple-system, BlinkMacSystemFont, "PingFang SC", "Microsoft YaHei", sans-serif';
     return ctx.measureText(text).width;
   };
-  const PANEL_TAB_CHROME = 8 + 13 + 6; // px-1 两侧 + 图标 + 图标文字间距
-  const panelsNeedWidth =
-    panels.reduce((sum, p) => sum + PANEL_TAB_CHROME + Math.ceil(labelWidth(p.title)), 0)
-    + 36 /* + 按钮及其边距 */ + 8 /* 呼吸余量 */;
+  const TAB_CHROME = 8 + 14 + 6; // 内边距 + 图标 + 间距
+  const tabTitles = [...NATIVE_PANELS.map((p) => p.title), ...pinnedApps.map((a) => a.name)];
+  const needWidth = tabTitles.reduce((sum, t) => sum + TAB_CHROME + Math.ceil(labelWidth(t)), 0) + 36 + 8;
+  const iconOnly = needWidth > sidebarWidth;
 
-  // ── 宿主自己的菜单(面板库 / 扩展面板移除)──
+  // ── 宿主菜单:+ = 钉面板快捷入口;钉住的应用 tab 右键 = 取下 ──
   const [menu, setMenu] = useState<{ x: number; y: number; items: MenuItem[] } | null>(null);
-  const openPanelGallery = (e: React.MouseEvent) => {
+  const openPinPicker = (e: React.MouseEvent) => {
     const r = (e.currentTarget as HTMLElement).getBoundingClientRect();
-    const items: MenuItem[] = Object.values(EXT_PANELS).map((p) => {
-      const installed = extPanels.includes(p.id);
-      const Icon = p.icon;
-      return {
-        label: installed ? `${p.title}(已添加)` : `添加「${p.title}」面板`,
-        icon: <Icon size={13} className={installed ? "" : "text-accent"} />,
-        onClick: () => (installed ? switchTab(p.id) : installPanel(p.id)),
-      };
-    });
-    items.push("divider", {
-      label: "用 AI 定制面板(即将开放)",
-      icon: <Sparkles size={13} className="text-accent" />,
-      disabled: true,
-      onClick: () => {},
-    });
+    const candidates = apps.filter((a) => a.mounts.panel && !pinned.includes(a.id));
+    const items: MenuItem[] = candidates.map((a) => ({
+      label: `钉上「${a.name}」`,
+      icon: <span className="text-[13px] leading-none">{a.icon}</span>,
+      onClick: () => pinAndShow(a),
+    }));
+    if (items.length) items.push("divider");
+    items.push({ label: "在「应用」面板中管理…", icon: <Plus size={13} />, onClick: () => switchTab("apps") });
     setMenu({ x: r.left, y: r.bottom + 4, items });
   };
-  const onPanelTabContext = (e: React.MouseEvent, p: PanelDef) => {
-    if (!p.ext) return; // 内置面板无右键项
+  const onPinnedTabContext = (e: React.MouseEvent, app: AppDef) => {
     e.preventDefault();
     setMenu({
       x: e.clientX, y: e.clientY,
-      items: [{ label: `移除「${p.title}」面板`, icon: <X size={13} />, danger: true, onClick: () => removePanel(p.id) }],
+      items: [{ label: `从侧栏取下「${app.name}」`, icon: <X size={13} />, onClick: () => togglePin(app) }],
     });
   };
 
@@ -192,6 +273,13 @@ export function PanelHost({
     if (mobileOpen) onCloseMobile?.();
   };
 
+  const tabClass = (active: boolean) => [
+    "flex-1 min-w-0 flex items-center justify-center gap-1.5 h-9 px-1 text-[13px] transition-colors border-b-2 -mb-px",
+    active ? "border-accent text-text font-medium" : "border-transparent text-text-dim hover:text-text hover:bg-bg-hover",
+  ].join(" ");
+
+  const activeApp = pinnedApps.find((a) => a.id === activePanelId) || null;
+
   return (
     <aside
       style={{ width: `min(${sidebarWidth}px, calc(100vw - 32px))` }}
@@ -199,7 +287,6 @@ export function PanelHost({
         "flex-col border-r border-border bg-bg-raised shrink-0",
         "absolute inset-y-0 left-0 z-40 shadow-2xl shadow-black/10",
         "md:relative md:shadow-none",
-        // 移动端:关闭时直接 hidden;桌面端由汉堡切换
         mobileOpen ? "flex" : "hidden",
         desktopOpen ? "md:flex" : "md:hidden",
       ].join(" ")}
@@ -227,39 +314,36 @@ export function PanelHost({
         )}
       </div>
 
-      {/* 面板区:可扩展功能区的 tab 行;行末 + = 添加面板(创建操作归各面板内部) */}
+      {/* 活动栏:原生三件 + 钉住的应用面板;行末 + = 钉面板快捷入口 */}
       <div className="flex items-stretch border-b border-border">
-        {panels.map((p) => (
-          <button
-            key={p.id}
-            onClick={() => switchTab(p.id)}
-            onContextMenu={(e) => onPanelTabContext(e, p)}
-            title={p.ext ? `${p.title}(扩展面板,右键可移除)` : p.title}
-            className={[
-              "flex-1 min-w-0 flex items-center justify-center gap-1.5 h-9 px-1 text-[13px] transition-colors border-b-2 -mb-px",
-              activePanelId === p.id
-                ? "border-accent text-text font-medium"
-                : "border-transparent text-text-dim hover:text-text hover:bg-bg-hover",
-            ].join(" ")}
-          >
+        {NATIVE_PANELS.map((p) => (
+          <button key={p.id} onClick={() => switchTab(p.id)} title={p.title} className={tabClass(activePanelId === p.id)}>
             <p.icon size={13} className="shrink-0" />
-            {/* 空间不够放全 → 整行纯图标,不出半截省略号 */}
-            {panelsNeedWidth <= sidebarWidth && <span className="truncate">{p.title}</span>}
+            {!iconOnly && <span className="truncate">{p.title}</span>}
+          </button>
+        ))}
+        {pinnedApps.map((a) => (
+          <button
+            key={a.id}
+            onClick={() => switchTab(a.id)}
+            onContextMenu={(e) => onPinnedTabContext(e, a)}
+            title={`${a.name}(应用,右键可取下)`}
+            className={tabClass(activePanelId === a.id)}
+          >
+            <span className="shrink-0 text-[13px] leading-none">{a.icon}</span>
+            {!iconOnly && <span className="truncate">{a.name}</span>}
           </button>
         ))}
         <button
-          onClick={openPanelGallery}
-          title="添加面板"
+          onClick={openPinPicker}
+          title="钉一个应用面板"
           className="self-center shrink-0 w-6 h-6 mx-1.5 rounded flex items-center justify-center text-text-faint hover:text-accent hover:bg-bg-hover transition-colors"
         >
           <Plus size={15} />
         </button>
       </div>
 
-      {/* ── 面板身体 ──
-          会话:切走即卸(列表状态廉价,重挂即取);
-          文件:常驻隐藏 —— 展开集/多选/键盘锚点都是重状态,必须跨切换保活;
-          其余(预置「网站」+ 扩展):iframe 沙箱,激活时装载 */}
+      {/* ── 面板身体:会话切走即卸;文件常驻隐藏保重状态;应用 = iframe 沙箱 ── */}
       {activePanelId === "agents" && (
         <AgentRail
           selectedId={selectedId}
@@ -282,15 +366,26 @@ export function PanelHost({
         refreshKey={refreshKey}
         onChanged={onChanged}
       />
-      {activePanelId !== "agents" && activePanelId !== "files" && (
-        <PanelFrame key={activePanelId} panelId={activePanelId} onOpenUrl={onOpenUrl} />
+      {activePanelId === "apps" && (
+        <AppsPanel
+          apps={apps}
+          pinnedIds={pinned}
+          onOpenTab={(app) => onOpenApp(app)}
+          onOpenPanel={pinAndShow}
+          onTogglePin={togglePin}
+          onRemovePreset={removePreset}
+          onCreateWithAI={createAppWithAI}
+        />
+      )}
+      {activeApp && (
+        <AppFrame key={activeApp.id} app={activeApp} mount="panel" onOpenUrl={onOpenUrl} onOpenApp={onOpenApp} />
       )}
 
       {/* footer */}
       <div className="border-t border-border px-1.5 py-1.5 flex items-center gap-1">
         <button
           onClick={handleToggleActivity}
-          title="活动:智能体之间的调用"
+          title="活动:智能体与应用的调用"
           className={[
             "flex-1 flex items-center justify-center gap-1.5 px-2 py-1.5 rounded text-[13px] transition-colors",
             activityActive ? "bg-bg-inset text-text" : "text-text-dim hover:bg-bg-hover hover:text-text",
