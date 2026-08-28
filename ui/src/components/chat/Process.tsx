@@ -251,7 +251,7 @@ export function TurnFold({ durationMs, children }: { durationMs: number | null; 
 
 /* ── 有序渲染一串条目:常规工具做相邻分组,中间文本按 markdown 平铺 ── */
 
-// 多对话动作与浏览器操作是 Workbench 的招牌,永远单独可见,不收进「执行了 N 步」
+// 多对话动作与浏览器操作永远单独可见,不收进「执行了 N 步」
 const NEVER_GROUP = new Set(["browser"]);
 
 export function TurnEntries({ items }: { items: TurnEntry[] }) {

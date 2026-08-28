@@ -21,8 +21,8 @@
     "typecheck": "tsc --noEmit"
   },
   "build": {
-    "appId": "dev.woodchange.workbench",
-    "productName": "Workbench",
+    "appId": "ai.iimos.workbench",
+    "productName": "Triforge",
     "afterSign": "scripts/notarize.cjs",
     "publish": [
       {

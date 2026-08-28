@@ -4,12 +4,41 @@
 // 的 ABI 编译;塞进 Electron 的 Node 要 electron-rebuild 整一轮。开发期直接用系统
 // node 零 ABI 纠纷;正式打包时再换成随包 node + rebuild(见 dev/ 版本文档)。
 import { app, BrowserWindow, Menu, dialog, ipcMain, nativeTheme, shell } from "electron";
+import { existsSync, renameSync, mkdirSync } from "node:fs";
 import { spawn } from "node:child_process";
 import { createServer } from "node:net";
 import { dirname, join } from "node:path";
 import { fileURLToPath } from "node:url";
 
 const ROOT = join(dirname(fileURLToPath(import.meta.url)), "..");
+
+// ── 名字的两层:内部 slug 永不变,显示名随时可换 ──────────────────────────
+// SLUG 是身份:appId(ai.iimos.workbench)、userData 目录、更新通道都用它。
+// 它一旦跟着显示名变,macOS 就认为换了个应用 —— 设置、数据、自动更新链全断。
+// APP_NAME 只用于人眼可见处(窗口标题、Documents 下的工作区目录)。
+const SLUG = "workbench";
+const APP_NAME = "Triforge";
+const LEGACY_NAMES = ["Workbench"]; // 用过的旧显示名,用于一次性搬迁工作区目录
+
+// userData 显式钉死:Electron 默认按 productName 取路径,改显示名会让数据"凭空消失"。
+app.setPath("userData", join(app.getPath("appData"), SLUG));
+
+/** 工作区目录跟显示名走(用户要在 Finder 里天天看见它),改名时自动搬过去。 */
+const workspacesDir = () => {
+  const docs = app.getPath("documents");
+  const target = join(docs, APP_NAME);
+  if (!existsSync(target)) {
+    for (const old of LEGACY_NAMES) {
+      const from = join(docs, old);
+      if (existsSync(from)) {
+        try { renameSync(from, target); console.log(`[rename] 工作区目录 ${old} → ${APP_NAME}`); break; }
+        catch (e) { console.error("[rename] 工作区目录搬迁失败:", e?.message); }
+      }
+    }
+  }
+  try { mkdirSync(target, { recursive: true }); } catch { /* 已存在 */ }
+  return target;
+};
 
 let child = null;
 let quitting = false;
@@ -35,7 +64,7 @@ const layout = () => {
       WORKBENCH_HOME: app.getPath("userData"), // database/ 落在这里(macOS 惯例:应用数据进 Application Support)
       // 工作区是用户要在 Finder 里摸的真实文件树 —— 按「用户文档」惯例放 Documents,
       // 不埋进 Library(对照 Obsidian vault / Logseq graph 的默认位置)
-      WORKBENCH_WORKSPACES: join(app.getPath("documents"), "Workbench"),
+      WORKBENCH_WORKSPACES: workspacesDir(),
       WORKBENCH_UI_DIST: join(res, "core/ui"),
       // 组件契约正典:system prompt 把这个路径给智能体,让它动手前先 read
       WORKBENCH_WIDGET_DOC: join(res, "core/WIDGET.md"),
@@ -90,7 +119,7 @@ const startServer = async (port) => {
   child.on("exit", (code) => {
     child = null;
     if (!quitting) {
-      dialog.showErrorBox("Workbench", `本地服务意外退出(code ${code})。`);
+      dialog.showErrorBox(APP_NAME, `本地服务意外退出(code ${code})。`);
       app.quit();
     }
   });
@@ -105,7 +134,7 @@ const createWindow = (port) => {
     minHeight: 600,
     // 跟系统深浅给窗口底色,避免深色用户开屏闪白(页面内联脚本随后定妆)
     backgroundColor: nativeTheme.shouldUseDarkColors ? "#191919" : "#ffffff",
-    title: "Workbench",
+    title: APP_NAME,
     webPreferences: {
       contextIsolation: true,
       nodeIntegration: false,

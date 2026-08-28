@@ -7,6 +7,7 @@ import { useEffect, useRef, useState } from "react";
 import { api, type GitRepositoryStatus, type Node } from "../../api";
 import { ContextMenu, dialog, type MenuItem } from "../ui";
 import { LayoutGrid, Menu, Plus, Settings, X } from "lucide-react";
+import { APP_NAME } from "../../lib/brand";
 import { beginGlobalDrag, endGlobalDrag } from "../../lib/drag";
 import { NATIVE_PANELS, type WidgetDef } from "./registry";
 import { ChatRail } from "./panels/ChatRail";
@@ -32,9 +33,9 @@ const initialPinned = (): string[] => {
 };
 
 /** 「让 AI 造一个组件」的开工指令:自包含的契约速查表(全写进提示词,不指望 AI 去翻文档)。 */
-const buildWidgetPrompt = (desc: string) => `请为我造一个 Workbench 组件:${desc.trim()}
+const buildWidgetPrompt = (desc: string) => `请为我造一个组件:${desc.trim()}
 
-Workbench 组件 = 组件的家里的一个目录,**零构建**(浏览器直接吃,不打包、不装依赖),
+组件 = 组件的家里的一个目录,**零构建**(浏览器直接吃,不打包、不装依赖),
 写出目录即安装,自动出现在「组件」面板里:
 
 <组件的家>/widgets/<id>/
@@ -44,7 +45,7 @@ Workbench 组件 = 组件的家里的一个目录,**零构建**(浏览器直接�
   style.css
   data.db       组件的数据(宿主自动创建,别手建、别读写它)
 
-先用 bash 查出组件的家:它是 Workbench 默认工作区根下的 widgets/ 目录。
+先用 bash 查出组件的家:它是默认工作区根下的 widgets/ 目录。
 
 widget.json:
 { "name": "习惯打卡", "icon": "✅",
@@ -292,7 +293,7 @@ export function PanelHost({
       {/* brand:右上角 = 汉堡,只管侧栏收起(移动端沿用 X 关闭抽屉) */}
       <div className="flex items-center gap-2.5 px-3.5 h-11 border-b border-border">
         <span className="text-[20px] leading-none select-none">🌳</span>
-        <span className="text-[17px] font-semibold text-text flex-1 tracking-tight">Workbench</span>
+        <span className="text-[17px] font-semibold text-text flex-1 tracking-tight">{APP_NAME}</span>
         {onToggleNav && (
           <button
             onClick={onToggleNav}

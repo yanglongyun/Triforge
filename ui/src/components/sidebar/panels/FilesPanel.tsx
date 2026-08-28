@@ -146,7 +146,7 @@ export function FilesPanel({
     if (!ids.length) return;
     const workspaces = ids.filter((id) => rootsRef.current.some((r) => r.id === id && r.workspace));
     const normal = ids.filter((id) => !workspaces.includes(id));
-    const hint = workspaces.length ? `\n其中 ${workspaces.length} 个是工作区:只从 Workbench 移除,不删磁盘文件。` : "";
+    const hint = workspaces.length ? `\n其中 ${workspaces.length} 个是工作区:只从工作区列表移除,不删磁盘文件。` : "";
     const label = rawIds.length === 1
       ? `「${nodesRef.current.get(rawIds[0])?.title || rawIds[0].split("/").pop()}」`
       : `选中的 ${rawIds.length} 项`;
@@ -635,7 +635,7 @@ export function FilesPanel({
       { label: node.workspace ? "移除工作区" : "删除", icon: <Trash2 size={13} />, danger: true,
         onClick: async () => {
           if (node.workspace) {
-            if (!(await dialog.confirm(`从 Workbench 移除工作区「${node.title}」?\n不会删除磁盘文件。`, { danger: true, confirmText: "移除" }))) return;
+            if (!(await dialog.confirm(`移除工作区「${node.title}」?\n不会删除磁盘文件。`, { danger: true, confirmText: "移除" }))) return;
             await api.removeWorkspace(node.id);
           } else {
             if (!(await dialog.confirm(`删除「${node.title}」?${node.kind === "space" ? "\n里面所有内容也会一起删除。" : ""}`, { danger: true, confirmText: "删除" }))) return;

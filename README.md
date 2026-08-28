@@ -1,4 +1,4 @@
-# Workbench 🌳
+# Triforge ▲
 
 > 一个本地工作台:左边是**对话**、**文件**、**网站**,中间是标签页,侧栏挂着你自己的**组件**。
 
@@ -58,7 +58,7 @@ workspaces/                    ← 你挂进来的真实目录
 组件 = 组件的家里的一个目录,**零构建**(ESM + 原生 CSS,浏览器直接吃),写出目录即安装:
 
 ```
-~/Documents/Workbench/widgets/<id>/
+~/Documents/Triforge/widgets/<id>/
   widget.json   manifest(名字 / 图标 / 权限)
   index.html    入口
   main.js  style.css
