@@ -24,7 +24,6 @@ import {
   listGitRepositories,
   repositoryStatusForPath,
 } from "../repo/git.js";
-import { getProcess, listProcesses, startProcess, stopProcess } from "../processes.js";
 import { pickDirectory } from "../directoryPicker.js";
 import { syncWatchers } from "../watcher.js";
 import * as files from "../files.js";
@@ -340,33 +339,6 @@ const handleApi = async (req, res) => {
       if (method === "POST") {
         const body = await parseBody(req);
         return json(res, 200, { ok: true, settings: saveSettings(body) });
-      }
-    }
-
-    // ---- background processes / preview ----
-    if (path === "/api/processes") {
-      if (method === "GET") return json(res, 200, { ok: true, processes: listProcesses() });
-      if (method === "POST") {
-        const body = await parseBody(req);
-        try {
-          return json(res, 201, { ok: true, process: startProcess(body) });
-        } catch (error) {
-          return json(res, 400, { ok: false, error: error.message });
-        }
-      }
-    }
-
-    if (path === "/api/processes/get" && method === "GET") {
-      const proc = getProcess(url.searchParams.get("id"));
-      if (!proc) return json(res, 404, { ok: false, error: "not found" });
-      return json(res, 200, { ok: true, process: proc });
-    }
-
-    if (path === "/api/processes/stop" && method === "POST") {
-      try {
-        return json(res, 200, { ok: true, process: stopProcess(url.searchParams.get("id")) });
-      } catch (error) {
-        return json(res, 404, { ok: false, error: error.message });
       }
     }
 

@@ -86,7 +86,6 @@ export function WorkspaceGroup({
           groupId={group.id}
           {...content}
           onOpenNav={showNavButton ? onOpenNav : undefined}
-          onCloseProcess={() => tabs.close(group.id, group.activeId || "")}
         />
       </div>
     </section>

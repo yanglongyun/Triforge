@@ -1,6 +1,6 @@
 import { useEffect, useRef, useState } from "react";
 import { iconFor, colorFor } from "../sidebar/panels/NodeRow";
-import { X, LayoutGrid, Menu, Circle, GitBranch, GitCompare, Globe, MonitorPlay, PanelRight, Plus, Radio, Settings, Terminal } from "lucide-react";
+import { X, LayoutGrid, Menu, Circle, GitBranch, GitCompare, Globe, PanelRight, Plus, Radio, Settings, Terminal } from "lucide-react";
 import { ContextMenu, Favicon, type MenuItem } from "../ui";
 import { beginGlobalDrag, endGlobalDrag } from "../../lib/drag";
 import type { TabActions, WorkspaceGroupId, WorkspaceTab } from "./types";
@@ -11,7 +11,6 @@ const tabIconFor = (tab: WorkspaceTab) =>
   tab.kind === "settings" ? Settings :
   tab.kind === "activity" ? Radio :
   tab.kind === "terminal" ? Terminal :
-  tab.kind === "process" ? MonitorPlay :
   tab.kind === "launcher" ? Plus :
   tab.kind === "web" ? Globe : iconFor(tab.kind, tab.title);
 
@@ -21,7 +20,6 @@ const tabColorFor = (tab: WorkspaceTab) =>
   tab.kind === "settings" ? "text-text-dim" :
   tab.kind === "activity" ? "text-accent" :
   tab.kind === "terminal" ? "text-success" :
-  tab.kind === "process" ? "text-accent" :
   tab.kind === "launcher" ? "text-accent" :
   tab.kind === "web" ? "text-accent" : colorFor(tab.kind);
 

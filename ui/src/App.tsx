@@ -8,8 +8,7 @@ import { PanelHost } from "./components/sidebar";
 import { WorkspaceLayout, isSettingsTab, isActivityTab, isNodeTab, useTabGroups, webTab, type TabActions, type WorkspaceGroupId } from "./components/workspace";
 import { looksLikeUrl, normalizeUrl } from "./lib/urls";
 import { DialogHost, dialog, SystemNotices, ToastHost } from "./components/ui";
-import { FileText, Folder, FolderPlus, Bot, Globe, Search, Settings as SettingsIcon, X, MonitorPlay, PanelRight, Radio } from "lucide-react";
-import type { ManagedProcess } from "./api";
+import { FileText, Folder, FolderPlus, Bot, Globe, Search, Settings as SettingsIcon, X, PanelRight, Radio } from "lucide-react";
 
 export function App() {
   const socket = useSocket();
@@ -47,7 +46,6 @@ export function App() {
   const allTabsRef = useRef(tabGroups.allTabs);
   const activeTabRef = useRef(tabGroups.activeTab);
   const dirtyRef = useRef<Set<string>>(new Set());
-  const autoOpenedProcessesRef = useRef<Set<string>>(new Set());
   allTabsRef.current = tabGroups.allTabs;
   activeTabRef.current = tabGroups.activeTab;
   dirtyRef.current = dirtyIds;
@@ -167,30 +165,6 @@ export function App() {
     window.addEventListener("workbench:web-activate", onActivate);
     return () => window.removeEventListener("workbench:web-activate", onActivate);
   }, [tabGroups.activateTabById]);
-
-  // 后台进程:用于预览面板入口和自动打开第一条可预览服务
-  useEffect(() => {
-    let cancelled = false;
-    api.listProcesses()
-      .then((r) => {
-        if (cancelled) return;
-        const proc = (r.processes || []).find((p) => p.status === "running" && p.preview_url);
-        if (proc && !autoOpenedProcessesRef.current.has(proc.id)) {
-          autoOpenedProcessesRef.current.add(proc.id);
-          tabGroups.openProcess({ groupId: "side" });
-        }
-      })
-      .catch(() => {});
-    const off = socket.on("process_changed", (payload: any) => {
-      const proc = payload?.process as ManagedProcess | undefined;
-      if (!proc?.id) return;
-      if (proc.status === "running" && proc.preview_url && !autoOpenedProcessesRef.current.has(proc.id)) {
-        autoOpenedProcessesRef.current.add(proc.id);
-        tabGroups.openProcess({ groupId: "side" });
-      }
-    });
-    return () => { cancelled = true; off(); };
-  }, [socket, tabGroups.openProcess]);
 
   // 全局快捷键:⌘P 快开 / ⌘⇧P 命令面板
   useEffect(() => {
@@ -341,7 +315,6 @@ export function App() {
     { id: "new-file", label: "新建文件", icon: <FileText size={14} />, run: () => createAtCurrentTarget("file") },
     { id: "add-workspace", label: "添加工作区", icon: <FolderPlus size={14} />, run: addWorkspace },
     { id: "quick-open", label: "快速打开…", hint: "⌘P", icon: <Search size={14} />, run: () => setQuickOpen(true) },
-    { id: "preview", label: "打开预览", icon: <MonitorPlay size={14} />, run: () => tabGroups.openProcess({ groupId: "side" }) },
     {
       id: "move-tab-side",
       label: "移动当前标签到另一侧",

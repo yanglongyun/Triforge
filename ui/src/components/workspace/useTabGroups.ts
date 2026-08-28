@@ -6,8 +6,6 @@ import {
   isNodeTab,
   gitTab,
   gitDiffTab,
-  processTab,
-  PROCESS_TAB_ID,
   settingsTab,
   activityTab,
   terminalTab,
@@ -112,10 +110,6 @@ export function useTabGroups({ canCloseTab = () => true, onTabClosed = () => {} 
   const openNode = useCallback((node: Node | null, opts: { groupId?: WorkspaceGroupId; side?: boolean; preview?: boolean } = {}) => {
     if (!isOpenableSpace(node)) return;
     openTab(node, opts);
-  }, [openTab]);
-
-  const openProcess = useCallback((opts: { groupId?: WorkspaceGroupId; side?: boolean } = {}) => {
-    openTab(processTab(), { groupId: opts.groupId || "side", side: opts.side });
   }, [openTab]);
 
   const openTerminal = useCallback((cwd: string, title = "Terminal", opts: { groupId?: WorkspaceGroupId; side?: boolean; command?: string } = {}) => {
@@ -402,7 +396,6 @@ export function useTabGroups({ canCloseTab = () => true, onTabClosed = () => {} 
     focusGroup,
     toggleSideGroup,
     openNode,
-    openProcess,
     openTerminal,
     openGit,
     openGitDiff,
@@ -426,6 +419,5 @@ export function useTabGroups({ canCloseTab = () => true, onTabClosed = () => {} 
     removeNodeTab,
     pinPreviewTab,
     closeAll,
-    processTabId: PROCESS_TAB_ID,
   };
 }

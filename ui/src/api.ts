@@ -102,22 +102,6 @@ export type Settings = {
   telemetry?: string;
 };
 
-export type ManagedProcess = {
-  id: string;
-  command: string;
-  cwd: string;
-  reason: string;
-  pid: number | null;
-  status: "running" | "exited" | "error" | "stopped";
-  started_at: string;
-  ended_at: string | null;
-  exit_code: number | null;
-  signal: string | null;
-  ports: number[];
-  preview_url: string | null;
-  log_file: string | null;
-  output: string;
-};
 
 export type WorkspaceRoot = {
   id: string;
@@ -288,11 +272,6 @@ export const api = {
   saveSettings: (s: Settings) =>
     request<{ settings: Settings }>("/api/settings", { method: "POST", ...jsonBody(s) }),
 
-  listProcesses: () => request<{ processes: ManagedProcess[] }>("/api/processes"),
-  getProcess: (id: string) =>
-    request<{ process: ManagedProcess }>(`/api/processes/get?id=${encodeURIComponent(id)}`),
-  stopProcess: (id: string) =>
-    request<{ process: ManagedProcess }>(`/api/processes/stop?id=${encodeURIComponent(id)}`, { method: "POST" }),
 
   // 在系统文件管理器(Finder / 资源管理器)里显示该节点
   revealNode: (id: string) =>
