@@ -1,15 +1,15 @@
 // @ts-nocheck
 // WebSocket:唯一的双向通道。
-//   - send:落库用户消息 → 立即返回;轮子在 runs 层后台转,事件广播、按 agentId 认领。
+//   - send:落库用户消息 → 立即返回;轮子在 runs 层后台转,事件广播、按 chatId 认领。
 //     从前 send 在这里 await 整轮 —— 新模型下运行不绑在任何一次收发上。
-//   - stop:停任意 agentId(包括 spawn 出来的子智能体)。
+//   - stop:停任意 chatId。
 //   - terminal_*:终端多路复用(必须双向,ws 因此是通道的形态)。
 import WebSocket, { WebSocketServer } from "ws";
 import { setBroadcaster } from "./bus.js";
 import { EVENTS } from "./shared/events.js";
-import { runAgent, stopAgent } from "./runs/index.js";
+import { runChat, stopChat } from "./runs/index.js";
 import { appendItem } from "./repo/messages.js";
-import { touchAgent } from "./repo/agents.js";
+import { touchChat } from "./repo/chats.js";
 import { emit } from "./bus.js";
 import { resizeTerminal, startTerminal, stopAllTerminals, stopTerminal, writeTerminal } from "./terminals.js";
 import { registerHost, registerTab, resolveBrowserResult, unregisterClient, unregisterTab, updateTab } from "./browserHost.js";
@@ -41,10 +41,10 @@ const handleConnection = (ws) => {
     catch { sendJson(ws, { type: "error", error: "bad json" }); return; }
 
     const type = String(payload.type || "");
-    const agentId = String(payload.agentId || "");
+    const chatId = String(payload.chatId || "");
 
     if (type === "stop") {
-      stopAgent(agentId);
+      stopChat(chatId);
       return;
     }
     if (type === "terminal_start") { startTerminal(client, payload, sendToClient); return; }
@@ -60,7 +60,7 @@ const handleConnection = (ws) => {
     if (type === "browser_response") { resolveBrowserResult(payload); return; }
 
     if (type === "send") {
-      if (!agentId) { sendJson(ws, { type: "error", error: "missing agentId" }); return; }
+      if (!chatId) { sendJson(ws, { type: "error", error: "missing chatId" }); return; }
       const prompt = String(payload.prompt || "").trim();
       let attachments = [];
       try { attachments = normalizeAttachments(payload.attachments); }
@@ -68,21 +68,21 @@ const handleConnection = (ws) => {
       if (prompt || attachments.length) {
         const item = { role: "user", content: prompt };
         if (attachments.length) item.attachments = attachments; // 元数据进 item;请求期由附件层展开/剥除
-        const row = appendItem(agentId, item, { meta: { kind: "message" } });
-        touchAgent(agentId); // 浮到最近组顶部
-        emit({ type: EVENTS.INPUT, agentId, row });
+        const row = appendItem(chatId, item, { meta: { kind: "message" } });
+        touchChat(chatId); // 浮到最近组顶部
+        emit({ type: EVENTS.INPUT, chatId, row });
       }
       // 立即返回;终局事件(done/aborted/error)由 runs 层广播。
       // 这里只兜运行前的失败(正在运行/没配模型),它们发生在任何广播之前。
-      runAgent(agentId).catch((error) => {
+      runChat(chatId).catch((error) => {
         if (error?.name === "AbortError") return;
         if (/already running/i.test(error?.message || "")) return; // 邮箱已收到消息,跑完这轮自然会带上
-        emit({ type: EVENTS.ERROR, agentId, message: String(error?.message || error) });
+        emit({ type: EVENTS.ERROR, chatId, message: String(error?.message || error) });
       });
       return;
     }
 
-    // subscribe/unsubscribe 是旧协议的空操作:广播本就全量,界面按 agentId 认领
+    // subscribe/unsubscribe 是旧协议的空操作:广播本就全量,界面按 chatId 认领
     if (type === "subscribe" || type === "unsubscribe") return;
 
     sendJson(ws, { type: "error", error: `unknown: ${type}` });

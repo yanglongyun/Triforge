@@ -2,8 +2,8 @@ import type { Settings, Node } from "../../api";
 import { ChatPanel } from "../chat";
 import { FilePanel } from "../files";
 import { SettingsPanel } from "../settings";
-import { ActivityPanel, EmptyPanel, GitDiffPanel, GitView, LauncherPanel } from "./panels";
-import { isActivityTab, isGitDiffTab, isGitTab, isLauncherTab, isSettingsTab, isNodeTab, type WorkspaceGroupId, type WorkspaceTab } from "./types";
+import { EmptyPanel, GitDiffPanel, GitView, LauncherPanel } from "./panels";
+import { isGitDiffTab, isGitTab, isLauncherTab, isSettingsTab, isNodeTab, type WorkspaceGroupId, type WorkspaceTab } from "./types";
 
 type Socket = {
   send: (m: any) => void;
@@ -73,11 +73,7 @@ export function TabContent({
     return <SettingsPanel onSaved={onSettingsSaved} />;
   }
 
-  if (isActivityTab(tab)) {
-    return <ActivityPanel socket={socket} onOpenAgent={onOpenAgent} />;
-  }
-
-  if (isNodeTab(tab) && tab.kind === "agent") {
+  if (isNodeTab(tab) && tab.kind === "chat") {
     return (
       <ChatPanel
         key={tab.id}

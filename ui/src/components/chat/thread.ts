@@ -69,8 +69,6 @@ export const toolRow = (
   status,
 });
 
-/** 剥掉后端拼的 [CALL_RESULT from "X" (call#N)] 前缀,正文归正文。 */
-export const stripCallResultPrefix = (text: string) => text.replace(/^\[CALL_RESULT[^\]]*\]\n?/, "");
 
 /**
  * 历史行 → 渲染行。

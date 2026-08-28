@@ -1,8 +1,8 @@
 // @ts-nocheck
 // browser:操作工作区里的网页标签(真浏览器、真登录态)。
 // 执行端是 Electron 壳里的 <webview>(浏览器宿主见 server/browserHost.ts):
-// 指令广播给 UI,拥有该标签的窗口执行后应答;用户全程在界面上看得见 agent 在哪个页面干什么。
-// AI 开的网页按策略落在分屏侧组 —— 左边对话继续流,右边看着 agent 操作。
+// 指令广播给 UI,拥有该标签的窗口执行后应答;用户全程在界面上看得见 AI 在哪个页面干什么。
+// AI 开的网页按策略落在分屏侧组 —— 左边对话继续流,右边看着 AI 操作。
 // 纯浏览器/dev(没有桌面壳)时诚实报错,不装能行。
 import { writeFileSync, mkdirSync } from "fs";
 import { dirname, isAbsolute, resolve } from "path";

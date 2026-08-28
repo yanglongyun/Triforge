@@ -4,7 +4,6 @@ export const TERMINAL_TAB_PREFIX = "__terminal__";
 export const GIT_TAB_PREFIX = "__git__";
 export const GIT_DIFF_TAB_PREFIX = "__git_diff__";
 export const SETTINGS_TAB_ID = "__settings__";
-export const ACTIVITY_TAB_ID = "__activity__";
 
 export type TerminalTab = {
   id: string;
@@ -36,12 +35,6 @@ export type SettingsTab = {
   title: "设置";
 };
 
-export type ActivityTab = {
-  id: typeof ACTIVITY_TAB_ID;
-  kind: "activity";
-  title: "活动";
-};
-
 export const LAUNCHER_TAB_PREFIX = "__launcher__";
 
 /** 新标签页(方案 C):一个全能输入框 —— 输入文字开对话,输入网址开网站;就地转身成目标标签。 */
@@ -65,7 +58,7 @@ export type WebTab = {
   favicon?: string;
 };
 
-export type WorkspaceTab = Node | TerminalTab | GitTab | GitDiffTab | SettingsTab | ActivityTab | WebTab | LauncherTab;
+export type WorkspaceTab = Node | TerminalTab | GitTab | GitDiffTab | SettingsTab | WebTab | LauncherTab;
 export type WorkspaceGroupId = "main" | "side";
 
 export type WorkspaceGroupState = {
@@ -121,12 +114,6 @@ export const settingsTab = (): SettingsTab => ({
   title: "设置",
 });
 
-export const activityTab = (): ActivityTab => ({
-  id: ACTIVITY_TAB_ID,
-  kind: "activity",
-  title: "活动",
-});
-
 export const launcherTab = (): LauncherTab => ({
   id: `${LAUNCHER_TAB_PREFIX}:${Date.now()}:${Math.random().toString(36).slice(2, 8)}`,
   kind: "launcher",
@@ -153,9 +140,6 @@ export const isGitDiffTab = (tab: WorkspaceTab | null | undefined): tab is GitDi
 export const isSettingsTab = (tab: WorkspaceTab | null | undefined): tab is SettingsTab =>
   tab?.kind === "settings";
 
-export const isActivityTab = (tab: WorkspaceTab | null | undefined): tab is ActivityTab =>
-  tab?.kind === "activity";
-
 export const isWebTab = (tab: WorkspaceTab | null | undefined): tab is WebTab =>
   tab?.kind === "web";
 
@@ -163,7 +147,7 @@ export const isLauncherTab = (tab: WorkspaceTab | null | undefined): tab is Laun
   tab?.kind === "launcher";
 
 export const isNodeTab = (tab: WorkspaceTab | null | undefined): tab is Node =>
-  !!tab && tab.kind !== "terminal" && tab.kind !== "git" && tab.kind !== "git-diff" && tab.kind !== "settings" && tab.kind !== "activity" && tab.kind !== "web" && tab.kind !== "launcher";
+  !!tab && tab.kind !== "terminal" && tab.kind !== "git" && tab.kind !== "git-diff" && tab.kind !== "settings" && tab.kind !== "web" && tab.kind !== "launcher";
 
 export const isOpenableSpace = (node: Node | null | undefined): node is Node =>
   !!node && node.kind !== "space";

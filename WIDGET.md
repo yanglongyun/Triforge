@@ -132,12 +132,12 @@ Content-Security-Policy: default-src 'self'; connect-src 'self'; img-src 'self' 
 | `sql` | `/_wb/sql`、`/_wb/sql/batch` | 只能碰自己的库,物理隔离 |
 | `ui` | `/_wb/toast`、`/_wb/confirm` | 免申请?见开放问题 1 |
 | `fs` | `/_wb/fs/*` 读写工作区文件 | **首次使用弹用户授权**,不能靠 manifest 一次性拿到 |
-| `ai` | `/_wb/ai` 无状态补全 | 每次调用必带 `summary`,落活动流水 |
+| `ai` | `/_wb/ai` 无状态补全 | 每次调用必带 `summary`,打进服务端控制台 |
 
 原则:
 - **能力即知情同意** —— 声明是给用户看的,不是给系统看的;
 - **触碰真实文件必须运行时授权**,manifest 声明不够;
-- **AI 调用必留痕** —— `summary` 必填,机器行为进活动流,不进对话。
+- **AI 调用必留痕** —— `summary` 必填,打进服务端控制台。
 
 ---
 
@@ -177,7 +177,7 @@ const res = await fetch("/_wb/sql", {
 | `/_wb/context` | GET | 组件自身信息:`{ id, name, theme, locale }` |
 | `/_wb/toast` | POST | `{ message }` |
 | `/_wb/confirm` | POST | `{ message }` → `{ ok }`,阻塞到用户选择 |
-| `/_wb/ai` | POST | `{ summary, system, prompt }` → `{ text, tokens }` |
+| `/_wb/ai` | POST | `{ summary, system, prompt }` → `{ text, tokens }`,`summary` 必填 |
 | `/_wb/fs/read` `/_wb/fs/write` `/_wb/fs/list` | POST | 工作区文件,首次使用弹授权 |
 
 `toast` / `confirm` 需要服务端→客户端的通道(宿主自己的 WS,不受 workerd 那套限制)。

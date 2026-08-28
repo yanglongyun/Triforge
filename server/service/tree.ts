@@ -1,7 +1,7 @@
 // 树服务:repo 之上的业务层 —— 负责事件广播(tree_changed)+ 把 update+move 收拢。
-// 树上只有文件夹和文件;智能体在 service/agents.ts。
+// 树上只有文件夹和文件;对话在 service/chats.ts。
 import * as repo from "../repo/tree.js";
-import * as agents from "../repo/agents.js";
+import * as agents from "../repo/chats.js";
 import { searchContent } from "../repo/search.js";
 import { emit } from "../bus.js";
 
@@ -41,7 +41,7 @@ const importFile = (body: { parentId?: string | null; relPath?: string; dataBase
 const remove = (id: string) => {
   repo.deleteItem(id);
   emit({ type: "tree_changed", id, reason: "deleted" });
-  emit({ type: "agents_changed" }); // 子树上的智能体可能被塌缩搬家
+  emit({ type: "chats_changed" }); // 子树上的对话可能被塌缩搬家
 };
 
 const copy = (id: string, targetParentId: string | null = null) => {
@@ -69,10 +69,10 @@ const search = (q: string) => (q ? searchContent(q) : []);
 const fileRawAbs = (id: string) => repo.resolveFileAbs(id);
 const pathForId = (id: string) => repo.pathForId(id);
 
-/** 终端的 cwd:id 可能是智能体 uuid(在它的工作目录开终端)或路径 id。 */
+/** 终端的 cwd:id 可能是对话 uuid(在它的工作目录开终端)或路径 id。 */
 const terminalCwd = (id: string) => {
-  const agent = agents.getAgent(id);
-  if (agent) return agents.resolveWorkdir(agent);
+  const chat = agents.getChat(id);
+  if (chat) return agents.resolveWorkdir(chat);
   return repo.terminalCwd(id);
 };
 

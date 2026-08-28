@@ -5,10 +5,10 @@ import { api, type GitRepositoryStatus, type Node } from "./api";
 import { EVENTS } from "../../server/shared/events";
 import { QuickOpen, CommandPalette, type Command } from "./components/command";
 import { PanelHost } from "./components/sidebar";
-import { WorkspaceLayout, isSettingsTab, isActivityTab, isNodeTab, useTabGroups, webTab, type TabActions, type WorkspaceGroupId } from "./components/workspace";
+import { WorkspaceLayout, isSettingsTab, isNodeTab, useTabGroups, webTab, type TabActions, type WorkspaceGroupId } from "./components/workspace";
 import { looksLikeUrl, normalizeUrl } from "./lib/urls";
 import { DialogHost, dialog, SystemNotices, ToastHost } from "./components/ui";
-import { FileText, Folder, FolderPlus, Bot, Globe, Search, Settings as SettingsIcon, X, PanelRight, Radio } from "lucide-react";
+import { FileText, Folder, FolderPlus, Bot, Globe, Search, Settings as SettingsIcon, X, PanelRight } from "lucide-react";
 
 export function App() {
   const socket = useSocket();
@@ -67,9 +67,8 @@ export function App() {
     tabGroups.openTerminal(cwdHint, title, { command: opts.command });
   };
   const openSettings = () => tabGroups.openSettings();
-  const openActivity = () => tabGroups.openActivity();
   const openWebTab = (url: string, title?: string) => tabGroups.openWeb(url, title);
-  const openAgentById = (id: string) => api.getAgent(id).then((r) => r.node && openNode(r.node)).catch(() => {});
+  const openAgentById = (id: string) => api.getChat(id).then((r) => r.node && openNode(r.node)).catch(() => {});
 
   const refreshGit = useCallback(() => setGitRefreshKey((n) => n + 1), []);
   const openGit = (repo: GitRepositoryStatus) => {
@@ -86,29 +85,29 @@ export function App() {
       treeBumpTimer.current = setTimeout(() => { treeBumpTimer.current = null; setTreeRefresh((n) => n + 1); }, 300);
     };
     // 新消息进邮箱 / 轮次终局 / 会话列表变了 → 未读点、状态点要跟上(流式增量不刷,太密)
-    const triggers = ["tree_changed", "agents_changed", "call_changed", EVENTS.INPUT, EVENTS.DONE, EVENTS.ABORTED, EVENTS.ERROR];
+    const triggers = ["tree_changed", "chats_changed", EVENTS.INPUT, EVENTS.DONE, EVENTS.ABORTED, EVENTS.ERROR];
     const offs = triggers.map((t) => socket.on(t, bump));
     return () => { offs.forEach((f) => f()); };
   }, [socket]);
 
-  // 智能体标签页上的状态点/未读点:跟着运行事件走(智能体已不在树上,不再有 tree_changed 带来更新)
+  // 对话标签页上的状态点/未读点:跟着运行事件走(对话不在文件树上)
   useEffect(() => {
     const set = (id: string, patch: Partial<Node>) => tabGroups.updateNodeTab(String(id), patch as Node);
     // 标签页存的是 node 快照 —— 自动取名/重命名后把新标题同步过去(挂载时也对齐一次)
-    const syncTitles = () => api.listAgents().then((r) => {
-      for (const a of r.agents) set(a.id, { title: a.title, workdir: a.workdir });
+    const syncTitles = () => api.listChats().then((r) => {
+      for (const a of r.chats) set(a.id, { title: a.title, workdir: a.workdir });
     }).catch(() => {});
     syncTitles();
     const offs = [
-      socket.on("agents_changed", syncTitles),
-      socket.on(EVENTS.START, (p: any) => set(p.agentId, { status: "running" })),
-      socket.on(EVENTS.DONE, (p: any) => set(p.agentId, { status: "idle" })),
-      socket.on(EVENTS.ABORTED, (p: any) => set(p.agentId, { status: "idle" })),
-      socket.on(EVENTS.ERROR, (p: any) => set(p.agentId, { status: "error" })),
+      socket.on("chats_changed", syncTitles),
+      socket.on(EVENTS.START, (p: any) => set(p.chatId, { status: "running" })),
+      socket.on(EVENTS.DONE, (p: any) => set(p.chatId, { status: "idle" })),
+      socket.on(EVENTS.ABORTED, (p: any) => set(p.chatId, { status: "idle" })),
+      socket.on(EVENTS.ERROR, (p: any) => set(p.chatId, { status: "error" })),
       socket.on(EVENTS.INPUT, (p: any) => {
         const active = activeTabRef.current; // 用 ref 读:activeTab 进依赖会让本 effect 每次 setState 后重跑
-        if (active && isNodeTab(active) && active.id === p.agentId) return; // 正看着呢,不算未读
-        set(p.agentId, { unread: true });
+        if (active && isNodeTab(active) && active.id === p.chatId) return; // 正看着呢,不算未读
+        set(p.chatId, { unread: true });
       }),
     ];
     return () => { offs.forEach((f) => f()); };
@@ -138,8 +137,8 @@ export function App() {
     return off;
   }, [refreshGit, socket, tabGroups.removeNodeTab, tabGroups.updateNodeTab]);
 
-  // browser open:智能体要开一个网页标签 —— 按策略落在分屏侧组(左边对话继续流,
-  // 右边看着 agent 操作浏览器),带 token 打开,webview 注册时兑现给 server;
+  // browser open:AI 要开一个网页标签 —— 按策略落在分屏侧组(左边对话继续流,
+  // 右边看着 AI 操作浏览器),带 token 打开,webview 注册时兑现给 server;
   // 同站已开则聚焦现有标签,并用它的 wcId 带 token 重注册,工具调用同样兑现
   useEffect(() => {
     const off = socket.on("web_tab_open", (p: any) => {
@@ -215,11 +214,11 @@ export function App() {
 
   // 在当前选中工作区/文件夹里新建(命令面板用)。
   // 对话零打扰直接建(默认「未命名对话」,首条消息后系统自动取名);文件类名字走 prompt
-  const createAtCurrentTarget = async (kind: "space" | "agent" | "file") => {
+  const createAtCurrentTarget = async (kind: "space" | "chat" | "file") => {
     try {
       const parentId = currentCreateParentId() || undefined;
-      if (kind === "agent") {
-        const r = await api.createAgent({ title: "", workdir: parentId });
+      if (kind === "chat") {
+        const r = await api.createChat({ title: "", workdir: parentId });
         openNode(r.node);
         setTreeRefresh((n) => n + 1);
         return;
@@ -267,11 +266,11 @@ export function App() {
       }
       void (async () => {
         try {
-          const r = await api.createAgent({ title: "", workdir: createParentIdRef.current() || undefined });
+          const r = await api.createChat({ title: "", workdir: createParentIdRef.current() || undefined });
           setSelectedNode(r.node);
           tabGroups.replaceTab(groupId, tabId, r.node);
           setTreeRefresh((n) => n + 1);
-          if (input) socket.send({ type: "send", agentId: r.node.id, prompt: input });
+          if (input) socket.send({ type: "send", chatId: r.node.id, prompt: input });
         } catch (err: any) {
           void dialog.alert(err?.message || "新建对话失败");
         }
@@ -306,7 +305,7 @@ export function App() {
   });
 
   const commands: Command[] = [
-    { id: "new-agent", label: "新建对话", icon: <Bot size={14} />, run: () => createAtCurrentTarget("agent") },
+    { id: "new-agent", label: "新建对话", icon: <Bot size={14} />, run: () => createAtCurrentTarget("chat") },
     { id: "open-url", label: "打开网址…", icon: <Globe size={14} />, run: async () => {
       const raw = await dialog.prompt("", { title: "打开网址", placeholder: "example.com", confirmText: "打开" });
       if (raw && raw.trim()) openWebTab(/^[a-z][a-z0-9+.-]*:/i.test(raw.trim()) ? raw.trim() : `https://${raw.trim()}`);
@@ -324,7 +323,6 @@ export function App() {
         if (id) tabGroups.moveTab(tabGroups.activeGroupId, id);
       },
     },
-    { id: "activity", label: "打开活动(智能体调用)", icon: <Radio size={14} />, run: openActivity },
     { id: "settings", label: "打开设置", icon: <SettingsIcon size={14} />, run: openSettings },
     {
       id: "close-tab",
@@ -380,8 +378,6 @@ export function App() {
         refreshKey={treeRefresh}
         settingsActive={isSettingsTab(tabGroups.activeTab)}
         onOpenSettings={openSettings}
-        activityActive={isActivityTab(tabGroups.activeTab)}
-        onOpenActivity={openActivity}
         mobileOpen={mobileNavOpen}
         desktopOpen={desktopNavOpen}
         onCloseMobile={closeNav}

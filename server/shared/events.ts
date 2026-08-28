@@ -1,6 +1,6 @@
 // 对话事件契约 —— 服务端广播、界面认领,跨进程的字符串只写这一份。
-// 全部带 agentId;界面按 agentId 认领,不是自己那条线的直接忽略。
-// (树/进程/终端等既有事件名不在此列,维持原样:tree_changed / call_changed /
+// 全部带 chatId;界面按 chatId 认领,不是自己那条线的直接忽略。
+// (树/进程/终端等既有事件名不在此列,维持原样:tree_changed / chats_changed /
 //  process_changed / terminal_* / connected。)
 export const EVENTS = Object.freeze({
   /** 一轮开始跑了。 */
@@ -20,7 +20,7 @@ export const EVENTS = Object.freeze({
   COMPACT_DONE: "conversation.compactDone",
   /** 模型请求在退避重试:{ attempt, maxRetries, delayMs, message }。 */
   RETRY: "conversation.retry",
-  /** 新消息进邮箱(用户消息 / agent 来信 / 回信 / 压缩摘要):{ row }。 */
+  /** 新消息进邮箱(用户消息 / 压缩摘要):{ row }。 */
   INPUT: "conversation.input",
   /** 终局三态。ERROR 带 { message }。 */
   DONE: "conversation.done",

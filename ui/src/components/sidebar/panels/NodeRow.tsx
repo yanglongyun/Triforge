@@ -24,7 +24,7 @@ export type TreeControls = {
   // dnd-kit:当前拖拽物 id + 将被落入的目标目录 id(该目录整行亮起)
   activeId: string | null;
   overDirId: string | null;
-  /** 文件夹徽标:workdir → 绑定的智能体数(「谁住在这」的可见性,污染归零后的替代) */
+  /** 文件夹徽标:workdir → 绑定的对话数(「谁住在这」的可见性,污染归零后的替代) */
   agentDirs: Map<string, number>;
   /** 多选集(Cmd 点选 / Shift 范围选,VS Code 资源管理器同款);高亮与单选同款。 */
   multiSelectedIds: Set<string>;
@@ -58,9 +58,9 @@ const fileIconFor = (title: string) => {
 };
 
 const iconFor = (kind: Node["kind"], title?: string) =>
-  kind === "space" ? Folder : kind === "agent" ? Bot : title ? fileIconFor(title) : FileText;
+  kind === "space" ? Folder : kind === "chat" ? Bot : title ? fileIconFor(title) : FileText;
 const colorFor = (kind: Node["kind"]) =>
-  kind === "space" ? "text-accent" : kind === "agent" ? "text-warning" : "text-text-faint";
+  kind === "space" ? "text-accent" : kind === "chat" ? "text-warning" : "text-text-faint";
 
 export function NodeRow({
   node,
@@ -195,7 +195,7 @@ export function NodeRow({
         {isContainer && (controls.agentDirs.get(node.id) || 0) > 0 && (
           <span
             className="shrink-0 inline-flex items-center gap-0.5 text-[11px] text-warning/80"
-            title={`${controls.agentDirs.get(node.id)} 个智能体绑定此目录`}
+            title={`${controls.agentDirs.get(node.id)} 个对话绑定此目录`}
           >
             <Bot size={11} />{controls.agentDirs.get(node.id)}
           </span>

@@ -5,7 +5,6 @@ import { getWidget, listWidgets, trashWidget } from "../service/widgets.js";
 import { closeWidgetDb } from "../service/widgetdb.js";
 import { closeWidgetSite, listWidgetSites, widgetSitePort } from "../service/widgetsite.js";
 import { emit } from "../bus.js";
-import { listActivities } from "../service/activities.js";
 
 const json = (res: http.ServerResponse, code: number, body: unknown) => {
   res.writeHead(code, { "Content-Type": "application/json; charset=utf-8" });
@@ -56,12 +55,6 @@ export const handleWidgetRoutes = async (
     } catch (e: any) {
       json(res, 400, { ok: false, error: String(e?.message || e) });
     }
-    return true;
-  }
-
-  /** 活动流水:智能体与组件的 AI 调用都落在这儿(宿主级资源,不属于某个组件)。 */
-  if (url.pathname === "/api/activities" && method === "GET") {
-    json(res, 200, { ok: true, activities: listActivities() });
     return true;
   }
 

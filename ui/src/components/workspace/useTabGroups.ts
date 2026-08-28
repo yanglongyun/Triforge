@@ -7,7 +7,6 @@ import {
   gitTab,
   gitDiffTab,
   settingsTab,
-  activityTab,
   terminalTab,
   launcherTab,
   webTab,
@@ -128,11 +127,6 @@ export function useTabGroups({ canCloseTab = () => true, onTabClosed = () => {} 
     openTab(settingsTab(), opts);
   }, [openTab]);
 
-  const openActivity = useCallback((opts: { groupId?: WorkspaceGroupId; side?: boolean } = {}) => {
-    openTab(activityTab(), opts);
-  }, [openTab]);
-
-  /** 新标签页(方案 C):+ / ⌘T 的入口,内容是全能输入框。 */
   const openLauncher = useCallback((opts: { groupId?: WorkspaceGroupId; side?: boolean } = {}) => {
     openTab(launcherTab(), opts);
   }, [openTab]);
@@ -329,7 +323,7 @@ export function useTabGroups({ canCloseTab = () => true, onTabClosed = () => {} 
     closeTabs(groupId, group.tabs.map((tab) => tab.id));
   }, [closeTabs]);
 
-  // 无变化必须返回 prev:这个函数被 agents_changed / 运行事件高频调用,曾经的版本
+  // 无变化必须返回 prev:这个函数被 chats_changed / 运行事件高频调用,曾经的版本
   // 无条件造新 state → 依赖 activeTab 引用的 effect 重跑 → 再 fetch 再 setState ——
   // 「fetch+渲染」死循环,四个进程一起烧 CPU 的元凶。
   const updateNodeTab = useCallback((id: string, patch: Partial<Node>) => {
@@ -400,7 +394,6 @@ export function useTabGroups({ canCloseTab = () => true, onTabClosed = () => {} 
     openGit,
     openGitDiff,
     openSettings,
-    openActivity,
     openLauncher,
     replaceTab,
     findWebTab,

@@ -39,7 +39,7 @@ export function FilesPanel({
   onChanged?: () => void;
 }) {
   const [roots, setRoots] = useState<Node[]>([]);
-  // 文件夹徽标:workdir → 绑定的智能体数
+  // 文件夹徽标:workdir → 绑定的对话数
   const [agentDirs, setAgentDirs] = useState<Map<string, number>>(new Map());
   const [addWorkspaceOpen, setAddWorkspaceOpen] = useState(false);
   const [workspacePathDraft, setWorkspacePathDraft] = useState("");
@@ -392,9 +392,9 @@ export function FilesPanel({
 
   // 文件夹徽标数据(会话 tab 有自己的列表,这里只为树上的角标)
   useEffect(() => {
-    api.listAgents().then((r) => {
+    api.listChats().then((r) => {
       const map = new Map<string, number>();
-      for (const a of r.agents) {
+      for (const a of r.chats) {
         if (!a.workdir) continue;
         map.set(a.workdir, (map.get(a.workdir) || 0) + 1);
       }

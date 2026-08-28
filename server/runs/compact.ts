@@ -17,7 +17,7 @@ const SUMMARY_MIN_CHARS = 80;
 const MATERIAL_MIN_CHARS = 1_500;
 
 const DEFAULT_COMPACT_PROMPT =
-  "你负责压缩一段 agent 对话上下文,供后续模型继续工作时使用。" +
+  "你负责压缩一段对话上下文,供后续模型继续工作时使用。" +
   "保留目标、限制、关键事实、工具结果、已做决定和未完成事项。删除寒暄和重复内容。输出中文摘要,避免编造。";
 
 const totalTokensOf = (usage) => {
@@ -68,16 +68,16 @@ const mechanical = (rows) => [
     .map((row) => `#${row.id} ${row.item?.role || row.item?.type || "unknown"} ${itemText(row.item).replace(/\s+/g, " ").slice(0, 160)}`),
 ].join("\n");
 
-export const maybeCompact = async ({ agentId, settings, signal, emit }) => {
+export const maybeCompact = async ({ chatId, settings, signal, emit }) => {
   const threshold = Number(settings.compressThreshold || 0) || 0;
   if (!threshold) return null;
-  if (totalTokensOf(latestUsage(agentId)) < threshold) return null;
+  if (totalTokensOf(latestUsage(chatId)) < threshold) return null;
 
-  const latest = getLatestCompaction(agentId);
+  const latest = getLatestCompaction(chatId);
   // 旧摘要行**不过滤**:多代压缩时它会被折进新摘要(链式传承)。
   // 从前把它 filter 掉,候选切片越过它的 id 后,新窗口起点在它之后 ——
   // 最老一段的知识既没进新摘要、也不再进上下文,无声蒸发。
-  const rows = listRows(agentId, { afterId: Number(latest?.end_message_id || 0) });
+  const rows = listRows(chatId, { afterId: Number(latest?.end_message_id || 0) });
   const at = splitAt(rows);
   if (at < 2) return null;
 
@@ -89,7 +89,7 @@ export const maybeCompact = async ({ agentId, settings, signal, emit }) => {
   const startMessageId = candidates[0].id;
   const endMessageId = candidates[candidates.length - 1].id;
 
-  emit({ type: EVENTS.COMPACT_START, agentId });
+  emit({ type: EVENTS.COMPACT_START, chatId });
   let summary = "";
   try {
     const result = await complete({
@@ -106,13 +106,13 @@ export const maybeCompact = async ({ agentId, settings, signal, emit }) => {
   } catch { /* 摘要失败走机械兜底 */ }
   if (!summary) summary = mechanical(candidates);
 
-  const compactionId = createCompaction({ agentId, startMessageId, endMessageId, summary, tokens: 0 });
+  const compactionId = createCompaction({ chatId, startMessageId, endMessageId, summary, tokens: 0 });
   const row = appendItem(
-    agentId,
+    chatId,
     { role: "user", content: `以下是历史上下文压缩摘要:\n\n${summary}` },
     { meta: { kind: "compaction", compactionId, startMessageId, endMessageId } },
   );
-  emit({ type: EVENTS.INPUT, agentId, row });
-  emit({ type: EVENTS.COMPACT_DONE, agentId });
+  emit({ type: EVENTS.INPUT, chatId, row });
+  emit({ type: EVENTS.COMPACT_DONE, chatId });
   return { compactionId, startMessageId, endMessageId };
 };

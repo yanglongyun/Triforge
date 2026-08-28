@@ -1,9 +1,9 @@
-// 统一的一个 item:kind 区分它是空间 / 智能体 / 文件。
-// 文件夹和文件在文件树上;智能体是会话(住 SQLite),只通过 workdir 绑定一个目录。
+// 统一的一个 item:kind 区分它是空间 / 对话 / 文件。
+// 文件夹和文件在文件树上;对话是会话(住 SQLite),只通过 workdir 绑定一个目录。
 export type Node = {
   id: string;
   parent_id: string | null;                                      // 所在空间(根 = null;agent 恒为 null)
-  kind: "space" | "agent" | "file";
+  kind: "space" | "chat" | "file";
   title: string;
   system: string | null;                                         // 仅 agent:人格
   content: string | null;                                        // 仅 file:内容
@@ -33,19 +33,6 @@ export type WidgetInfo = {
   icon: string;
   description: string;
   permissions: string[];
-};
-
-/** 活动流水:组件 /_wb/ai 与智能体的问责记录。 */
-export type Activity = {
-  id: number;
-  source: string;
-  kind: string;
-  summary: string;
-  status: "running" | "done" | "error";
-  detail: string;
-  tokens: number;
-  created_at: string;
-  completed_at: string | null;
 };
 
 /** 消息附件(图片/文件):内容寻址存储,消息里只存元数据。 */
@@ -184,26 +171,22 @@ export const api = {
   ancestry: (id: string) =>
     request<{ ancestry: Node[] }>(`/api/ancestry?id=${encodeURIComponent(id)}`),
 
-  // ── 智能体(会话列表)──
-  listAgents: () => request<{ agents: Node[] }>("/api/agents").then((d) => ({ agents: (d.agents || []) as Node[] })),
-  getAgent: (id: string) =>
-    request<{ item: Node }>(`/api/agents/get?id=${encodeURIComponent(id)}`).then(one),
-  createAgent: (opts: { title: string; workdir?: string; system?: string }) =>
-    request<{ item: Node }>("/api/agents", { method: "POST", ...jsonBody(opts) }).then(one),
-  updateAgent: (id: string, patch: { title?: string; system?: string; workdir?: string; pinned?: boolean }) =>
-    request<{ item: Node }>(`/api/agents?id=${encodeURIComponent(id)}`, { method: "PATCH", ...jsonBody(patch) }).then(one),
-  deleteAgent: (id: string) =>
-    request<{ ok: boolean }>(`/api/agents?id=${encodeURIComponent(id)}`, { method: "DELETE" }),
+  // ── 对话(会话列表)──
+  listChats: () => request<{ chats: Node[] }>("/api/chats").then((d) => ({ chats: (d.chats || []) as Node[] })),
+  getChat: (id: string) =>
+    request<{ item: Node }>(`/api/chats/get?id=${encodeURIComponent(id)}`).then(one),
+  createChat: (opts: { title: string; workdir?: string; system?: string }) =>
+    request<{ item: Node }>("/api/chats", { method: "POST", ...jsonBody(opts) }).then(one),
+  updateChat: (id: string, patch: { title?: string; system?: string; workdir?: string; pinned?: boolean }) =>
+    request<{ item: Node }>(`/api/chats?id=${encodeURIComponent(id)}`, { method: "PATCH", ...jsonBody(patch) }).then(one),
+  deleteChat: (id: string) =>
+    request<{ ok: boolean }>(`/api/chats?id=${encodeURIComponent(id)}`, { method: "DELETE" }),
   markAgentRead: (id: string) =>
-    request<{ item: Node }>(`/api/agents/read?id=${encodeURIComponent(id)}`, { method: "POST" }).then(one),
+    request<{ item: Node }>(`/api/chats/read?id=${encodeURIComponent(id)}`, { method: "POST" }).then(one),
 
   // ── 附件上传 ──
   uploadFile: (opts: { name: string; mimeType: string; dataBase64: string }) =>
     request<{ attachment: Attachment }>("/api/upload", { method: "POST", ...jsonBody(opts) }),
-
-  /** 活动流水:智能体与组件的 AI 调用(问责)。 */
-  listActivities: () =>
-    request<{ activities: Activity[] }>("/api/activities").then((r) => r.activities || []),
   // ── 组件(widgets):目录即安装,每组件一个 origin(见 WIDGET.md)──
   listWidgets: () => request<{ widgets: WidgetInfo[] }>("/api/widgets").then((r) => r.widgets || []),
   /** 组件的地址:http://127.0.0.1:<组件专属端口>/ —— 真 origin,不是路径前缀。 */
@@ -229,8 +212,8 @@ export const api = {
   removeWorkspace: (id: string) =>
     request<{ ok: boolean; workspace: WorkspaceRoot | null }>(`/api/workspaces?id=${encodeURIComponent(id)}`, { method: "DELETE" }),
 
-  listMessages: (agentId: string) =>
-    request<{ rows: MessageRow[] }>(`/api/messages?agentId=${encodeURIComponent(agentId)}`),
+  listMessages: (chatId: string) =>
+    request<{ rows: MessageRow[] }>(`/api/messages?chatId=${encodeURIComponent(chatId)}`),
 
   listRuns: () => request<{ ids: string[] }>("/api/runs"),
 

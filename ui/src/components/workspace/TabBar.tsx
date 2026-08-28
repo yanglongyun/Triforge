@@ -9,7 +9,6 @@ const tabIconFor = (tab: WorkspaceTab) =>
   tab.kind === "git-diff" ? GitCompare :
   tab.kind === "git" ? GitBranch :
   tab.kind === "settings" ? Settings :
-  tab.kind === "activity" ? Radio :
   tab.kind === "terminal" ? Terminal :
   tab.kind === "launcher" ? Plus :
   tab.kind === "web" ? Globe : iconFor(tab.kind, tab.title);
@@ -18,7 +17,6 @@ const tabColorFor = (tab: WorkspaceTab) =>
   tab.kind === "git-diff" ? "text-accent" :
   tab.kind === "git" ? "text-accent" :
   tab.kind === "settings" ? "text-text-dim" :
-  tab.kind === "activity" ? "text-accent" :
   tab.kind === "terminal" ? "text-success" :
   tab.kind === "launcher" ? "text-accent" :
   tab.kind === "web" ? "text-accent" : colorFor(tab.kind);
@@ -239,8 +237,8 @@ export function TabBar({
       {tabs.map((t, idx) => {
         const Icon = tabIconFor(t);
         const active = t.id === activeId;
-        const running = t.kind === "agent" && t.status === "running";
-        const unread = t.kind === "agent" && t.unread && !active;
+        const running = t.kind === "chat" && t.status === "running";
+        const unread = t.kind === "chat" && t.unread && !active;
         const dirty = t.kind === "file" && dirtyIds.has(t.id);
         const preview = t.id === previewId;
         return (

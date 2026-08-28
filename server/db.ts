@@ -18,15 +18,12 @@ const initDb = () => {
   db.exec("PRAGMA foreign_keys = ON");
 
   db.exec(`
-    -- 结构(空间/文件/智能体)全在文件系统:workspaces/ 下
-    --   目录 = 空间,真实文件 = 文件,<uuid>.agent.json = 智能体
-    -- SQLite 只存运行时状态:消息流、调用关系、设置。
-    --   agent_id / caller_id / callee_id = 智能体的 uuid
+    -- 结构(空间/文件/对话)全在文件系统:workspaces/ 下
+    --   目录 = 空间,真实文件 = 文件;对话绑定(而不是住在)一个真实文件夹。
+    -- SQLite 只存:消息流、设置、收藏。**运行状态不落库** ——
+    --   跑到一半的轮次重启后本就恢复不了,而发生过什么已经逐条记在 messages 里。
 
-    -- 智能体:对话即智能体,绑定(而不是住在)一个真实文件夹。
-    --   从前是 <uuid>.agent.json 落在用户目录里 —— 过程数据污染用户资产,已废弃;
-    --   workdir 是它的家:shell 在这执行,AGENTS.md / skills 从这发现。
-    CREATE TABLE IF NOT EXISTS agents (
+    CREATE TABLE IF NOT EXISTS chats (
       id           TEXT PRIMARY KEY,
       title        TEXT NOT NULL,
       system       TEXT,
@@ -37,19 +34,20 @@ const initDb = () => {
       updated_at   TEXT NOT NULL DEFAULT (datetime('now'))
     );
 
-    -- 消息:每个智能体的邮箱
+    -- 消息:一行一个 Responses item(思考 / 正文 / 工具调用 / 结果),逐条落库
     CREATE TABLE IF NOT EXISTS messages (
-      id              INTEGER PRIMARY KEY AUTOINCREMENT,
-      agent_id        TEXT NOT NULL,
-      body            TEXT NOT NULL,
-      meta            TEXT,
-      usage           TEXT,
-      created_at      TEXT NOT NULL DEFAULT (datetime('now'))
+      id         INTEGER PRIMARY KEY AUTOINCREMENT,
+      chat_id    TEXT NOT NULL REFERENCES chats(id) ON DELETE CASCADE,
+      body       TEXT NOT NULL,
+      meta       TEXT,
+      usage      TEXT,
+      created_at TEXT NOT NULL DEFAULT (datetime('now'))
     );
 
+    -- 压缩:上下文超水位时的摘要,记住它替换了哪一段消息
     CREATE TABLE IF NOT EXISTS compactions (
       id               INTEGER PRIMARY KEY AUTOINCREMENT,
-      agent_id         TEXT NOT NULL,
+      chat_id          TEXT NOT NULL REFERENCES chats(id) ON DELETE CASCADE,
       start_message_id INTEGER NOT NULL,
       end_message_id   INTEGER NOT NULL,
       summary          TEXT NOT NULL,
@@ -57,32 +55,9 @@ const initDb = () => {
       created_at       TEXT NOT NULL DEFAULT (datetime('now'))
     );
 
-    -- 调用:智能体之间的异步通信 + 状态机
-    CREATE TABLE IF NOT EXISTS calls (
-      id              INTEGER PRIMARY KEY AUTOINCREMENT,
-      caller_id       TEXT,
-      callee_id       TEXT NOT NULL,
-      request_msg_id  INTEGER REFERENCES messages(id) ON DELETE SET NULL,
-      response_msg_id INTEGER REFERENCES messages(id) ON DELETE SET NULL,
-      status          TEXT NOT NULL DEFAULT 'pending'
-                      CHECK (status IN ('pending','running','done','error','cancelled')),
-      result          TEXT,
-      error           TEXT,
-      created_at      TEXT NOT NULL DEFAULT (datetime('now')),
-      completed_at    TEXT
-    );
-
     CREATE TABLE IF NOT EXISTS settings (
       key   TEXT PRIMARY KEY,
       value TEXT NOT NULL
-    );
-
-    -- 网站:活动栏「网站」原生面板收藏的链接(在网页标签里打开,Electron 壳的 <webview>)
-    CREATE TABLE IF NOT EXISTS sites (
-      id         TEXT PRIMARY KEY,
-      title      TEXT NOT NULL,
-      url        TEXT NOT NULL,
-      created_at TEXT NOT NULL DEFAULT (datetime('now'))
     );
 
     CREATE TABLE IF NOT EXISTS workspaces (
@@ -94,34 +69,17 @@ const initDb = () => {
       last_opened_at TEXT
     );
 
-    CREATE INDEX IF NOT EXISTS idx_calls_caller  ON calls(caller_id, status);
-    CREATE INDEX IF NOT EXISTS idx_calls_callee  ON calls(callee_id, status);
-  `);
-
-  db.exec(`
-    CREATE INDEX IF NOT EXISTS idx_messages_agent ON messages(agent_id, id);
-    CREATE INDEX IF NOT EXISTS idx_compactions_agent ON compactions(agent_id, id);
-  `);
-
-  db.exec(`
-
-    -- 活动流水:组件调用 AI(/_wb/ai)的问责记录 —— 机器行为进这里,不进会话。
-    CREATE TABLE IF NOT EXISTS activities (
-      id           INTEGER PRIMARY KEY AUTOINCREMENT,
-      source       TEXT NOT NULL,                -- widget:<id> / agent:<uuid>
-      kind         TEXT NOT NULL,                -- 'ai'
-      summary      TEXT NOT NULL,
-      status       TEXT NOT NULL DEFAULT 'running',
-      detail       TEXT NOT NULL DEFAULT '',
-      tokens       INTEGER NOT NULL DEFAULT 0,
-      created_at   TEXT NOT NULL DEFAULT (datetime('now')),
-      completed_at TEXT
+    -- 网站:活动栏「网站」面板的收藏(在网页标签里打开)
+    CREATE TABLE IF NOT EXISTS sites (
+      id         TEXT PRIMARY KEY,
+      title      TEXT NOT NULL,
+      url        TEXT NOT NULL,
+      created_at TEXT NOT NULL DEFAULT (datetime('now'))
     );
-    CREATE INDEX IF NOT EXISTS idx_activities_id ON activities(id DESC);
-  `);
 
-  // 隐藏智能体(应用 agent.run 的执行体):会话面板不显示,活动里可点开审查
-  try { db.exec("ALTER TABLE agents ADD COLUMN hidden INTEGER NOT NULL DEFAULT 0"); } catch { /* 已存在 */ }
+    CREATE INDEX IF NOT EXISTS idx_messages_chat    ON messages(chat_id, id);
+    CREATE INDEX IF NOT EXISTS idx_compactions_chat ON compactions(chat_id, id);
+  `);
 
   return db;
 };

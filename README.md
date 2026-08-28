@@ -1,131 +1,137 @@
 # Workbench 🌳
 
-> 对话 = 一个 agent = 树上的一个节点。
+> 一个本地工作台:左边是**对话**、**文件**、**网站**,中间是标签页,侧栏挂着你自己的**组件**。
 
-![Workbench — 左侧工作树 · 中间落地页预览 · 右侧多智能体协作](docs/screenshot.png)
+## 它是什么
 
-我认为这个项目主要有这几个亮点:
+一套 VSCode 式的本地 GUI,把日常工作需要的几样东西合到一处:
 
-## 一、对话即 agent,彼此通讯
+- **对话** —— 每个对话就是一个 AI,绑定一块真实的工作目录,能跑命令、读写文件、开网页;
+- **文件** —— 工作区里的真实文件树,AI 产出的东西直接长在这儿,可点开、可编辑、可预览;
+- **网站** —— 内置真浏览器(带你的登录态),收藏的站点一点就开;
+- **组件** —— 零构建的小工具,写个目录就装上了,大多由 AI 替你造。
 
-目前,我们在 ChatGPT、Claude 上的历史对话大多都是沉寂的,但其实每个对话历史就是一个已经有上下文的 AI 智能体,本项目让它们之间彼此感知,相互通讯。
+## 每个对话,有一块真实的工作目录
 
-## 二、异步调用
+对话绑定的那个文件夹就是它的环境:`bash` 在这里执行,读写文件在这里发生,
+该目录的约定(`AGENTS.md`)与技能(`skills/`)只属于这里,不从别处继承。
 
-实现也很简单:`agent` 工具往另一个 agent 的消息记录里 push 一条消息,然后立即返回——不等它跑完,所以不会阻塞你自己这边的对话。对方在后台执行,跑完后,系统把它的结果作为一条新消息投回调用方的消息里,并自动唤醒调用方接着处理。所以整个调用是异步的。
-
-## 三、树形组织
-
-再然后,我们用树形结构把这些智能体组织起来,这样你可以有组织地、有层级地放置这些智能体,每个智能体都可以感受到自己的环境信息、指导文件、技能。
-
----
-
-下面再多说一点。
-
-## 每个 agent,有一块真实的工作目录
-
-agent 所在的文件夹,就是它的工作目录,它的 `bash`、读写文件都在这里执行。你让它「做个网页放这」,它会真的 `write`、跑命令,在目录里长出 `index.html`——这个文件随即出现在左侧的树里,可点开、可编辑、可预览。AI 产出的是真实文件,而不是对话框里的一段代码。
+你让它「做个网页放这」,它会真的 `write`、跑命令,在目录里长出 `index.html` ——
+这个文件随即出现在文件树里。**AI 产出的是真实文件,不是对话框里的一段代码。**
 
 ## 它如何存储:文件系统即真相
 
-结构不在数据库里,而在文件系统里(`workspaces/` 这个由 app 自管的根目录,它自行生长,你不导入既有目录):
+用户的资产在文件系统里,SQLite 只存过程:
 
 ```
-workspaces/
-  研究/                       ← 文件夹 = 真实目录
-    a1b2….agent.json          ← 智能体 = 一份元数据(人格 / 已读位置 / 创建时间)
-    notes.md                  ← 文件 = 真实文件
-    src/  app.js              ← AI 用 bash 建的嵌套结构,本就是树的一部分
-    子文件夹/                 ← 嵌套 = 子目录,可无限深
+workspaces/                    ← 你挂进来的真实目录
+  研究/
+    notes.md                   ← 真实文件
+    src/ app.js                ← AI 用 bash 建的嵌套结构
 ```
-
-一句 `ls` 就能看清整棵树。SQLite 只承载运行时状态,不存结构:
 
 | 表 | 内容 |
 |---|---|
-| `messages` | 每个智能体的消息流(`agent_id` = 智能体的 uuid) |
-| `calls` | 智能体之间的调用关系 + 状态机(`pending / running / done / error / cancelled`) |
+| `chats` | 对话(标题 / 人格 / 工作目录 / 已读位置) |
+| `messages` | 每个对话的消息流,一行一个 Responses item |
+| `compactions` | 上下文压缩的摘要与水位 |
 | `settings` | 模型 / key / 默认 system prompt |
+| `workspaces` | 挂进来的工作区根 |
+| `sites` | 「网站」面板的收藏 |
 
-**id 规则**:文件夹与文件用路径(改名、移动即变,前端重新拉取,无需 fs↔DB 同步);智能体用 uuid(稳定,`agent` 工具凭它寻址)。
+**运行状态不落库** —— 跑到一半的轮次重启后本就恢复不了,而发生过什么已经逐条记在 `messages` 里。
 
-## agent 手里的工具(6 个)
+## AI 手里的工具(5 个)
 
 一个不多。能用通用能力表达的,就不单开一个工具:
 
 | 工具 | 用途 |
 |---|---|
-| `bash` | 在工作目录里执行**任意**命令——全功能,建目录、跑构建都在此。`background: true` 转后台(dev server / watch),立即返回进程 id、pid、日志文件路径与**预览 URL**;忘了写也会被自动识别转后台。读日志用 `read` 日志文件,停止用 `kill <pid>` |
-| `read` · `edit` · `write` | 带行号读(可分页,也能读图)/ 精确替换 / 整体重写(改文件首选这三个,比 `bash sed` 稳且省 token) |
-| `browser` | 操作工作区里的网页标签(内置真浏览器,带真实登录态):开 / 跳转 / 读正文 / 执行 JS / 点击 / 填字 / 截图 |
-| `agent` | 多智能体协作:带 `agent_id` 就给已有智能体发消息,不带就在当前文件夹下派生一个新的并派活。都是异步,对方跑完把最终回复投回你的邮箱并唤醒你 |
+| `bash` | 在工作目录里执行**任意**命令。`background: true` 转后台(dev server / watch),立即返回进程 id、pid、日志路径;忘了写也会被自动识别 |
+| `read` · `edit` · `write` | 带行号读(可分页,也能读图)/ 精确替换 / 新建或整体重写 |
+| `browser` | 操作网页标签(内置真浏览器,真实登录态):开 / 跳转 / 读正文 / 执行 JS / 点击 / 填字 / 截图 |
 
-> ⚠️ `bash` 在**你本机**执行任意命令、**无沙箱**——这是本地 agent 工具的常态。只在你信任的机器、对你信任的模型使用。
+> ⚠️ `bash` 在**你本机**执行任意命令、**无沙箱**。只在你信任的机器、对你信任的模型使用。
+
+## 组件
+
+组件 = 组件的家里的一个目录,**零构建**(ESM + 原生 CSS,浏览器直接吃),写出目录即安装:
+
+```
+~/Documents/Workbench/widgets/<id>/
+  widget.json   manifest(名字 / 图标 / 权限)
+  index.html    入口
+  main.js  style.css
+  data.db       组件自己的 SQLite,和代码做邻居
+```
+
+每个组件跑在**自己的 origin** 上(一个 loopback 端口),宿主 API 是同源 HTTP
+(`fetch("/_wb/sql")`),不需要任何 SDK;默认被 CSP 断网,权限在 manifest 里明文声明。
+
+完整契约见 **[WIDGET.md](./WIDGET.md)** —— 一份三用:字段表 = 权限清单 = SDK 文档。
 
 ## 用起来什么感觉
 
-前端是一套 VSCode 式的本地 GUI,常用的都顺手:
-
-- **流式输出**,思考与正文逐字实时呈现;完成的一轮自动收纳成「已工作 X 秒」折叠条,最终回复站在外面,过程(思考 / 工具 / 中间文本)点开细看
-- 模型协议是 **Responses**,不随供应商变 —— 接任何 Responses 兼容接口 / 网关,换供应商只换 URL
-- **多标签 + 左右分屏**;代码按扩展名高亮(CodeMirror);Markdown / HTML / 图片 / PDF 直接在标签内预览
+- **流式输出**,思考与正文逐字实时呈现;完成的一轮收纳成「已工作 X 秒」折叠条
+- 模型协议是 **Responses**,不随供应商变 —— 接任何 Responses 兼容接口 / 网关
+- **多标签 + 左右分屏**;代码按扩展名高亮(CodeMirror);Markdown / HTML / 图片 / PDF 直接预览
 - **⌘P 快速打开 · ⌘⇧F 全局搜索 · ⌘⇧P 命令面板**
-- agent 运行时亮起**蓝点**、有未读则亮**绿点**,一眼看出谁在忙
-- 让某个 agent 起 dev server(`bash` + `background`),会自动识别**预览 URL**,旁边开个面板即可看效果
-- 内置**终端**(可在某个 agent 的目录里直接拉起 codex / claude code)与一个 **Git 面板**
-- 拖拽基于 dnd-kit 三 sensor(鼠标 / 触摸 / 键盘),**桌面与手机共用一套代码**
+- 对话运行时亮**蓝点**、有未读亮**绿点**
+- 内置**终端**(可在某个对话的目录里直接拉起 codex / claude code)与一个 **Git 面板**
 
 ## 跑起来
 
 ```bash
-git clone https://github.com/realuckyang/Workbench
+git clone https://github.com/yanglongyun/Workbench
 cd Workbench
 npm install
 
 # 开发(两个进程)
 npm run dev          # 后端,tsx watch,端口 9506
-npm run ui          # 前端,vite dev,端口 5174(代理到 9506)
+npm run ui           # 前端,vite dev,端口 5174(代理到 9506)
 
 # 生产(构建 GUI,单端口运行)
-npm run build        # vite build → ui/dist
-npm start            # 后端 + GUI 同端口 http://localhost:9506
+npm run build
+npm start            # http://localhost:9506
 
-# 桌面客户端(Electron 壳,自动挑端口拉起本地服务)
+# 桌面客户端(Electron 壳)
 npm run app
 
-# 打成 macOS 应用(release/mac-arm64/Workbench.app,含图标与随包 node)
+# 打成 macOS 应用
 npm run dist:mac
 ```
 
 开发模式打开 **http://localhost:5174/**:
 
-1. 左下角 ⚙ Settings → 填 API URL / API Key / Model(任何 OpenAI 兼容接口)
-2. 左侧 `＋` → 新建一个智能体
-3. 发条消息试试——让它「做个网页放这」,看它在自己的工作目录里长出文件,直接出现在树里
+1. 左下角 ⚙ Settings → 填 API URL / API Key / Model(任何 Responses 兼容接口)
+2. 「会话」面板 `＋` → 新建一个对话
+3. 发条消息试试 —— 让它「做个喝水打卡的组件」,看它写出目录,然后在「组件」里钉到侧栏
 
 ## 技术栈
 
-Node 22+ · TypeScript · `node:sqlite`(内置,零外部数据库依赖)· React 19 · Tailwind 4 · Vite · CodeMirror 6 · @dnd-kit · ws · Electron(桌面壳)
+Node 22+ · TypeScript · `node:sqlite`(内置,零外部数据库依赖)· React 19 · Tailwind 4 ·
+Vite · CodeMirror 6 · @dnd-kit · ws · Electron
 
 ## 想读代码——架构
 
 分层清晰:**ai(内核)→ tools / runs(编排)→ repo(数据)→ api / realtime(通道)**。
 
 ```
-ai/               🧠 无状态 AI 内核(Responses 协议,纯 JS 零依赖):模型 → 工具 → 模型的循环 / SSE 解析 / 一次性补全
+ai/               🧠 无状态 AI 内核(Responses 协议,纯 JS 零依赖):模型 → 工具 → 模型的循环 / SSE 解析
 server/
-├── shared/       📜 事件名契约(conversation.*),服务端与界面共用一份,不写裸字符串
-├── tools/        🔧 六个工具的定义与实现(全部必填 summary,一句话摘要给界面);外部能力经 ctx 注入
-├── runs/         🎬 运行编排——逐条落库 / 事件广播 / 压缩水位 / 停止收尾(悬空调用补输出 + [stopped] 留痕)/ 回信并唤醒调用方
-├── service/      🌳 tree.ts(树操作 + 事件)
-├── repo/         💾 纯数据访问——tree.ts(文件系统即树)/ messages(一行一个 Responses item)/ calls / settings / search
+├── shared/       📜 事件名契约,服务端与界面共用一份
+├── tools/        🔧 五个工具的定义与实现(全部必填 summary);外部能力经 ctx 注入
+├── runs/         🎬 运行编排——逐条落库 / 事件广播 / 压缩水位 / 停止收尾(悬空调用补输出)
+├── service/      🌳 业务层:chats / tree / sites / widget*(组件机制)
+├── repo/         💾 纯存取:tree(文件系统即树)/ chats / messages / compactions / settings
 ├── api/          🌐 HTTP(很薄,只解析请求、拼响应)
-└── realtime.ts   📡 WebSocket(send 立即返回,事件按 agentId 认领;终端多路复用)
+└── realtime.ts   📡 WebSocket(send 立即返回,事件按 chatId 认领;终端多路复用)
 desktop/          🖥 Electron 壳:esbuild 单文件 server 由壳拉起,窗口指向 127.0.0.1
-ui/src/components/   React 前端,按 UI 区域分模块:explorer(树)/ workspace(编辑器外壳 + panels)/ command / chat(按轮收纳的消息流)/ files / settings / ui
+ui/src/components/   React 前端:sidebar(三原生 + 组件)/ workspace(标签页)/ chat / files / widgets
 ```
 
-`ai/` 不知道树是什么,只接收组装好的 items、工具表和执行映射跑循环;运行编排与状态全在 `server/`。消息**逐条落库**:每个 item(思考 / 正文 / 工具调用 / 结果)完成即入库,中途停止只丢正在流式的半句,切标签、刷新、开多窗口都不丢流。
+`ai/` 不知道对话是什么,只接收组装好的 items、工具表和执行映射跑循环。消息**逐条落库**:
+每个 item(思考 / 正文 / 工具调用 / 结果)完成即入库,中途停止只丢正在流式的半句。
 
 ## 几句实话
 

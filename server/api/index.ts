@@ -4,12 +4,11 @@ import fs from "fs";
 import nodePath from "path";
 import { execFile } from "child_process";
 import * as tree from "../service/tree.js";
-import * as agents from "../service/agents.js";
+import * as chats from "../service/chats.js";
 import * as sites from "../service/sites.js";
 import { handleWidgetRoutes } from "./widget.js";
 import { listRows } from "../repo/messages.js";
 import { runningIds } from "../runs/index.js";
-import { listCalls } from "../repo/calls.js";
 import { getSettings, saveSettings } from "../repo/settings.js";
 import {
   gitBranches,
@@ -68,7 +67,7 @@ const handleApi = async (req, res) => {
   try {
     if (path === "/health") return json(res, 200, { ok: true });
 
-    // 应用契约的路由面(registry / workspace-apps 静态 / db / ai / agent / fs / activities)
+    // 组件的路由面(注册表 / 地址 / 卸载)
     if (await handleWidgetRoutes(req, res, url, String(method || "GET").toUpperCase())) return true;
 
     // ---- 附件(图片/文件上传;内容寻址,消息里只存元数据)----
@@ -88,32 +87,32 @@ const handleApi = async (req, res) => {
       return serveFavicon(url.searchParams.get("url"), res);
     }
 
-    // ---- agents(会话列表:智能体不在树上,住 SQLite,绑定 workdir)----
-    if (path === "/api/agents") {
-      if (method === "GET") return json(res, 200, { ok: true, agents: agents.list() });
+    // ---- chats(会话列表:对话不在树上,住 SQLite,绑定 workdir)----
+    if (path === "/api/chats") {
+      if (method === "GET") return json(res, 200, { ok: true, chats: chats.list() });
       if (method === "POST") {
         const body = await parseBody(req);
-        try { return json(res, 201, { ok: true, item: agents.create(body) }); }
+        try { return json(res, 201, { ok: true, item: chats.create(body) }); }
         catch (error) { return json(res, 400, { ok: false, error: error.message }); }
       }
       if (method === "PATCH") {
         const body = await parseBody(req);
-        try { return json(res, 200, { ok: true, item: agents.update(url.searchParams.get("id"), body) }); }
+        try { return json(res, 200, { ok: true, item: chats.update(url.searchParams.get("id"), body) }); }
         catch (error) { return json(res, 400, { ok: false, error: error.message }); }
       }
       if (method === "DELETE") {
         const id = url.searchParams.get("id");
         if (!id) return json(res, 400, { ok: false, error: "id is required" });
-        return json(res, 200, { ok: true, deleted: agents.remove(id) });
+        return json(res, 200, { ok: true, deleted: chats.remove(id) });
       }
     }
-    if (path === "/api/agents/get" && method === "GET") {
-      const item = agents.get(url.searchParams.get("id"));
+    if (path === "/api/chats/get" && method === "GET") {
+      const item = chats.get(url.searchParams.get("id"));
       if (!item) return json(res, 404, { ok: false, error: "not found" });
       return json(res, 200, { ok: true, item });
     }
-    if (path === "/api/agents/read" && method === "POST") {
-      return json(res, 200, { ok: true, item: agents.markRead(url.searchParams.get("id")) });
+    if (path === "/api/chats/read" && method === "POST") {
+      return json(res, 200, { ok: true, item: chats.markRead(url.searchParams.get("id")) });
     }
 
     // ---- sites(原生「网站」面板的收藏)----
@@ -220,7 +219,7 @@ const handleApi = async (req, res) => {
       return json(res, 200, { ok: true, items: tree.listAll() });
     }
 
-    // 标记智能体已读
+    // 标记对话已读
 
     // 全局内容搜索(⌘⇧F):grep 真实文件
     if (path === "/api/search" && method === "GET") {
@@ -251,9 +250,9 @@ const handleApi = async (req, res) => {
       return json(res, 200, { ok: true, ancestry: tree.ancestry(url.searchParams.get("id")) });
     }
 
-    // ---- messages(某个智能体的邮箱)----
+    // ---- messages(某个对话的邮箱)----
     if (path === "/api/messages" && method === "GET") {
-      return json(res, 200, { ok: true, rows: listRows(url.searchParams.get("agentId")) });
+      return json(res, 200, { ok: true, rows: listRows(url.searchParams.get("chatId")) });
     }
 
     // ---- 谁在跑(界面初始化对账;实时靠 conversation.* 事件)----
@@ -261,17 +260,6 @@ const handleApi = async (req, res) => {
       return json(res, 200, { ok: true, ids: runningIds() });
     }
 
-    // ---- calls ----
-    if (path === "/api/calls" && method === "GET") {
-      const callerId = url.searchParams.get("callerId") || undefined;
-      const calleeId = url.searchParams.get("calleeId") || undefined;
-      const status = url.searchParams.get("status") || undefined;
-      const titleOf = (id) => { if (!id) return null; try { return agents.get(id)?.title ?? null; } catch { return null; } };
-      const calls = listCalls({ callerId, calleeId, status }).map((c) => ({
-        ...c, callerTitle: titleOf(c.caller_id), calleeTitle: titleOf(c.callee_id),
-      }));
-      return json(res, 200, { ok: true, calls });
-    }
 
     // ---- git ----
     if (path === "/api/git/status" && method === "GET") {
@@ -345,8 +333,8 @@ const handleApi = async (req, res) => {
     // 在系统文件管理器里显示该节点(macOS Finder / Windows 资源管理器 / Linux 文件管理器)
     if (path === "/api/reveal" && method === "POST") {
       const id = url.searchParams.get("id");
-      // 智能体 = 打开它的工作目录;文件/文件夹 = 其自身路径
-      const abs = agents.get(id)?.workdir || tree.pathForId(id);
+      // 对话 = 打开它的工作目录;文件/文件夹 = 其自身路径
+      const abs = chats.get(id)?.workdir || tree.pathForId(id);
       if (!abs) return json(res, 404, { ok: false, error: "not found" });
       const plt = process.platform;
       let cmd, args;

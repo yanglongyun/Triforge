@@ -1,4 +1,4 @@
-// 会话列表:智能体不再长在文件树里,这里是它们的家。
+// 会话列表:对话不再长在文件树里,这里是它们的家。
 // 置顶 / 最近两组;行上呼吸点 = 正在运行,绿点 = 未读;悬停 ⋯ 出操作。
 import { useCallback, useEffect, useState } from "react";
 import type { Node } from "../../../api";
@@ -10,7 +10,7 @@ type Socket = { send: (m: any) => void; on: (t: string, fn: (p: any) => void) =>
 
 const REVEAL_LABEL = /Mac/i.test(navigator.platform) ? "在 Finder 中显示工作目录" : "在文件管理器中显示工作目录";
 
-export function AgentRail({
+export function ChatRail({
   selectedId,
   onSelect,
   refreshKey,
@@ -33,8 +33,8 @@ export function AgentRail({
   const [menu, setMenu] = useState<{ x: number; y: number; items: MenuItem[] } | null>(null);
 
   const load = useCallback(async () => {
-    const result = await api.listAgents().catch(() => null);
-    if (result) setAgents(result.agents);
+    const result = await api.listChats().catch(() => null);
+    if (result) setAgents(result.chats);
   }, []);
   useEffect(() => { load(); }, [load, refreshKey]);
 
@@ -44,9 +44,9 @@ export function AgentRail({
     sync();
     const timer = setInterval(sync, 10_000);
     const offs = [
-      socket.on("conversation.start", (p: any) => setRunning((s) => new Set(s).add(String(p.agentId)))),
+      socket.on("conversation.start", (p: any) => setRunning((s) => new Set(s).add(String(p.chatId)))),
       ...["conversation.done", "conversation.aborted", "conversation.error"].map((t) =>
-        socket.on(t, (p: any) => setRunning((s) => { const n = new Set(s); n.delete(String(p.agentId)); return n; })),
+        socket.on(t, (p: any) => setRunning((s) => { const n = new Set(s); n.delete(String(p.chatId)); return n; })),
       ),
     ];
     return () => { clearInterval(timer); offs.forEach((f) => f()); };
@@ -55,7 +55,7 @@ export function AgentRail({
   // 新建 = 直接开聊:落一条「未命名对话」并打开,名字是系统的事 ——
   // 首条消息跑完后服务端自动取名(runs 层独立补全调用)
   const createNow = async (workdir?: string) => {
-    const result = await api.createAgent({ title: "", workdir });
+    const result = await api.createChat({ title: "", workdir });
     onSelect(result.node);
     load();
   };
@@ -72,7 +72,7 @@ export function AgentRail({
     const title = renameDraft.trim();
     setRenamingId(null);
     if (!id || !title) return;
-    await api.updateAgent(id, { title });
+    await api.updateChat(id, { title });
     load();
   };
 
@@ -84,7 +84,7 @@ export function AgentRail({
       items: [
         { label: agent.pinned ? "取消置顶" : "置顶",
           icon: agent.pinned ? <PinOff size={13} /> : <Pin size={13} className="text-accent" />,
-          onClick: async () => { await api.updateAgent(agent.id, { pinned: !agent.pinned }); load(); } },
+          onClick: async () => { await api.updateChat(agent.id, { pinned: !agent.pinned }); load(); } },
         { label: "重命名", icon: <Pencil size={13} />, onClick: () => { setRenamingId(agent.id); setRenameDraft(agent.title); } },
         { label: "复制 ID", icon: <Copy size={13} />,
           onClick: () => { navigator.clipboard.writeText(agent.id).catch(() => {}); } },
@@ -93,7 +93,7 @@ export function AgentRail({
         { label: "删除", icon: <Trash2 size={13} />, danger: true,
           onClick: async () => {
             if (!(await dialog.confirm(`删除对话「${agent.title}」?\n全部消息记录会一并删除;工作目录里的文件不受影响。`, { danger: true, confirmText: "删除" }))) return;
-            await api.deleteAgent(agent.id);
+            await api.deleteChat(agent.id);
             load();
           } },
       ],

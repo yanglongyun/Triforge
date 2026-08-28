@@ -1,6 +1,6 @@
-// 对话面板:一个智能体的邮箱 + 输入器。
-// 行数组是可变结构(流式原地改行,tick 触发重渲染),事件按 agentId 认领 ——
-// 同一面板体系下,几个智能体各开各的标签互不干扰,切走的运行在服务端继续转。
+// 对话面板:一个对话的邮箱 + 输入器。
+// 行数组是可变结构(流式原地改行,tick 触发重渲染),事件按 chatId 认领 ——
+// 同一面板体系下,几个对话各开各的标签互不干扰,切走的运行在服务端继续转。
 import { useCallback, useEffect, useRef, useState } from "react";
 import { FileText, Folder, Paperclip, Send, Settings, Square, X } from "lucide-react";
 
@@ -52,7 +52,7 @@ export function ChatPanel({
   const [workdir, setWorkdir] = useState(node.workdir || "");
   useEffect(() => {
     setWorkdir(node.workdir || "");
-    if (!node.workdir) api.getAgent(node.id).then((r) => setWorkdir(r.node.workdir || "")).catch(() => {});
+    if (!node.workdir) api.getChat(node.id).then((r) => setWorkdir(r.node.workdir || "")).catch(() => {});
   }, [node.id]);
   const shortWorkdir = workdir.replace(/^\/Users\/[^/]+/, "~");
 
@@ -69,7 +69,7 @@ export function ChatPanel({
     bump();
   }, [node.id, bump]);
 
-  // 草稿按智能体落 localStorage,切走再回来不丢
+  // 草稿按对话落 localStorage,切走再回来不丢
   const draftKey = `workbench.draft:${node.id}`;
   useEffect(() => {
     try { setPrompt(localStorage.getItem(draftKey) || ""); } catch { setPrompt(""); }
@@ -88,7 +88,7 @@ export function ChatPanel({
     setBusy(node.status === "running");
     bump();
     streamRef.current = setupStream({
-      agentId: node.id,
+      chatId: node.id,
       getRows: () => rowsRef.current,
       pushRow,
       setBusy,
@@ -102,12 +102,12 @@ export function ChatPanel({
     return () => { streamRef.current = null; };
   }, [node.id]);
 
-  // 订阅对话事件(广播全量,reducer 按 agentId 认领)
+  // 订阅对话事件(广播全量,reducer 按 chatId 认领)
   useEffect(() => {
     const names = Object.values(EVENTS) as string[];
     const offs = names.map((name) => socket.on(name, (payload: any) => {
       streamRef.current?.onEvent(payload);
-      if (name === EVENTS.INPUT && payload.agentId === node.id) api.markAgentRead(node.id).catch(() => {});
+      if (name === EVENTS.INPUT && payload.chatId === node.id) api.markAgentRead(node.id).catch(() => {});
     }));
     return () => { offs.forEach((off) => off()); };
   }, [node.id, socket]);
@@ -158,7 +158,7 @@ export function ChatPanel({
     setBusy(true);
     setViewSeq((n) => n + 1);
     bump();
-    socket.send({ type: "send", agentId: node.id, prompt: text, attachments: files });
+    socket.send({ type: "send", chatId: node.id, prompt: text, attachments: files });
   };
 
   return (
@@ -183,7 +183,7 @@ export function ChatPanel({
         {!configured && (
           <div className="flex items-center gap-1.5 mb-2 text-[12.5px] text-warning">
             <Settings size={13} className="shrink-0" />
-            <span className="flex-1 min-w-0 truncate">还没配置模型,智能体无法运行。</span>
+            <span className="flex-1 min-w-0 truncate">还没配置模型,对话无法运行。</span>
             <button onClick={() => onOpenSettings?.()} className="shrink-0 font-medium hover:underline">
               去设置 →
             </button>
@@ -253,7 +253,7 @@ export function ChatPanel({
             {busy ? (
               <button
                 title="停止"
-                onClick={() => socket.send({ type: "stop", agentId: node.id })}
+                onClick={() => socket.send({ type: "stop", chatId: node.id })}
                 className="w-8 h-8 rounded flex items-center justify-center text-text-faint hover:text-danger hover:bg-bg-hover transition-colors shrink-0"
               >
                 <Square size={14} />

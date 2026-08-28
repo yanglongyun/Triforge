@@ -1,11 +1,11 @@
-// 直播 reducer:一块面板一份,事件按 agentId 认领(广播是全量的)。
+// 直播 reducer:一块面板一份,事件按 chatId 认领(广播是全量的)。
 // 行对象原地修改,改完由调用方 bump 触发重渲染。
 import { EVENTS } from "../../../../server/shared/events";
 import { mkKey, toolRow, renderRows, type Row } from "./thread";
 import type { MessageRow } from "../../api";
 
 export interface StreamPorts {
-  agentId: string;
+  chatId: string;
   getRows: () => Row[];
   pushRow: (row: Row) => Row;
   setBusy: (busy: boolean) => void;
@@ -15,7 +15,7 @@ export interface StreamPorts {
 }
 
 export function setupStream(ports: StreamPorts) {
-  const { agentId, getRows, pushRow, setBusy, refresh, bump } = ports;
+  const { chatId, getRows, pushRow, setBusy, refresh, bump } = ports;
   let streamingKey = "";
 
   const find = (key: string) => getRows().find((row) => row.key === key);
@@ -61,7 +61,7 @@ export function setupStream(ports: StreamPorts) {
   };
 
   const onEvent = (payload: any) => {
-    if (String(payload.agentId || "") !== agentId) return;
+    if (String(payload.chatId || "") !== chatId) return;
 
     switch (payload.type) {
       case EVENTS.START:

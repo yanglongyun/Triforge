@@ -3,7 +3,6 @@ import { handleApi } from "./api/index.js";
 import { attachWs } from "./realtime.js";
 import { serve } from "./static.js";
 import { startWatcher } from "./watcher.js";
-import { migrateOnBoot } from "./service/agents.js";
 import { isTrustedOrigin } from "./origin.js";
 import { track } from "./telemetry.js";
 import { seedPresetWidgets, sweepTrash } from "./service/widgets.js";
@@ -28,7 +27,6 @@ const startServer = async (port = 9506) =>
     });
     attachWs(server, port);
     server.listen(port, "127.0.0.1", () => {
-      migrateOnBoot(); // 历史 .agent.json → SQLite,用户目录从此干净
       startWatcher(); // 工作区文件监听:磁盘上的任何变化 → 树自动刷新
       track("app_open"); // 匿名遥测(仅打包应用;设置可关,见 telemetry.ts)
       seedPresetWidgets(); // 预装组件落地到组件的家 —— 之后就是用户自己的组件(可改可删)

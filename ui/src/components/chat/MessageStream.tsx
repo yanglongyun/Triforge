@@ -10,7 +10,7 @@ import { Check, Copy, FileText, PhoneCall, Sparkles } from "lucide-react";
 
 import { renderMarkdown } from "../../lib/markdown";
 import { TurnEntries, TurnFold, Working, type TurnEntry } from "./Process";
-import { stripCallResultPrefix, type Row } from "./thread";
+import { type Row } from "./thread";
 
 const dayLabel = (at?: number) => {
   if (!at) return "";
@@ -148,7 +148,7 @@ export function MessageStream({ rows, busy, tick, viewSeq }: {
     return () => observer.disconnect();
   }, []);
 
-  // 切智能体 / 自己发消息:强制回底并重新粘上
+  // 切对话 / 自己发消息:强制回底并重新粘上
   useEffect(() => {
     stick.current = true;
     const element = scrollRef.current;
@@ -218,7 +218,7 @@ function ChatRow({ row, always }: { row: Row; always: boolean }) {
               <Sparkles size={12} className="text-accent" />
               <span className="text-[11px] font-semibold text-accent uppercase tracking-wider">子 agent 回信</span>
             </div>
-            <div className="prose" dangerouslySetInnerHTML={{ __html: renderMarkdown(stripCallResultPrefix(row.content || "")) }} />
+            <div className="prose" dangerouslySetInnerHTML={{ __html: renderMarkdown(row.content || "") }} />
           </div>
         </div>
       );

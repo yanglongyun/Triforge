@@ -1,11 +1,11 @@
 // 过程体系:思考 / 工具各是一行(图标位悬停换 chevron,展开转 90°),
 // 相邻的已完成常规工具收成一行摘要,完成的一轮整体收进「已工作X」折叠条。
 // 运行中的工具标签走扫光;整轮进行中时底部是转圈 + 「正在工作」。
-// agent / browser 不进分组 —— 多智能体动作和浏览器操作是 Workbench 的招牌,永远单独可见。
+// browser 不进分组 —— 浏览器操作用户要看得见,永远单独可见。
 import { useState, type ReactNode } from "react";
 import {
-  ChevronRight, FilePlus2, FileText, Globe, ListTree, Loader2,
-  Pencil, PhoneCall, Play, ScrollText, Sparkles, Square, Terminal,
+  ChevronRight, FilePlus2, FileText, Globe, Loader2,
+  Pencil, Play, Sparkles, Terminal,
 } from "lucide-react";
 
 import { renderMarkdown } from "../../lib/markdown";
@@ -43,40 +43,11 @@ const toolMeta = (row: Row): { icon: ReactNode; label: string; pill: string; wid
       return { icon: <Pencil size={13} />, label: "修改", pill: basename(args.path) || summary, wide: false };
     case "write":
       return { icon: <FilePlus2 size={14} />, label: "写入", pill: basename(args.path) || summary, wide: false };
-    case "browser":
-    case "cdp": { // cdp = 改名前的历史行
+    case "browser": {
       const action = String(args.action ?? "");
       const pill = summary || String(args.url ?? args.selector ?? args.code ?? "");
       return { icon: <Globe size={14} />, label: BROWSER_LABEL[action] || "操作网页", pill, wide: true };
     }
-    case "agent":
-      return args.agent_id
-        ? { icon: <PhoneCall size={14} />, label: "呼叫智能体", pill: summary || String(args.message ?? "").slice(0, 60), wide: true }
-        : { icon: <Sparkles size={14} />, label: "创建智能体", pill: String(args.title ?? "") || summary, wide: false };
-
-    // ── 旧工具名(0.2.0 之前的历史对话)──
-    case "shell":
-      return { icon: <Terminal size={14} />, label: "执行", pill: summary || String(args.command ?? ""), wide: true };
-    case "run_process":
-      return { icon: <Play size={14} />, label: "启动进程", pill: summary || String(args.command ?? ""), wide: true };
-    case "list_processes":
-      return { icon: <ListTree size={14} />, label: "查看进程", pill: summary, wide: false };
-    case "read_process_output":
-      return { icon: <ScrollText size={14} />, label: "读进程日志", pill: String(args.process_id ?? "") || summary, wide: false };
-    case "stop_process":
-      return { icon: <Square size={13} />, label: "停止进程", pill: String(args.process_id ?? "") || summary, wide: false };
-    case "read_file":
-      return { icon: <FileText size={14} />, label: "读取", pill: basename(args.path) || summary, wide: false };
-    case "edit_file":
-      return { icon: <Pencil size={13} />, label: "修改", pill: basename(args.path) || summary, wide: false };
-    case "write_file":
-      return { icon: <FilePlus2 size={14} />, label: "写入", pill: basename(args.path) || summary, wide: false };
-    case "web_fetch":
-      return { icon: <Globe size={14} />, label: "抓取网页", pill: summary || String(args.url ?? ""), wide: true };
-    case "create_agent":
-      return { icon: <Sparkles size={14} />, label: "创建智能体", pill: String(args.title ?? "") || summary, wide: false };
-    case "call_agent":
-      return { icon: <PhoneCall size={14} />, label: "呼叫智能体", pill: summary || String(args.message ?? "").slice(0, 60), wide: true };
     default:
       return { icon: <Terminal size={14} />, label: row.name || "tool", pill: summary, wide: true };
   }
@@ -280,8 +251,8 @@ export function TurnFold({ durationMs, children }: { durationMs: number | null; 
 
 /* ── 有序渲染一串条目:常规工具做相邻分组,中间文本按 markdown 平铺 ── */
 
-// 多智能体动作与浏览器操作是 Workbench 的招牌,永远单独可见,不收进「执行了 N 步」
-const NEVER_GROUP = new Set(["agent", "browser", "cdp", "create_agent", "call_agent"]);
+// 多对话动作与浏览器操作是 Workbench 的招牌,永远单独可见,不收进「执行了 N 步」
+const NEVER_GROUP = new Set(["browser"]);
 
 export function TurnEntries({ items }: { items: TurnEntry[] }) {
   const nodes: ReactNode[] = [];
@@ -298,7 +269,7 @@ export function TurnEntries({ items }: { items: TurnEntry[] }) {
 
   for (const item of items) {
     if (item.kind === "tool") {
-      // 运行中的不进分组(要单独走扫光);多智能体动作永远单独一行
+      // 运行中的不进分组(要单独走扫光);多对话动作永远单独一行
       if (item.row.status === "running" || NEVER_GROUP.has(item.row.name || "")) {
         flushTools();
         nodes.push(<ToolItem key={item.row.key} row={item.row} />);

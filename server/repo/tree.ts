@@ -3,7 +3,7 @@
 //   目录     = 空间(space)—— 唯一会无限自嵌套的容器
 //   真实文件 = 文件(file)—— 内容就是文件内容
 //
-// 智能体不在这棵树上:对话是过程,不是用户的资产,住 SQLite(repo/agents.ts),
+// 对话不在这棵树上:对话是过程,不是用户的资产,住 SQLite(repo/chats.ts),
 // 只通过 workdir 绑定到某个目录。目录改名/移动/删除时,这里负责把绑定跟着搬家。
 // id 规则:space / file = 绝对路径(改名/移动即变,前端重拉,无需 fs↔DB 同步)。
 
@@ -90,18 +90,18 @@ const statCreatedAt = (abs) => {
   catch { return null; }
 };
 
-// ── 目录变动时给智能体搬家:workdir 是路径数据,路径变了数据要跟上 ──
+// ── 目录变动时给对话搬家:workdir 是路径数据,路径变了数据要跟上 ──
 // 改名/移动 = 前缀替换;删除 = 塌缩到父目录(家没了,但对话不能跟着蒸发)。
 const reprefixAgents = (oldDir, newDir) => {
   const from = withSep(normalizeAbs(oldDir));
   const db = getDb();
-  db.prepare("UPDATE agents SET workdir = ? WHERE workdir = ?").run(normalizeAbs(newDir), normalizeAbs(oldDir));
-  db.prepare("UPDATE agents SET workdir = ? || substr(workdir, ?) WHERE substr(workdir, 1, ?) = ?")
+  db.prepare("UPDATE chats SET workdir = ? WHERE workdir = ?").run(normalizeAbs(newDir), normalizeAbs(oldDir));
+  db.prepare("UPDATE chats SET workdir = ? || substr(workdir, ?) WHERE substr(workdir, 1, ?) = ?")
     .run(withSep(normalizeAbs(newDir)), from.length + 1, from.length, from);
 };
 const collapseAgents = (dir, target) => {
   const from = withSep(normalizeAbs(dir));
-  getDb().prepare("UPDATE agents SET workdir = ? WHERE workdir = ? OR substr(workdir, 1, ?) = ?")
+  getDb().prepare("UPDATE chats SET workdir = ? WHERE workdir = ? OR substr(workdir, 1, ?) = ?")
     .run(normalizeAbs(target), normalizeAbs(dir), from.length, from);
 };
 
@@ -158,9 +158,9 @@ const parseSkill = (content, fallbackName) => {
   return { name, description };
 };
 
-// 智能体上下文:只看智能体「自己所在的那个文件夹」—— 同级的 AGENTS.md / CLAUDE.md(指令)
+// 对话上下文:只看对话「自己所在的那个文件夹」—— 同级的 AGENTS.md / CLAUDE.md(指令)
 // 和 skills/<名>/SKILL.md(可用技能)。不向上继承、不向下穿透:作用范围仅同级。
-// 这些都只是树里的文件,放哪个文件夹就只对那个文件夹里的智能体生效。
+// 这些都只是树里的文件,放哪个文件夹就只对那个文件夹里的对话生效。
 const CONTEXT_DOC_NAMES = ["AGENTS.md", "CLAUDE.md"];
 const agentContext = (startDir) => {
   const dir = normalizeAbs(startDir);
@@ -209,7 +209,7 @@ const listAll = () => {
 const locate = (id) => {
   if (id == null || id === "") return null;
   const sid = String(id);
-  if (!isPathId(sid)) return null; // 非路径 id(如智能体 uuid)不归这棵树管
+  if (!isPathId(sid)) return null; // 非路径 id(如对话 uuid)不归这棵树管
   const abs = normalizeAbs(sid);
   if (!isAllowedPath(abs)) return null;
   let st; try { st = fs.statSync(abs); } catch { return null; }
@@ -307,7 +307,7 @@ const updateItem = (id, { title, system, content, overwrite = false } = {}) => {
     }
     return fileItem(abs, true);
   }
-  // space:改名 = 目录改名;住在子树上的智能体跟着搬家
+  // space:改名 = 目录改名;住在子树上的对话跟着搬家
   let abs = hit.abs;
   if (title !== undefined) {
     const next = path.join(path.dirname(abs), sanitize(title));
@@ -341,7 +341,7 @@ const deleteItem = (id) => {
   if (!hit) return;
   if (hit.kind === "file") { trashItem(hit.abs); return; }
   if (isWorkspaceRoot(hit.abs)) throw new Error("工作区根不能删除,请从 Workbench 移除工作区");
-  // space:整目录进废纸篓;绑在这棵子树上的智能体**不陪葬**——对话不是目录的附属品,
+  // space:整目录进废纸篓;绑在这棵子树上的对话**不陪葬**——对话不是目录的附属品,
   // 它们的 workdir 塌缩到父目录,会话照常留在会话列表里
   trashItem(hit.abs);
   collapseAgents(hit.abs, path.dirname(hit.abs));
@@ -402,7 +402,7 @@ const moveItem = (id, newParentId, _position = undefined, overwrite = false) => 
       trashItem(next);
     }
     fs.renameSync(hit.abs, next);
-    if (hit.kind === "space") reprefixAgents(hit.abs, next); // 子树上的智能体跟着搬家
+    if (hit.kind === "space") reprefixAgents(hit.abs, next); // 子树上的对话跟着搬家
   }
   if (hit.kind === "space") return spaceItem(next);
   return fileItem(next, true);

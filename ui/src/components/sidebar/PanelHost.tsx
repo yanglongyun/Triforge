@@ -6,10 +6,10 @@
 import { useEffect, useRef, useState } from "react";
 import { api, type GitRepositoryStatus, type Node } from "../../api";
 import { ContextMenu, dialog, type MenuItem } from "../ui";
-import { LayoutGrid, Menu, Plus, Radio, Settings, X } from "lucide-react";
+import { LayoutGrid, Menu, Plus, Settings, X } from "lucide-react";
 import { beginGlobalDrag, endGlobalDrag } from "../../lib/drag";
 import { NATIVE_PANELS, type WidgetDef } from "./registry";
-import { AgentRail } from "./panels/AgentRail";
+import { ChatRail } from "./panels/ChatRail";
 import { FilesPanel } from "./panels/FilesPanel";
 import { WidgetsPanel } from "./panels/WidgetsPanel";
 import { SitesPanel } from "./panels/SitesPanel";
@@ -92,8 +92,6 @@ export function PanelHost({
   refreshKey,
   settingsActive,
   onOpenSettings,
-  activityActive,
-  onOpenActivity,
   mobileOpen = false,
   desktopOpen = true,
   onCloseMobile,
@@ -112,8 +110,6 @@ export function PanelHost({
   refreshKey: number;
   settingsActive: boolean;
   onOpenSettings: () => void;
-  activityActive?: boolean;
-  onOpenActivity?: () => void;
   mobileOpen?: boolean;
   desktopOpen?: boolean;
   onCloseMobile?: () => void;
@@ -172,9 +168,9 @@ export function PanelHost({
     });
     if (!desc || !desc.trim()) return;
     try {
-      const r = await api.createAgent({ title: "", workdir: createParentId || undefined });
+      const r = await api.createChat({ title: "", workdir: createParentId || undefined });
       onSelect(r.node);
-      socket.send({ type: "send", agentId: r.node.id, prompt: buildWidgetPrompt(desc) });
+      socket.send({ type: "send", chatId: r.node.id, prompt: buildWidgetPrompt(desc) });
       switchTab("agents");
     } catch (e: any) {
       void dialog.alert(e?.message || "创建失败");
@@ -270,10 +266,6 @@ export function PanelHost({
     onSelect(n);
     if (mobileOpen && n?.kind !== "space") onCloseMobile?.();
   };
-  const handleToggleActivity = () => {
-    onOpenActivity?.();
-    if (mobileOpen) onCloseMobile?.();
-  };
   const handleToggleSettings = () => {
     onOpenSettings();
     if (mobileOpen) onCloseMobile?.();
@@ -351,7 +343,7 @@ export function PanelHost({
 
       {/* ── 面板身体:会话切走即卸;文件常驻隐藏保重状态;应用 = iframe 沙箱 ── */}
       {activePanelId === "agents" && (
-        <AgentRail
+        <ChatRail
           selectedId={selectedId}
           onSelect={handleSelect}
           refreshKey={refreshKey}
@@ -386,17 +378,6 @@ export function PanelHost({
 
       {/* footer */}
       <div className="border-t border-border px-1.5 py-1.5 flex items-center gap-1">
-        <button
-          onClick={handleToggleActivity}
-          title="活动:智能体与应用的调用"
-          className={[
-            "flex-1 flex items-center justify-center gap-1.5 px-2 py-1.5 rounded text-[13px] transition-colors",
-            activityActive ? "bg-bg-inset text-text" : "text-text-dim hover:bg-bg-hover hover:text-text",
-          ].join(" ")}
-        >
-          <Radio size={13} />
-          <span>活动</span>
-        </button>
         <button
           onClick={handleToggleSettings}
           title="设置"
