@@ -376,17 +376,17 @@ export function PanelHost({
       )}
       {activeWidget && <WidgetFrame key={activeWidget.id} widget={activeWidget} />}
 
-      {/* footer */}
-      <div className="border-t border-border px-1.5 py-1.5 flex items-center gap-1">
+      {/* footer:只剩设置一项,按普通行左对齐(不再是两个并排的等分格) */}
+      <div className="border-t border-border px-1.5 py-1.5">
         <button
           onClick={handleToggleSettings}
           title="设置"
           className={[
-            "flex-1 flex items-center justify-center gap-1.5 px-2 py-1.5 rounded text-[13px] transition-colors",
+            "w-full flex items-center gap-2 px-2 py-1.5 rounded text-[13px] transition-colors",
             settingsActive ? "bg-bg-inset text-text" : "text-text-dim hover:bg-bg-hover hover:text-text",
           ].join(" ")}
         >
-          <Settings size={13} />
+          <Settings size={13} className="shrink-0" />
           <span>设置</span>
         </button>
       </div>
