@@ -2,17 +2,18 @@
 //
 // 活动栏 = 原生三件(会话/文件/应用,焊死)+ 钉上来的应用面板(panel 挂载)。
 // 宿主只管:品牌行与汉堡、tab 行(空间不足退化纯图标)、应用的钉与卸、宽度、移动端抽屉、
-// 底部 活动/设置。应用的身体一律 iframe 沙箱(AppFrame),契约见 APP.md。
+// 底部 活动/组件/设置。组件的身体是 iframe,指向组件自己的 origin,契约见 WIDGET.md。
 import { useEffect, useRef, useState } from "react";
 import { api, type GitRepositoryStatus, type Node } from "../../api";
 import { ContextMenu, dialog, type MenuItem } from "../ui";
-import { Menu, Plus, Radio, Settings, X } from "lucide-react";
+import { LayoutGrid, Menu, Plus, Radio, Settings, X } from "lucide-react";
 import { beginGlobalDrag, endGlobalDrag } from "../../lib/drag";
-import { NATIVE_PANELS, type AppDef } from "./registry";
+import { NATIVE_PANELS, type WidgetDef } from "./registry";
 import { AgentRail } from "./panels/AgentRail";
 import { FilesPanel } from "./panels/FilesPanel";
-import { AppsPanel } from "./panels/AppsPanel";
-import { AppFrame } from "../apps/AppFrame";
+import { WidgetsPanel } from "./panels/WidgetsPanel";
+import { SitesPanel } from "./panels/SitesPanel";
+import { WidgetFrame } from "../widgets/WidgetFrame";
 
 type Socket = { send: (m: any) => void; on: (t: string, fn: (p: any) => void) => () => void };
 
@@ -24,76 +25,65 @@ const load = <T,>(key: string, fallback: T): T => {
 };
 const save = (key: string, value: unknown) => localStorage.setItem(key, JSON.stringify(value));
 
-/** 首次迁移:0.5.x 的 extPanels(装过的扩展面板)并入钉住列表;网站默认在栏上。 */
+/** 钉在活动栏上的组件。默认一个都不钉 —— 装了 ≠ 常用。 */
 const initialPinned = (): string[] => {
-  const saved = load<string[] | null>("workbench.apps.pinned", null);
-  if (saved) return saved.filter((id) => typeof id === "string");
-  const legacy = load<string[]>("workbench.extPanels", []);
-  return ["sites", ...legacy.filter((id) => id !== "sites")];
+  const saved = load<string[] | null>("workbench.widgets.pinned", null);
+  return Array.isArray(saved) ? saved.filter((id) => typeof id === "string") : [];
 };
 
-/** 「让 AI 造一个应用」的开工指令:自包含的契约速查表(用户工作区里没有 APP.md,全写进提示词)。 */
-const buildAppPrompt = (desc: string) => `请在当前工作目录为我建一个 Workbench 应用:${desc.trim()}
+/** 「让 AI 造一个组件」的开工指令:自包含的契约速查表(全写进提示词,不指望 AI 去翻文档)。 */
+const buildWidgetPrompt = (desc: string) => `请为我造一个 Workbench 组件:${desc.trim()}
 
-Workbench 应用 = 工作区里的一个目录,**本身就是一个标准 Cloudflare Worker 网站**,建好即自动
-出现在「应用」面板(没有注册步骤):
+Workbench 组件 = 组件的家里的一个目录,**零构建**(浏览器直接吃,不打包、不装依赖),
+写出目录即安装,自动出现在「组件」面板里:
 
-apps/<id>/
-  app.json     manifest
-  server.js    Worker:export default { async fetch(req, env) {…} }
-  public/      静态资源(index.html 等)
-  data.db      数据(自动生成,别手建)
+<组件的家>/widgets/<id>/
+  widget.json   manifest
+  index.html    入口(必需)
+  main.js       随便几个 js/css,用 ES module 互相 import
+  style.css
+  data.db       组件的数据(宿主自动创建,别手建、别读写它)
 
-app.json:
-{ "id": "notebook", "name": "笔记本", "icon": "📔",
-  "mounts": { "tab": "/" },              ← 可选加 "panel": "/panel.html"(侧栏窄视图)
-  "capabilities": ["db"] }               ← db / ai / agent / tabs / system / fs:workspace
+先用 bash 查出组件的家:它是 Workbench 默认工作区根下的 widgets/ 目录。
 
-server.js —— 和真实 Cloudflare Worker 写法完全一致:
-export default {
-  async fetch(req, env) {
-    const url = new URL(req.url);
-    if (url.pathname === "/api/notes") {
-      const { results } = await env.DB.prepare("SELECT * FROM notes ORDER BY id DESC").all();
-      return Response.json(results);
-    }
-    return env.ASSETS.fetch(req);   // 其余交给 public/ 下的静态资源
-  },
-};
+widget.json:
+{ "name": "习惯打卡", "icon": "✅",
+  "description": "一句话说明这个组件干什么(以后 AI 靠它判断该不该复用)",
+  "permissions": ["sql"] }        ← sql / ai / fs,不写就没有
 
-env 里有三样(都不用 import):
-  env.DB      D1 接口,落在 apps/<id>/data.db:
-              env.DB.prepare(sql).bind(a, b).all() / .first() / .run()
-              env.DB.exec("CREATE TABLE IF NOT EXISTS …")   多语句建表脚本
-              env.DB.batch([stmt, stmt])                    一个事务
-  env.ASSETS  public/ 下的静态资源:return env.ASSETS.fetch(req)
-  env.HOST    Workbench 专有能力:
-              await env.HOST.ai({ summary, prompt, system })      调 AI(需 ai 能力,summary 必填)
-              await env.HOST.agent({ summary, message })          派活给智能体(需 agent 能力)
-              await env.HOST.log("…")                             日志回流到控制台,调试用
+宿主 API = **同源 HTTP**,不需要引入任何 SDK,直接 fetch:
 
-public/index.html —— 前端页面。它和自己的后端**同源**,直接 fetch("/api/notes") 即可,
-不需要任何 SDK。样式用 var(--color-bg / --color-text / --color-border / --color-accent /
---color-bg-inset / --color-text-faint …) 自动随明暗主题(给浅色兜底值)。
+  // 数据(权限 sql):组件有自己独立的 SQLite,表结构你自己定
+  const sql = (sql, params = []) =>
+    fetch("/_wb/sql", { method: "POST", headers: { "content-type": "application/json" },
+      body: JSON.stringify({ sql, params }) }).then((r) => r.json());
 
-只有要用宿主 UI 能力时才引 SDK:<script src="/_wb/sdk.js"></script>
-  workbench.ui.toast(msg)                       轻提示
-  workbench.dialog.confirm(msg)                 确认框
-  workbench.tabs.open({ url })                  开网页标签(需 tabs 能力)
-  workbench.system.copyText(text)               剪贴板(需 system 能力)
-  workbench.context() / on("route", fn)         实例信息 / 侧栏与标签页实例间的路由与事件
+  await sql("CREATE TABLE IF NOT EXISTS items (id INTEGER PRIMARY KEY AUTOINCREMENT, text TEXT)");
+  await sql("INSERT INTO items (text) VALUES (?)", ["买牛奶"]);
+  const { rows } = await sql("SELECT * FROM items ORDER BY id DESC");
 
-要求:
-1. 建表放在请求处理开头(CREATE TABLE IF NOT EXISTS),isolate 会重启,别依赖内存状态;
-2. 界面简洁、贴合 Workbench 风格,别引外部 CDN(应用物理断网,只有这三个 binding 能碰外界);
-3. 先 write 出 app.json / server.js / public/index.html,完成后告诉我应用名和怎么用。`;
+  // 其它端点
+  POST /_wb/sql/batch   { statements: [{sql, params}] }   一个事务
+  POST /_wb/ai          { summary, system, prompt }       调 AI(权限 ai,summary 必填)
+  GET  /_wb/context                                        组件自身信息
+
+硬性要求:
+1. **零构建**:只能用浏览器直接能跑的东西 —— ES module、原生 CSS。
+   不要 JSX / TypeScript / SCSS / 打包器,也不要任何外部 CDN(组件被 CSP 断网,连不出去);
+2. **相对路径**:<script type="module" src="./main.js">、href="./style.css";
+3. **主题变量**:颜色一律用 var(--bg) / var(--bg-raised) / var(--text) / var(--text-dim) /
+   var(--border) / var(--accent) / var(--danger),宿主已自动注入,明暗主题会跟着走。
+   **不要写死背景色和文字色**;
+4. **窄**:它挂在侧栏面板里,最窄 240px 也要能用;
+5. 建表用 CREATE TABLE IF NOT EXISTS,放在启动时跑一次。
+
+写完告诉我组件名,以及在「组件」面板里怎么把它钉到活动栏上。`;
 
 export function PanelHost({
   selectedId,
   onSelect,
   socket,
   onOpenUrl,
-  onOpenApp,
   onToggleNav,
   onOpenSide,
   onOpenTerminal,
@@ -114,7 +104,6 @@ export function PanelHost({
   socket: Socket;
   onOpenUrl: (url: string, title?: string) => void;
   /** 在标签页打开应用(tab 挂载;去重聚焦与 route 推送在工作区层)。 */
-  onOpenApp: (app: AppDef, route?: string) => void;
   onToggleNav?: () => void;
   onOpenSide?: (n: Node) => void;
   onOpenTerminal?: (n: Node, opts?: { command?: string; titlePrefix?: string }) => void;
@@ -130,67 +119,62 @@ export function PanelHost({
   onCloseMobile?: () => void;
   onChanged?: () => void;
 }) {
-  // ── 应用:全部来自工作区(<workspace>/apps/<id>/),目录即安装 ──
+  // ── 组件:全部来自组件的家(<家>/widgets/<id>/),目录即安装 ──
   const [pinned, setPinned] = useState<string[]>(initialPinned);
-  const [apps, setApps] = useState<AppDef[]>([]);
-  const reloadApps = () => api.listWorkspaceApps()
-    .then((list) => setApps(list as AppDef[]))
+  const [widgets, setWidgets] = useState<WidgetDef[]>([]);
+  const reloadWidgets = () => api.listWidgets()
+    .then((list) => setWidgets(list as WidgetDef[]))
     .catch(() => {});
-  useEffect(() => { void reloadApps(); }, [refreshKey]);
-  const pinnedApps = pinned
-    .map((id) => apps.find((a) => a.id === id))
-    .filter((a): a is AppDef => !!a && !!a.mounts.panel);
+  useEffect(() => { void reloadWidgets(); }, [refreshKey]);
+  const pinnedWidgets = pinned
+    .map((id) => widgets.find((w) => w.id === id))
+    .filter((w): w is WidgetDef => !!w);
 
   const [sideTab, setSideTab] = useState<string>(() => localStorage.getItem("workbench.sideTab") || "agents");
   const nativeIds = NATIVE_PANELS.map((p) => p.id as string);
-  const activePanelId = nativeIds.includes(sideTab) || pinnedApps.some((a) => a.id === sideTab) ? sideTab : "agents";
+  const activePanelId = nativeIds.includes(sideTab) || sideTab === "widgets" || pinnedWidgets.some((w) => w.id === sideTab)
+    ? sideTab : "agents";
   const switchTab = (tab: string) => {
     setSideTab(tab);
     localStorage.setItem("workbench.sideTab", tab);
   };
 
-  const togglePin = (app: AppDef) => {
+  const togglePin = (widget: WidgetDef) => {
     setPinned((prev) => {
-      const next = prev.includes(app.id) ? prev.filter((x) => x !== app.id) : [...prev, app.id];
-      save("workbench.apps.pinned", next);
+      const next = prev.includes(widget.id) ? prev.filter((x) => x !== widget.id) : [...prev, widget.id];
+      save("workbench.widgets.pinned", next);
       return next;
     });
-    if (sideTab === app.id) switchTab("apps");
+    if (sideTab === widget.id) switchTab("widgets");
   };
-  const pinAndShow = (app: AppDef) => {
+  const removeWidget = async (widget: WidgetDef) => {
+    const ok = await dialog.confirm(
+      `删除组件「${widget.name}」?\n目录 widgets/${widget.id}/(含数据 data.db)会移进回收站,30 天后清除。`,
+      { danger: true, confirmText: "删除" },
+    );
+    if (!ok) return;
+    try { await api.removeWidget(widget.id); } catch (e: any) { void dialog.alert(e?.message || "删除失败"); return; }
+    void reloadWidgets();
     setPinned((prev) => {
-      if (prev.includes(app.id)) return prev;
-      const next = [...prev, app.id];
-      save("workbench.apps.pinned", next);
+      const next = prev.filter((x) => x !== widget.id);
+      save("workbench.widgets.pinned", next);
       return next;
     });
-    switchTab(app.id);
-  };
-  const removeApp = async (app: AppDef) => {
-    if (!(await dialog.confirm(`删除应用「${app.name}」?\n它的目录 apps/${app.id}/(含数据 data.db)会一并删除。`, { danger: true, confirmText: "删除" }))) return;
-    try { await api.removeApp(app.id); } catch (e: any) { void dialog.alert(e?.message || "删除失败"); return; }
-    void reloadApps();
-    onChanged?.();
-    setPinned((prev) => {
-      const next = prev.filter((x) => x !== app.id);
-      save("workbench.apps.pinned", next);
-      return next;
-    });
-    if (sideTab === app.id) switchTab("apps");
+    if (sideTab === widget.id) switchTab("widgets");
   };
 
-  // 让 AI 造一个应用:一句话 → 新对话 → agent 在工作区 apps/ 里写出目录 → 自动出现
-  const createAppWithAI = async () => {
+  // 让 AI 造一个组件:一句话 → 新对话 → agent 在 widgets/ 里写出目录 → 自动出现在「组件」面板
+  const createWidgetWithAI = async () => {
     const desc = await dialog.prompt("", {
-      title: "让 AI 造一个应用",
-      placeholder: "描述你要的应用,如:记账本,支持分类和月度统计",
+      title: "让 AI 造一个组件",
+      placeholder: "描述你要的组件,如:喝水打卡,记录每天几杯",
       confirmText: "开工",
     });
     if (!desc || !desc.trim()) return;
     try {
       const r = await api.createAgent({ title: "", workdir: createParentId || undefined });
       onSelect(r.node);
-      socket.send({ type: "send", agentId: r.node.id, prompt: buildAppPrompt(desc) });
+      socket.send({ type: "send", agentId: r.node.id, prompt: buildWidgetPrompt(desc) });
       switchTab("agents");
     } catch (e: any) {
       void dialog.alert(e?.message || "创建失败");
@@ -255,7 +239,7 @@ export function PanelHost({
     return ctx.measureText(text).width;
   };
   const TAB_CHROME = 8 + 14 + 6; // 内边距 + 图标 + 间距
-  const tabTitles = [...NATIVE_PANELS.map((p) => p.title), ...pinnedApps.map((a) => a.name)];
+  const tabTitles = [...NATIVE_PANELS.map((p) => p.title), ...pinnedWidgets.map((w) => w.name)];
   const needWidth = tabTitles.reduce((sum, t) => sum + TAB_CHROME + Math.ceil(labelWidth(t)), 0) + 36 + 8;
   const iconOnly = needWidth > sidebarWidth;
 
@@ -263,21 +247,21 @@ export function PanelHost({
   const [menu, setMenu] = useState<{ x: number; y: number; items: MenuItem[] } | null>(null);
   const openPinPicker = (e: React.MouseEvent) => {
     const r = (e.currentTarget as HTMLElement).getBoundingClientRect();
-    const candidates = apps.filter((a) => a.mounts.panel && !pinned.includes(a.id));
-    const items: MenuItem[] = candidates.map((a) => ({
-      label: `钉上「${a.name}」`,
-      icon: <span className="text-[13px] leading-none">{a.icon}</span>,
-      onClick: () => pinAndShow(a),
+    const candidates = widgets.filter((w) => !pinned.includes(w.id));
+    const items: MenuItem[] = candidates.map((w) => ({
+      label: `钉上「${w.name}」`,
+      icon: <span className="text-[13px] leading-none">{w.icon}</span>,
+      onClick: () => { togglePin(w); switchTab(w.id); },
     }));
     if (items.length) items.push("divider");
-    items.push({ label: "在「应用」面板中管理…", icon: <Plus size={13} />, onClick: () => switchTab("apps") });
+    items.push({ label: "在「组件」里管理…", icon: <LayoutGrid size={13} />, onClick: () => switchTab("widgets") });
     setMenu({ x: r.left, y: r.bottom + 4, items });
   };
-  const onPinnedTabContext = (e: React.MouseEvent, app: AppDef) => {
+  const onPinnedTabContext = (e: React.MouseEvent, widget: WidgetDef) => {
     e.preventDefault();
     setMenu({
       x: e.clientX, y: e.clientY,
-      items: [{ label: `从侧栏取下「${app.name}」`, icon: <X size={13} />, onClick: () => togglePin(app) }],
+      items: [{ label: `从活动栏取下「${widget.name}」`, icon: <X size={13} />, onClick: () => togglePin(widget) }],
     });
   };
 
@@ -300,7 +284,7 @@ export function PanelHost({
     active ? "border-accent text-text font-medium" : "border-transparent text-text-dim hover:text-text hover:bg-bg-hover",
   ].join(" ");
 
-  const activeApp = pinnedApps.find((a) => a.id === activePanelId) || null;
+  const activeWidget = pinnedWidgets.find((w) => w.id === activePanelId) || null;
 
   return (
     <aside
@@ -344,21 +328,21 @@ export function PanelHost({
             {!iconOnly && <span className="truncate">{p.title}</span>}
           </button>
         ))}
-        {pinnedApps.map((a) => (
+        {pinnedWidgets.map((w) => (
           <button
-            key={a.id}
-            onClick={() => switchTab(a.id)}
-            onContextMenu={(e) => onPinnedTabContext(e, a)}
-            title={`${a.name}(应用,右键可取下)`}
-            className={tabClass(activePanelId === a.id)}
+            key={w.id}
+            onClick={() => switchTab(w.id)}
+            onContextMenu={(e) => onPinnedTabContext(e, w)}
+            title={`${w.name}(组件,右键可取下)`}
+            className={tabClass(activePanelId === w.id)}
           >
-            <span className="shrink-0 text-[13px] leading-none">{a.icon}</span>
-            {!iconOnly && <span className="truncate">{a.name}</span>}
+            <span className="shrink-0 text-[13px] leading-none">{w.icon}</span>
+            {!iconOnly && <span className="truncate">{w.name}</span>}
           </button>
         ))}
         <button
           onClick={openPinPicker}
-          title="钉一个应用面板"
+          title="钉一个组件到活动栏"
           className="self-center shrink-0 w-6 h-6 mx-1.5 rounded flex items-center justify-center text-text-faint hover:text-accent hover:bg-bg-hover transition-colors"
         >
           <Plus size={15} />
@@ -388,19 +372,17 @@ export function PanelHost({
         refreshKey={refreshKey}
         onChanged={onChanged}
       />
-      {activePanelId === "apps" && (
-        <AppsPanel
-          apps={apps}
+      {activePanelId === "sites" && <SitesPanel onOpenUrl={onOpenUrl} socket={socket} />}
+      {activePanelId === "widgets" && (
+        <WidgetsPanel
+          widgets={widgets}
           pinnedIds={pinned}
-          onOpenTab={(app) => onOpenApp(app)}
-          onTogglePin={togglePin}
-          onRemoveApp={removeApp}
-          onCreateWithAI={createAppWithAI}
+          onTogglePin={(w) => { togglePin(w); if (!pinned.includes(w.id)) switchTab(w.id); }}
+          onRemove={removeWidget}
+          onCreateWithAI={createWidgetWithAI}
         />
       )}
-      {activeApp && (
-        <AppFrame key={activeApp.id} app={activeApp} mount="panel" onOpenUrl={onOpenUrl} onOpenApp={onOpenApp} />
-      )}
+      {activeWidget && <WidgetFrame key={activeWidget.id} widget={activeWidget} />}
 
       {/* footer */}
       <div className="border-t border-border px-1.5 py-1.5 flex items-center gap-1">

@@ -221,7 +221,6 @@ export function WorkspaceLayout({
         onCloseTab={tabs.close}
         onFocusGroup={tabs.focusGroup}
         onOpenUrl={content.onOpenUrl}
-        onOpenApp={content.onOpenApp}
       />
     </div>
   );

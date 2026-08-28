@@ -1,0 +1,15 @@
+.wrap { padding: 12px; font: 14px system-ui, -apple-system, sans-serif; }
+form { display: flex; gap: 6px; }
+input[type=text], #text { flex: 1; min-width: 0; background: var(--bg-raised); color: var(--text);
+  border: 1px solid var(--border); border-radius: 7px; padding: 6px 9px; font-size: 13.5px; }
+form button { background: var(--accent); color: #fff; border: 0; border-radius: 7px;
+  padding: 6px 12px; cursor: pointer; font-size: 13.5px; }
+ul { list-style: none; padding: 0; margin: 12px 0 0; }
+li { display: flex; align-items: center; gap: 8px; padding: 5px 0; border-top: 1px solid var(--border); }
+li span { flex: 1; min-width: 0; overflow-wrap: anywhere; }
+li.done span { text-decoration: line-through; color: var(--text-dim); }
+li button { background: none; border: 0; color: var(--text-dim); cursor: pointer;
+  font-size: 16px; line-height: 1; padding: 0 2px; opacity: 0; }
+li:hover button { opacity: 1; }
+li button:hover { color: var(--danger); }
+.foot { margin-top: 10px; color: var(--text-dim); font-size: 12px; }

@@ -1,0 +1,1 @@
+{ "name": "速记", "icon": "📝", "description": "随手记几句,可以让 AI 把它们整理成要点", "permissions": ["sql", "ai"] }

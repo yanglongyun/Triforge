@@ -58,3 +58,4 @@ workspaces/
 
 # esbuild 产物(build:updater)
 desktop/updater.mjs
+electron-builder-unsigned.json

@@ -26,17 +26,16 @@ export type SearchResult = { id: string; title: string; matches: SearchMatch[] }
 /** 侧栏「网站」页收藏的链接。 */
 export type Site = { id: string; title: string; url: string; created_at: string };
 
-/** 工作区应用(server 扫描 <workspace>/apps/<id>/app.json 得来)。 */
-export type WorkspaceAppInfo = {
+/** 组件:目录即安装,manifest = 权限清单(见 WIDGET.md)。 */
+export type WidgetInfo = {
   id: string;
   name: string;
   icon: string;
-  /** 挂载点 = 应用内的路由路径(不是文件名)。 */
-  mounts: { panel?: string; tab?: string };
-  capabilities: string[];
+  description: string;
+  permissions: string[];
 };
 
-/** 应用活动流水(ai.complete 的问责记录;agent.run 走 calls 表)。 */
+/** 活动流水:组件 /_wb/ai 与智能体的问责记录。 */
 export type Activity = {
   id: number;
   source: string;
@@ -218,22 +217,26 @@ export const api = {
   uploadFile: (opts: { name: string; mimeType: string; dataBase64: string }) =>
     request<{ attachment: Attachment }>("/api/upload", { method: "POST", ...jsonBody(opts) }),
 
-  // ── 网站收藏 ──
-  /** 工作区应用注册表(<workspace>/apps/<id>/app.json)。 */
-  listWorkspaceApps: () =>
-    request<{ apps: WorkspaceAppInfo[] }>("/api/apps/registry").then((r) => r.apps || []),
-  /** 应用的网站地址(workerd 上,带每应用一个的 token);iframe 直接指向它。 */
-  appUrl: (id: string, route = "/") =>
-    request<{ url: string }>(`/api/apps/url?id=${encodeURIComponent(id)}&route=${encodeURIComponent(route)}`).then((r) => r.url),
-  /** 应用的 fs:workspace 能力:工作区内受限读写(需用户授权,授权 UI 在宿主)。 */
-  appFs: (opts: { appId: string; op: "read" | "write" | "list"; path: string; content?: string }) =>
-    request<{ content?: string; entries?: { name: string; kind: string }[] }>("/api/app/fs", { method: "POST", ...jsonBody(opts) }),
-  /** 应用活动流水(ai 调用问责)。 */
+  /** 活动流水:智能体与组件的 AI 调用(问责)。 */
   listActivities: () =>
     request<{ activities: Activity[] }>("/api/activities").then((r) => r.activities || []),
-  /** 删除应用 = 删掉它的目录。 */
-  removeApp: (appId: string) =>
-    request<{ ok: boolean }>("/api/apps/remove", { method: "POST", ...jsonBody({ appId }) }),
+  // ── 组件(widgets):目录即安装,每组件一个 origin(见 WIDGET.md)──
+  listWidgets: () => request<{ widgets: WidgetInfo[] }>("/api/widgets").then((r) => r.widgets || []),
+  /** 组件的地址:http://127.0.0.1:<组件专属端口>/ —— 真 origin,不是路径前缀。 */
+  widgetUrl: (id: string) =>
+    request<{ url: string }>(`/api/widgets/url?id=${encodeURIComponent(id)}`).then((r) => r.url),
+  /** 卸载 = 挪进回收站(保留 30 天)。 */
+  removeWidget: (id: string) =>
+    request<{ ok: boolean; trashed: string }>("/api/widgets/remove", { method: "POST", ...jsonBody({ id }) }),
+
+  // ── 网站收藏(原生「网站」面板)──
+  listSites: () => request<{ sites: Site[] }>("/api/sites").then((r) => r.sites || []),
+  createSite: (body: { title?: string; url: string }) =>
+    request<{ item: Site }>("/api/sites", { method: "POST", ...jsonBody(body) }).then((r) => r.item),
+  updateSite: (id: string, body: { title?: string; url?: string }) =>
+    request<{ item: Site }>(`/api/sites?id=${encodeURIComponent(id)}`, { method: "PATCH", ...jsonBody(body) }).then((r) => r.item),
+  removeSite: (id: string) =>
+    request<{ deleted: boolean }>(`/api/sites?id=${encodeURIComponent(id)}`, { method: "DELETE" }),
 
   listWorkspaces: () => request<{ workspaces: WorkspaceRoot[] }>("/api/workspaces"),
   pickWorkspaceDirectory: () => request<{ path: string | null }>("/api/workspaces/pick", { method: "POST" }),

@@ -1,0 +1,1 @@
+{ "name": "计数器", "icon": "🔢", "description": "点一下加一,记录每次点击的时间", "permissions": ["sql"] }

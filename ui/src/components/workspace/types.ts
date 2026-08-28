@@ -1,5 +1,4 @@
 import type { Node } from "../../api";
-import type { AppDef } from "../sidebar/registry";
 
 export const PROCESS_TAB_ID = "__process_preview__";
 export const TERMINAL_TAB_PREFIX = "__terminal__";
@@ -50,28 +49,6 @@ export type ActivityTab = {
   title: "活动";
 };
 
-export const APP_TAB_PREFIX = "__app__";
-
-/** 应用标签页(tab 挂载的应用实例,AppFrame 装载)。id 按 appId 稳定 → 天然去重聚焦。 */
-export type AppTab = {
-  id: string;
-  kind: "app";
-  app: AppDef;
-  title: string;
-  route?: string;
-};
-
-export const appTab = (app: AppDef, route = ""): AppTab => ({
-  id: `${APP_TAB_PREFIX}:${app.id}`,
-  kind: "app",
-  app,
-  title: app.name,
-  route,
-});
-
-export const isAppTab = (tab: WorkspaceTab | null | undefined): tab is AppTab =>
-  tab?.kind === "app";
-
 export const LAUNCHER_TAB_PREFIX = "__launcher__";
 
 /** 新标签页(方案 C):一个全能输入框 —— 输入文字开对话,输入网址开网站;就地转身成目标标签。 */
@@ -95,7 +72,7 @@ export type WebTab = {
   favicon?: string;
 };
 
-export type WorkspaceTab = Node | ProcessTab | TerminalTab | GitTab | GitDiffTab | SettingsTab | ActivityTab | WebTab | LauncherTab | AppTab;
+export type WorkspaceTab = Node | ProcessTab | TerminalTab | GitTab | GitDiffTab | SettingsTab | ActivityTab | WebTab | LauncherTab;
 export type WorkspaceGroupId = "main" | "side";
 
 export type WorkspaceGroupState = {
@@ -202,7 +179,7 @@ export const isLauncherTab = (tab: WorkspaceTab | null | undefined): tab is Laun
   tab?.kind === "launcher";
 
 export const isNodeTab = (tab: WorkspaceTab | null | undefined): tab is Node =>
-  !!tab && tab.kind !== "process" && tab.kind !== "terminal" && tab.kind !== "git" && tab.kind !== "git-diff" && tab.kind !== "settings" && tab.kind !== "activity" && tab.kind !== "web" && tab.kind !== "launcher" && tab.kind !== "app";
+  !!tab && tab.kind !== "process" && tab.kind !== "terminal" && tab.kind !== "git" && tab.kind !== "git-diff" && tab.kind !== "settings" && tab.kind !== "activity" && tab.kind !== "web" && tab.kind !== "launcher";
 
 export const isOpenableSpace = (node: Node | null | undefined): node is Node =>
   !!node && node.kind !== "space";

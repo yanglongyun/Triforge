@@ -4,10 +4,10 @@
 
 ## 结构地图
 
-- `ui/src/components/sidebar/` — 侧边栏宿主:活动栏三原生(会话/文件/应用)+ 钉住的应用面板
-- `ui/src/components/apps/` — 应用运行时:AppFrame(iframe 桥 + 能力网关)与实例总线;**应用契约见 APP.md(唯一正典)**
+- `ui/src/components/sidebar/` — 侧边栏宿主:活动栏三原生(会话/文件/网站)+ 钉住的组件
+- `ui/src/components/widgets/` — 组件宿主:WidgetFrame(iframe,指向组件自己的 origin);**组件契约见 WIDGET.md(唯一正典)**
 - `ui/src/components/workspace/` — 标签分组与内容区;网页/终端活在 `PersistentPanelLayer`(常驻层),分组只是投影位置,**不要把有生命周期的资源挂回分组子树**
-- `server/` — 分层:`api/`(路由分发)→ `service/`(业务规则)→ `repo/`(纯存取:fs / sqlite / git 命令);`runs/` 智能体运行轮;`tools/` 六工具
+- `server/` — 分层:`api/`(路由分发)→ `service/`(业务规则)→ `repo/`(纯存取:fs / sqlite / git 命令);`runs/` 智能体运行轮;`tools/` 六工具;`service/widget*.ts` 组件机制(注册表/站点/数据库)
 - `ai/` — 内核,与 AGENT 仓库双向同步:**改它必须两边同步**,不在日常迭代范围
 
 ## 后端三规则(渐进还债,不搞运动)
@@ -24,4 +24,4 @@
 - 行为冻结的重构与功能开发分开提交,不混。
 - typecheck(`npm run typecheck`)与打包是每次交付的守门;交付 = 替换桌面 `Workbench.app`,由用户自测。
 - 拖拽类交互必须接 `lib/drag.ts` 的全局护栏(webview/iframe 会吞 pointerup)。
-- 应用/面板相关改动先读 `APP.md`;发版与平台服务(更新/公告/遥测)见 iimos 仓库 `platform/`。
+- 组件/面板相关改动先读 `WIDGET.md`;发版与平台服务(更新/公告/遥测)见 iimos 仓库 `platform/`。

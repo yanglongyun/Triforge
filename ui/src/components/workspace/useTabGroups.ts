@@ -12,8 +12,6 @@ import {
   activityTab,
   terminalTab,
   launcherTab,
-  appTab,
-  APP_TAB_PREFIX,
   webTab,
   isWebTab,
   type WebTab,
@@ -245,19 +243,6 @@ export function useTabGroups({ canCloseTab = () => true, onTabClosed = () => {} 
     return null;
   }, [openTab, activateTab]);
 
-  /** 打开应用标签页:同应用已开则聚焦并把新 route 经总线推给它(实例常驻,不重载)。 */
-  const openApp = useCallback((app: import("../sidebar/registry").AppDef, route = "", opts: { groupId?: WorkspaceGroupId; side?: boolean } = {}) => {
-    const id = `${APP_TAB_PREFIX}:${app.id}`;
-    for (const groupId of groupOrder) {
-      if (groupsRef.current[groupId].tabs.some((t) => t.id === id)) {
-        activateTab(groupId, id);
-        if (route) void import("../apps/bus").then((bus) => bus.pushAppRoute(app.id, route));
-        return;
-      }
-    }
-    openTab(appTab(app, route), opts);
-  }, [openTab, activateTab]);
-
   const reorderTabs = useCallback((groupId: WorkspaceGroupId, tabs: WorkspaceTab[]) => {
     setGroups((prev) => ({ ...prev, [groupId]: { ...prev[groupId], tabs } }));
   }, []);
@@ -424,7 +409,6 @@ export function useTabGroups({ canCloseTab = () => true, onTabClosed = () => {} 
     openSettings,
     openActivity,
     openLauncher,
-    openApp,
     replaceTab,
     findWebTab,
     openWeb,

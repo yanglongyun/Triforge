@@ -7,11 +7,9 @@
 // 定位:每个分组内容区标 [data-panel-host],ResizeObserver 量出相对布局容器的矩形,
 // 面板绝对定位投影过去。z-10 低于分屏把手(z-20),拖宽不受影响。
 import { useCallback, useEffect, useState, type RefObject } from "react";
-import { AppFrame } from "../apps/AppFrame";
-import type { AppDef } from "../sidebar/registry";
 import { TerminalPanel } from "./panels/TerminalPanel";
 import { WebPanel } from "./panels/WebPanel";
-import { isAppTab, isTerminalTab, isWebTab, type AppTab, type TerminalTab, type WebTab, type WorkspaceGroupId, type WorkspaceGroupState } from "./types";
+import { isTerminalTab, isWebTab, type TerminalTab, type WebTab, type WorkspaceGroupId, type WorkspaceGroupState } from "./types";
 
 type Socket = { send: (m: any) => void; on: (t: string, fn: (p: any) => void) => () => void };
 type HostRect = { left: number; top: number; width: number; height: number };
@@ -25,7 +23,6 @@ export function PersistentPanelLayer({
   onCloseTab,
   onFocusGroup,
   onOpenUrl,
-  onOpenApp,
 }: {
   /** 布局容器(position:relative):矩形以它为基准,面板也挂在它下面。 */
   containerRef: RefObject<HTMLDivElement | null>;
@@ -36,9 +33,7 @@ export function PersistentPanelLayer({
   onUpdateWebTab: (id: string, patch: Partial<Pick<WebTab, "title" | "url" | "favicon">>) => void;
   onCloseTab: (groupId: WorkspaceGroupId, id: string) => void;
   onFocusGroup: (groupId: WorkspaceGroupId) => void;
-  /** 应用标签(AppFrame)要用的两个出口。 */
   onOpenUrl: (url: string, title?: string) => void;
-  onOpenApp: (app: AppDef, route?: string) => void;
 }) {
   const [hostRects, setHostRects] = useState<Record<string, HostRect>>({});
 
@@ -79,7 +74,7 @@ export function PersistentPanelLayer({
     <>
       {allGroups.flatMap((g) =>
         g.tabs
-          .filter((t): t is WebTab | TerminalTab | AppTab => isWebTab(t) || isTerminalTab(t) || isAppTab(t))
+          .filter((t): t is WebTab | TerminalTab => isWebTab(t) || isTerminalTab(t))
           .map((t) => {
             const rect = hostRects[g.id];
             const visible = !!rect && visibleGroupIds.includes(g.id) && g.activeId === t.id;
@@ -94,8 +89,6 @@ export function PersistentPanelLayer({
               >
                 {isWebTab(t)
                   ? <WebPanel tab={t} socket={socket} onUpdate={onUpdateWebTab} />
-                  : isAppTab(t)
-                    ? <AppFrame app={t.app} mount="tab" route={t.route} onOpenUrl={onOpenUrl} onOpenApp={onOpenApp} />
                     : <TerminalPanel tab={t} socket={socket} onClose={() => onCloseTab(g.id, t.id)} />}
               </div>
             );

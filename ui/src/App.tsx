@@ -399,7 +399,6 @@ export function App() {
         onSelect={openNode}
         socket={socket}
         onOpenUrl={openWebTab}
-        onOpenApp={(app, route) => tabGroups.openApp(app, route || "")}
         onToggleNav={toggleNav}
         onOpenSide={(n) => openNode(n, { groupId: "side" })}
         onOpenTerminal={openTerminal}
@@ -454,7 +453,6 @@ export function App() {
             onGitChanged: refreshGit,
             onOpenGitDiff: (root, path, staged) => tabGroups.openGitDiff(root, path, staged),
             onOpenUrl: openWebTab,
-            onOpenApp: (app, route) => tabGroups.openApp(app, route || ""),
           }}
           onUpdateWebTab={tabGroups.updateWebTab}
         />

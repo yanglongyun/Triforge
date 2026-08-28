@@ -1,7 +1,0 @@
-{
-  "id": "todo",
-  "name": "任务",
-  "icon": "☑️",
-  "mounts": { "tab": "/", "panel": "/" },
-  "capabilities": ["db"]
-}

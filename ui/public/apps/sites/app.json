@@ -1,7 +1,0 @@
-{
-  "id": "sites",
-  "name": "网站",
-  "icon": "🌐",
-  "mounts": { "tab": "/", "panel": "/panel.html" },
-  "capabilities": ["db", "tabs", "system"]
-}
