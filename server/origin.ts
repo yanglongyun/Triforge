@@ -20,8 +20,8 @@ const isLoopbackHost = (host: string) =>
 export const isTrustedOrigin = (origin: unknown, _port?: number) => {
   const value = String(origin || "").trim();
   if (!value) return true; // 无 Origin 头:curl 等非浏览器客户端(浏览器跨源写一定带 Origin)
-  // 字面 "null" = 沙箱 iframe(应用)的不透明源 —— 应用只许走宿主桥,不许直连本地端口。
-  // (壳加载的是 http://127.0.0.1,不存在 file:// 归一成 "null" 的情形,可以放心拒绝。)
+  // 字面 "null" = 不透明源(sandbox iframe / file://)。组件有自己的真 origin 且只走
+  // 自己端口上的 /_wb/*,永远不会以 "null" 打到宿主端口上 —— 一律拒绝。
   if (value === "null") return false;
   let parsed;
   try { parsed = new URL(value); } catch { return false; }

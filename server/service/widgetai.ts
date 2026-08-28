@@ -30,7 +30,7 @@ export const runWidgetAi = async ({
   const current = inflight.get(widgetId) || 0;
   if (current >= MAX_CONCURRENT) throw new Error("该应用的 AI 调用过于频繁,请稍后再试");
 
-  const activityId = startActivity(`app:${widgetId}`, "ai", String(summary).slice(0, 200));
+  const activityId = startActivity(`widget:${widgetId}`, "ai", String(summary).slice(0, 200));
   inflight.set(widgetId, current + 1);
   try {
     const result = await complete({

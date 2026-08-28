@@ -77,7 +77,7 @@ const initDb = () => {
       value TEXT NOT NULL
     );
 
-    -- 网站:侧栏「网站」页收藏的链接(网页标签在 Electron 壳的 <webview> 里打开)
+    -- 网站:活动栏「网站」原生面板收藏的链接(在网页标签里打开,Electron 壳的 <webview>)
     CREATE TABLE IF NOT EXISTS sites (
       id         TEXT PRIMARY KEY,
       title      TEXT NOT NULL,
@@ -104,17 +104,11 @@ const initDb = () => {
   `);
 
   db.exec(`
-    -- 应用私有存储(KV):每个应用一份 JSON。应用经宿主桥读写,自己永远不直连 http —— 见 APP.md。
-    CREATE TABLE IF NOT EXISTS panel_kv (
-      id         TEXT PRIMARY KEY,
-      value      TEXT NOT NULL,
-      updated_at TEXT NOT NULL DEFAULT (datetime('now'))
-    );
 
-    -- 应用活动:应用调用 AI(ai.complete)的问责流水;agent.run 走 calls 表(caller = app:<id>)。
+    -- 活动流水:组件调用 AI(/_wb/ai)的问责记录 —— 机器行为进这里,不进会话。
     CREATE TABLE IF NOT EXISTS activities (
       id           INTEGER PRIMARY KEY AUTOINCREMENT,
-      source       TEXT NOT NULL,                -- app:<id>
+      source       TEXT NOT NULL,                -- widget:<id> / agent:<uuid>
       kind         TEXT NOT NULL,                -- 'ai'
       summary      TEXT NOT NULL,
       status       TEXT NOT NULL DEFAULT 'running',
