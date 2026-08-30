@@ -236,6 +236,9 @@ body.wb-dragging iframe { pointer-events: none !important; }
   animation: sheen 2.6s infinite;
 }
 @keyframes sheen { to { background-position: 250% top; } }
+/* 护盾面板:规则详情从右侧推入(两级导航,返回即卸载,不做退场动画) */
+@keyframes wb-slide-in { from { transform: translateX(100%); } to { transform: translateX(0); } }
+.wb-slide-in { animation: wb-slide-in .22s cubic-bezier(.32, .72, 0, 1); }
 .no-scrollbar { -ms-overflow-style: none; scrollbar-width: none; }
 
 /* ───────────────────────────────────────────────

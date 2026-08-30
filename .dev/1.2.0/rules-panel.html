@@ -1,0 +1,333 @@
+<!doctype html>
+<meta charset="utf-8">
+<title>规则面板 · 四版对比</title>
+<style>
+  :root{
+    --bg:#fff; --bg-raised:#fbfbfa; --bg-panel:#f7f7f5; --bg-inset:#f1f1ef; --bg-hover:#efefed;
+    --border:#ebebea; --border-strong:#d3d3d1;
+    --text:#37352f; --text-dim:#5f5e5b; --text-faint:#9b9a97;
+    --accent:#2383e2; --accent-soft:#e7f0f9; --warning:#cb6b16; --danger:#e03e3e; --surface:#fff;
+  }
+  [data-theme="dark"]{
+    --bg:#191919; --bg-raised:#202020; --bg-panel:#262626; --bg-inset:#2e2e2e; --bg-hover:#2b2b2b;
+    --border:#2f2f2f; --border-strong:#4a4a4a;
+    --text:#d4d4d1; --text-dim:#a5a5a2; --text-faint:#767672;
+    --accent:#4a9de8; --accent-soft:#1d3247; --warning:#e59a4a; --danger:#f06a6a; --surface:#202020;
+  }
+  *{box-sizing:border-box;margin:0;padding:0}
+  body{background:var(--bg-panel);color:var(--text);
+    font:14px/1.5 "Inter",-apple-system,BlinkMacSystemFont,"PingFang SC",sans-serif;padding:24px 28px 80px}
+  h1{font-size:19px;font-weight:600;letter-spacing:-.2px}
+  .lede{color:var(--text-dim);font-size:13px;margin-top:6px;max-width:900px;line-height:1.75}
+  .lede b{color:var(--text)} .lede code{font-family:ui-monospace,Menlo,monospace;font-size:12px;background:var(--bg-inset);padding:1px 5px;border-radius:4px}
+  header{display:flex;align-items:flex-start;gap:16px;margin-bottom:8px}
+  header button{margin-left:auto;flex-shrink:0;background:var(--surface);color:var(--text);
+    border:1px solid var(--border-strong);border-radius:7px;padding:6px 12px;cursor:pointer;font-size:13px}
+  .note{margin:14px 0 24px;padding:11px 14px;border-left:3px solid var(--accent);background:var(--surface);
+    border-radius:0 8px 8px 0;font-size:12.5px;color:var(--text-dim);line-height:1.7;max-width:900px}
+  .note b{color:var(--text)}
+
+  .board{display:flex;flex-wrap:wrap;gap:22px;align-items:flex-start}
+  .col{flex:0 0 400px}
+  .col h2{font-size:13.5px;font-weight:600;margin-bottom:3px}
+  .col p{font-size:12px;color:var(--text-faint);line-height:1.65;margin-bottom:10px;min-height:48px}
+
+  /* 输入框仿真:面板必须挂在它上面,这是真实约束 */
+  .composer{background:var(--bg);border:1px solid var(--border);border-radius:12px;padding:0;position:relative}
+  .composer .ta{padding:12px 14px;color:var(--text-faint);font-size:14px;min-height:56px}
+  .bar{display:flex;align-items:center;gap:6px;padding:0 8px 8px}
+  .icon{width:28px;height:28px;border-radius:6px;display:grid;place-items:center;color:var(--text-faint)}
+  .shield{display:inline-flex;align-items:center;gap:6px;height:28px;padding:0 8px;border-radius:6px;
+    border:0;background:transparent;cursor:pointer;font:inherit;font-size:12.5px;color:var(--text-faint)}
+  .shield:hover,.shield.on{background:var(--bg-hover);color:var(--text)}
+  .spacer{flex:1}
+  .send{width:28px;height:28px;border-radius:6px;background:var(--accent);color:#fff;display:grid;place-items:center}
+
+  /* 面板 */
+  .panel{position:absolute;bottom:calc(100% + 8px);left:8px;z-index:30;border-radius:12px;
+    border:1px solid var(--border);background:var(--surface);
+    box-shadow:0 10px 30px rgba(15,15,15,.14),0 2px 6px rgba(15,15,15,.08);overflow:hidden}
+  .modes{padding:6px;border-bottom:1px solid var(--border)}
+  .mode{width:100%;display:flex;gap:8px;align-items:flex-start;padding:7px 9px;border:0;background:none;
+    cursor:pointer;border-radius:8px;text-align:left;font:inherit}
+  .mode:hover{background:var(--bg-hover)}
+  .mode.sel{background:var(--accent-soft)}
+  .mode .tick{width:14px;flex-shrink:0;color:var(--accent);margin-top:1px}
+  .mode b{display:block;font-size:13px;font-weight:400}
+  .mode.danger b{color:var(--danger)}
+  .mode span.h{display:block;font-size:11.5px;color:var(--text-faint);line-height:1.4}
+
+  .rules{max-height:230px;overflow-y:auto;padding:4px 0}
+  .rules::-webkit-scrollbar{width:0}
+  .rule{display:flex;gap:8px;align-items:flex-start;padding:6px 12px;cursor:default}
+  .rule:hover{background:var(--bg-hover)}
+  .cb{flex-shrink:0;margin-top:2px;width:14px;height:14px;border-radius:4px;border:1px solid var(--border-strong);
+    display:grid;place-items:center;cursor:pointer;background:transparent;color:transparent;padding:0}
+  .cb.on{background:var(--accent);border-color:var(--accent);color:#fff}
+  .rbody{min-width:0;flex:1}
+  .rtext{font-size:12.5px;line-height:1.45}
+  .off .rtext{color:var(--text-faint);text-decoration:line-through}
+  .cond{margin-top:2px;font-size:11px;color:var(--text-faint);font-family:ui-monospace,Menlo,monospace;
+    overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+  .soft{margin-top:2px;font-size:11px;color:var(--warning);display:flex;align-items:center;gap:4px}
+  .acts{display:flex;gap:2px;flex-shrink:0;opacity:0;transition:opacity .12s}
+  .rule:hover .acts{opacity:1}
+  .acts button{width:20px;height:20px;border:0;background:none;border-radius:4px;cursor:pointer;
+    color:var(--text-faint);display:grid;place-items:center;padding:0}
+  .acts button:hover{background:var(--bg-inset);color:var(--text)}
+  .acts button.del:hover{color:var(--danger)}
+
+  .addrow{display:flex;gap:6px;padding:8px;border-top:1px solid var(--border)}
+  .addrow input{flex:1;min-width:0;height:28px;padding:0 9px;border-radius:6px;border:1px solid var(--border);
+    background:var(--bg);color:var(--text);font:inherit;font-size:12.5px;outline:none}
+  .addrow input:focus{border-color:var(--accent)}
+  .addrow button{width:28px;height:28px;border:0;border-radius:6px;background:var(--accent);color:#fff;
+    cursor:pointer;display:grid;place-items:center;padding:0}
+  .edit{width:100%;height:26px;padding:0 8px;border-radius:5px;border:1px solid var(--accent);
+    background:var(--bg);color:var(--text);font:inherit;font-size:12.5px;outline:none}
+
+  /* B 版:展开详情 */
+  .detail{padding:8px 12px 10px 34px;background:var(--bg-raised);border-top:1px solid var(--border);
+    border-bottom:1px solid var(--border)}
+  .detail .lbl{font-size:11px;color:var(--text-faint);margin-bottom:4px}
+  .chips{display:flex;flex-wrap:wrap;gap:4px;margin-bottom:8px}
+  .chip{font-size:11px;padding:2px 7px;border-radius:5px;background:var(--accent-soft);color:var(--accent);
+    font-family:ui-monospace,Menlo,monospace}
+  .chip.warn{background:color-mix(in srgb,var(--warning) 15%,transparent);color:var(--warning);font-family:inherit}
+  .drow{display:flex;gap:6px}
+  .drow button{height:26px;padding:0 10px;border-radius:6px;border:1px solid var(--border);background:var(--surface);
+    color:var(--text);font:inherit;font-size:12px;cursor:pointer}
+  .drow button.p{background:var(--accent);border-color:var(--accent);color:#fff}
+  .drow button.d{color:var(--danger);border-color:transparent;margin-left:auto}
+
+  /* C 版:两栏 */
+  .two{display:flex;height:280px}
+  .two .left{width:190px;border-right:1px solid var(--border);overflow-y:auto;padding:4px 0}
+  .two .left::-webkit-scrollbar{width:0}
+  .two .right{flex:1;padding:12px;display:flex;flex-direction:column;gap:8px;min-width:0}
+  .li{display:flex;gap:7px;align-items:flex-start;padding:6px 10px;cursor:pointer;font-size:12.5px;line-height:1.4}
+  .li:hover{background:var(--bg-hover)} .li.sel{background:var(--accent-soft)}
+  .li .t{min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+  textarea.big{width:100%;min-height:56px;padding:8px;border-radius:7px;border:1px solid var(--border);
+    background:var(--bg);color:var(--text);font:inherit;font-size:12.5px;resize:none;outline:none}
+  textarea.big:focus{border-color:var(--accent)}
+
+  .empty{padding:14px 12px;font-size:12px;color:var(--text-faint);line-height:1.7}
+  svg{display:block}
+  .verdict{margin-top:9px;font-size:11.5px;color:var(--text-faint);line-height:1.6}
+  .verdict b{color:var(--text-dim)}
+</style>
+
+<header>
+  <div>
+    <h1>规则面板 · 四版就地交互</h1>
+    <p class="lede">
+      面板挂在输入框上方(真实约束:宽度有限、不能盖住对话)。四版都能真点:
+      <b>开关 / 编辑 / 删除 / 新增</b> 全部可用,数据是同一份。
+    </p>
+  </div>
+  <button onclick="document.documentElement.toggleAttribute('data-theme')">切换明暗</button>
+</header>
+
+<div class="note">
+  <b>先砍掉一块:排序不用做。</b>
+  服务端 <code>decide()</code> 是 <code>rules.find(第一条命中的)</code>,而<b>所有规则的效果都一样</b>(命中就停下来问)——
+  顺序只影响审批卡上显示哪条规则的原话,功能上毫无差别。<br>
+  所以真正缺的只有<b>编辑</b>。四版的差别就在于:编辑这件事放在哪。
+</div>
+
+<div class="board" id="board"></div>
+
+<script>
+const SEED = [
+  { id:"1", text:"删我文档以外的东西之前先问我", on:true,  cond:["delete","~/Documents/**"], soft:false },
+  { id:"2", text:"装任何软件包之前问一下",       on:true,  cond:["install"],               soft:false },
+  { id:"3", text:"推代码到远端前必须确认",        on:true,  cond:["gitPush"],               soft:false },
+  { id:"4", text:"别自作主张改我的配置文件",      on:false, cond:[],                        soft:true  },
+];
+const I = {
+  tick:'<svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3.2" stroke-linecap="round" stroke-linejoin="round"><path d="M20 6 9 17l-5-5"/></svg>',
+  cb:'<svg width="9" height="9" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="4" stroke-linecap="round" stroke-linejoin="round"><path d="M20 6 9 17l-5-5"/></svg>',
+  pen:'<svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 20h9M16.5 3.5a2.1 2.1 0 0 1 3 3L7 19l-4 1 1-4Z"/></svg>',
+  del:'<svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 6h18M8 6V4h8v2M19 6l-1 14H6L5 6"/></svg>',
+  plus:'<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round"><path d="M12 5v14M5 12h14"/></svg>',
+  warn:'<svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 9v4M12 17h.01M10.3 3.9 1.8 18a2 2 0 0 0 1.7 3h17a2 2 0 0 0 1.7-3L13.7 3.9a2 2 0 0 0-3.4 0Z"/></svg>',
+  shield:'<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M20 13c0 5-3.5 7.5-7.7 9a1 1 0 0 1-.6 0C7.5 20.5 4 18 4 13V6a1 1 0 0 1 1-1c2 0 4.5-1.2 6.2-2.7a1 1 0 0 1 1.5 0C14.5 3.8 17 5 19 5a1 1 0 0 1 1 1Z"/><path d="m9 12 2 2 4-4"/></svg>',
+  clip:'<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M21.4 11.05 12.25 20.2a6 6 0 0 1-8.49-8.49l9.2-9.19a4 4 0 0 1 5.65 5.66L9.4 17.4a2 2 0 0 1-2.83-2.83l8.49-8.48"/></svg>',
+  send:'<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="m22 2-7 20-4-9-9-4Z"/></svg>',
+};
+const MODES = [
+  ["ask","逐步确认","每一次工具调用都停下来问你"],
+  ["rules","按照规则","只有命中下面规则的操作才问你"],
+  ["skip","完全跳过","不问不拦 —— 后果你自己担"],
+];
+
+// 每版独立状态
+const S = {};
+["A","B","C","D"].forEach((k) => S[k] = {
+  rules: SEED.map((r) => ({ ...r })), mode:"rules", open:true,
+  editing:null, expanded:null, selected:"1", draft:"",
+});
+
+const condHtml = (r) => r.soft
+  ? `<div class="soft">${I.warn} 只靠助手自觉,拦不住</div>`
+  : `<div class="cond">${r.cond.join(" · ")}</div>`;
+
+const modesHtml = (k, s) => `<div class="modes">${MODES.map(([id,name,hint]) => `
+  <button class="mode ${s.mode===id?'sel':''} ${id==='skip'?'danger':''}" data-k="${k}" data-act="mode" data-v="${id}">
+    <span class="tick">${s.mode===id?I.tick:""}</span>
+    <span><b>${name}</b><span class="h">${hint}</span></span>
+  </button>`).join("")}</div>`;
+
+const addRow = (k, s) => `<div class="addrow">
+  <input data-k="${k}" data-act="draft" value="${s.draft.replace(/"/g,"&quot;")}" placeholder="什么情况下要先问过你…">
+  <button data-k="${k}" data-act="add">${I.plus}</button></div>`;
+
+const shell = (k, s, inner, width) => `
+  <div class="composer">
+    <div class="panel" style="width:${width}px">${inner}</div>
+    <div class="ta">发送消息…</div>
+    <div class="bar">
+      <span class="icon">${I.clip}</span>
+      <button class="shield on" data-k="${k}" data-act="toggle">${I.shield}
+        ${s.mode==="rules" ? `${s.rules.filter(r=>r.on).length} 条规则` : MODES.find(m=>m[0]===s.mode)[1]}</button>
+      <span class="spacer"></span>
+      <span class="send">${I.send}</span>
+    </div>
+  </div>`;
+
+// ── A:hover 出按钮,点笔就地变输入框 ─────────────────────────
+function viewA(k, s) {
+  const rules = s.rules.map((r) => s.editing === r.id
+    ? `<div class="rule"><span style="width:14px;flex-shrink:0"></span>
+         <div class="rbody"><input class="edit" data-k="${k}" data-act="commit" data-id="${r.id}" value="${r.text.replace(/"/g,"&quot;")}" autofocus></div></div>`
+    : `<div class="rule ${r.on?'':'off'}">
+         <button class="cb ${r.on?'on':''}" data-k="${k}" data-act="on" data-id="${r.id}">${I.cb}</button>
+         <div class="rbody"><div class="rtext">${r.text}</div>${condHtml(r)}</div>
+         <div class="acts">
+           <button data-k="${k}" data-act="edit" data-id="${r.id}">${I.pen}</button>
+           <button class="del" data-k="${k}" data-act="del" data-id="${r.id}">${I.del}</button>
+         </div></div>`).join("");
+  return shell(k, s, modesHtml(k,s) + `<div class="rules">${rules}</div>` + addRow(k,s), 340);
+}
+
+// ── B:点一行展开详情,编辑与删除都在展开区 ───────────────────
+function viewB(k, s) {
+  const rules = s.rules.map((r) => {
+    const row = `<div class="rule ${r.on?'':'off'}" data-k="${k}" data-act="expand" data-id="${r.id}">
+        <button class="cb ${r.on?'on':''}" data-k="${k}" data-act="on" data-id="${r.id}">${I.cb}</button>
+        <div class="rbody"><div class="rtext">${r.text}</div>${s.expanded===r.id?"":condHtml(r)}</div>
+      </div>`;
+    if (s.expanded !== r.id) return row;
+    return row + `<div class="detail">
+        <div class="lbl">这条会在什么时候拦下来</div>
+        <div class="chips">${r.soft
+          ? `<span class="chip warn">${I.warn} 编译不出条件,只靠助手自觉</span>`
+          : r.cond.map((c)=>`<span class="chip">${c}</span>`).join("")}</div>
+        <input class="edit" data-k="${k}" data-act="commit" data-id="${r.id}" value="${r.text.replace(/"/g,"&quot;")}">
+        <div class="drow" style="margin-top:8px">
+          <button class="p" data-k="${k}" data-act="save" data-id="${r.id}">改完重新编译</button>
+          <button class="d" data-k="${k}" data-act="del" data-id="${r.id}">删除</button>
+        </div></div>`;
+  }).join("");
+  return shell(k, s, modesHtml(k,s) + `<div class="rules" style="max-height:250px">${rules}</div>` + addRow(k,s), 360);
+}
+
+// ── C:两栏,左列表右详情 ──────────────────────────────────
+function viewC(k, s) {
+  const cur = s.rules.find((r) => r.id === s.selected) || s.rules[0];
+  const list = s.rules.map((r) => `<div class="li ${r.id===s.selected?'sel':''} ${r.on?'':'off'}" data-k="${k}" data-act="select" data-id="${r.id}">
+      <button class="cb ${r.on?'on':''}" data-k="${k}" data-act="on" data-id="${r.id}">${I.cb}</button>
+      <span class="t">${r.text}</span></div>`).join("");
+  return shell(k, s, modesHtml(k,s) + `<div class="two">
+      <div class="left">${list}
+        <div class="li" data-k="${k}" data-act="new" style="color:var(--accent)">
+          <span style="width:14px;flex-shrink:0">${I.plus}</span><span class="t">新规则</span></div>
+      </div>
+      <div class="right">
+        <div class="lbl" style="font-size:11px;color:var(--text-faint)">规则原话</div>
+        <textarea class="big" data-k="${k}" data-act="commit" data-id="${cur?cur.id:''}">${cur?cur.text:""}</textarea>
+        <div class="lbl" style="font-size:11px;color:var(--text-faint)">编译成的触发条件</div>
+        <div class="chips">${!cur ? "" : cur.soft
+          ? `<span class="chip warn">${I.warn} 拦不住</span>`
+          : cur.cond.map((c)=>`<span class="chip">${c}</span>`).join("")}</div>
+        <div class="drow" style="margin-top:auto">
+          <button class="p" data-k="${k}" data-act="save" data-id="${cur?cur.id:''}">保存</button>
+          <button class="d" data-k="${k}" data-act="del" data-id="${cur?cur.id:''}">删除</button>
+        </div>
+      </div></div>`, 420);
+}
+
+// ── D:全都是输入框,没有编辑态 ────────────────────────────
+function viewD(k, s) {
+  const rules = s.rules.map((r) => `<div class="rule ${r.on?'':'off'}">
+      <button class="cb ${r.on?'on':''}" data-k="${k}" data-act="on" data-id="${r.id}">${I.cb}</button>
+      <div class="rbody">
+        <input class="edit" style="border-color:transparent;background:transparent;padding:0;height:auto"
+          data-k="${k}" data-act="commit" data-id="${r.id}" value="${r.text.replace(/"/g,"&quot;")}">
+        ${condHtml(r)}
+      </div>
+      <div class="acts"><button class="del" data-k="${k}" data-act="del" data-id="${r.id}">${I.del}</button></div>
+    </div>`).join("");
+  return shell(k, s, modesHtml(k,s) + `<div class="rules">${rules}</div>` + addRow(k,s), 340);
+}
+
+const VIEWS = [
+  ["A","① 悬停出按钮 · 就地变输入框",
+    "最接近现在这版:平时只读,hover 出笔和垃圾桶,点笔那一行变成输入框。改动最小,信息密度最高;缺点是编辑时看不见它编译成了什么。", viewA],
+  ["B","② 点开展开详情",
+    "点一行就地展开:显示编译成的条件、编辑框、删除。编辑和「它到底拦什么」在同一屏 —— 这是建立信任的关键。缺点是多一次点击,展开会顶走别的行。", viewB],
+  ["C","③ 左右两栏",
+    "左边列表右边详情。空间最足,编辑区可以是多行文本。缺点是面板宽到 420px,已经很像一个设置页了 —— 与「就地」的气质冲突。", viewC],
+  ["D","④ 全部可编辑",
+    "取消编辑态:每条规则本身就是输入框,点进去就能改,失焦即保存重编译。交互最少;缺点是容易误改,而且没有明确的「保存」时刻。", viewD],
+];
+
+function render() {
+  document.getElementById("board").innerHTML = VIEWS.map(([k,title,desc,fn]) => `
+    <div class="col"><h2>${title}</h2><p>${desc}</p>${fn(k, S[k])}
+    <div class="verdict"></div></div>`).join("");
+}
+
+document.addEventListener("click", (e) => {
+  const el = e.target.closest("[data-act]");
+  if (!el) return;
+  const { k, act, id, v } = el.dataset;
+  const s = S[k]; if (!s) return;
+  if (act === "mode") s.mode = v;
+  if (act === "toggle") s.open = !s.open;
+  if (act === "on") { const r = s.rules.find(x=>x.id===id); r.on = !r.on; e.stopPropagation(); }
+  if (act === "edit") s.editing = id;
+  if (act === "expand") s.expanded = s.expanded === id ? null : id;
+  if (act === "select") s.selected = id;
+  if (act === "del") { s.rules = s.rules.filter(x=>x.id!==id); if (s.selected===id) s.selected = s.rules[0]?.id; }
+  if (act === "save") s.editing = null;
+  if (act === "new") { const r = { id:String(Date.now()), text:"新规则", on:true, cond:[], soft:true }; s.rules.push(r); s.selected = r.id; }
+  if (act === "add") {
+    const text = s.draft.trim(); if (!text) return;
+    s.rules.push({ id:String(Date.now()), text, on:true, cond:["(编译中…)"], soft:false });
+    s.draft = "";
+  }
+  render();
+});
+
+document.addEventListener("input", (e) => {
+  const el = e.target.closest("[data-act]"); if (!el) return;
+  const { k, act, id } = el.dataset; const s = S[k]; if (!s) return;
+  if (act === "draft") s.draft = el.value;
+  if (act === "commit") { const r = s.rules.find(x=>x.id===id); if (r) r.text = el.value; }
+});
+
+document.addEventListener("keydown", (e) => {
+  const el = e.target.closest("[data-act]"); if (!el) return;
+  const { k, act } = el.dataset; const s = S[k]; if (!s) return;
+  if (e.key === "Enter" && act === "commit") { s.editing = null; render(); }
+  if (e.key === "Enter" && act === "draft") {
+    const text = s.draft.trim(); if (!text) return;
+    s.rules.push({ id:String(Date.now()), text, on:true, cond:["(编译中…)"], soft:false });
+    s.draft = ""; render();
+  }
+  if (e.key === "Escape") { s.editing = null; render(); }
+});
+
+render();

@@ -11,6 +11,9 @@ export type Node = {
   last_read_at: string | null;                                   // 仅 agent
   created_at: string;
   workdir?: string;                                              // 仅 agent:绑定的工作目录
+  updated_at?: string;                                           // 仅 agent:最后活动时间
+  /** 仅 agent:最后一句人话(跳过思考/工具),会话列表的预览行用。 */
+  last?: { role: "user" | "assistant"; text: string; at: string } | null;
   pinned?: boolean;                                              // 仅 agent:置顶
   status?: "idle" | "running" | "done" | "error" | "cancelled";  // 仅 agent(界面按运行事件维护)
   unread?: boolean;                                              // 仅 agent
@@ -24,6 +27,22 @@ export type SearchMatch = { line: number; text: string };
 export type SearchResult = { id: string; title: string; matches: SearchMatch[] };
 
 /** 侧栏「网站」页收藏的链接。 */
+/** 应用:manifest 的事实 + 运行时状态。 */
+export type AppInfo = {
+  id: string;
+  name: string;
+  version: string;
+  description: string;
+  permissions: string[];
+  hasIcon: boolean;
+  hasDoc: boolean;
+  mode: "on-demand" | "always" | "static";
+  invalid: string;
+  status: "stopped" | "starting" | "ready" | "failed" | "invalid";
+  error: string;
+  port: number;
+};
+
 export type Site = { id: string; title: string; url: string; created_at: string };
 
 /** 组件:目录即安装,manifest = 权限清单(见 WIDGET.md)。 */
@@ -87,6 +106,8 @@ export type Settings = {
   toolResultMaxChars?: string;
   /** 匿名使用统计:on/off(只收 事件名/版本/平台/匿名安装 id)。 */
   telemetry?: string;
+  /** 审批模式:ask 逐步确认 / rules 按照规则 / skip 完全跳过。 */
+  permissionMode?: string;
 };
 
 
@@ -195,6 +216,18 @@ export const api = {
   /** 卸载 = 挪进回收站(保留 30 天)。 */
   removeWidget: (id: string) =>
     request<{ ok: boolean; trashed: string }>("/api/widgets/remove", { method: "POST", ...jsonBody({ id }) }),
+
+  // ── 应用(apps:跨宿主的公共契约,见仓库根 APP.md)──
+  listApps: () => request<{ apps: AppInfo[] }>("/api/apps").then((r) => r.apps || []),
+  /** 取址即保活:没起的会被顺手拉起。**每次现取,不要缓存端口。** */
+  appAddress: (id: string) =>
+    request<{ origin: string }>(`/api/apps/address?id=${encodeURIComponent(id)}`).then((r) => r.origin),
+  stopApp: (id: string) =>
+    request<{ ok: boolean }>("/api/apps/stop", { method: "POST", ...jsonBody({ id }) }),
+  restartApp: (id: string) =>
+    request<{ ok: boolean }>("/api/apps/restart", { method: "POST", ...jsonBody({ id }) }),
+  appLogs: (id: string) =>
+    request<{ logs: { stream: string; line: string; at: string }[] }>(`/api/apps/logs?id=${encodeURIComponent(id)}`).then((r) => r.logs || []),
 
   // ── 网站收藏(原生「网站」面板)──
   listSites: () => request<{ sites: Site[] }>("/api/sites").then((r) => r.sites || []),

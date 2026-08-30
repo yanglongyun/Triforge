@@ -3,8 +3,8 @@
 // 为什么用系统 node 而不是 Electron 自带的 Node:node-pty 是原生模块,按系统 node
 // 的 ABI 编译;塞进 Electron 的 Node 要 electron-rebuild 整一轮。开发期直接用系统
 // node 零 ABI 纠纷;正式打包时再换成随包 node + rebuild(见 dev/ 版本文档)。
-import { app, BrowserWindow, Menu, dialog, ipcMain, nativeTheme, shell } from "electron";
-import { existsSync, renameSync, mkdirSync } from "node:fs";
+import { app, BrowserWindow, Menu, dialog, ipcMain, nativeTheme, session, shell } from "electron";
+import { existsSync, renameSync, mkdirSync, readFileSync, writeFileSync } from "node:fs";
 import { spawn } from "node:child_process";
 import { createServer } from "node:net";
 import { dirname, join } from "node:path";
@@ -72,10 +72,34 @@ const layout = () => {
   };
 };
 
-/** 找一个空闲端口;显式给了 WORKBENCH_PORT 就用它(比如想连已在跑的 dev 服务)。 */
-const pickPort = () => new Promise((resolve, reject) => {
-  const fixed = Number(process.env.WORKBENCH_PORT) || 0;
-  if (fixed) { resolve(fixed); return; }
+// ── 端口必须**跨启动稳定** ──────────────────────────────────────────────
+// 窗口加载 http://127.0.0.1:<port>,而浏览器的 localStorage 按 origin 隔离,
+// origin 含端口 —— 每次随机换端口 = 每次都是新 origin = 用户的偏好全部清零
+// (主题、侧栏宽度、分屏比例、活动栏上开了哪些组件、聊天草稿、已读公告……)。
+// 所以:首次随机选一个,记在 userData 里,以后每次先用它;被占了才另选。
+const PORT_FILE = () => join(app.getPath("userData"), "port.json");
+
+const readSavedPort = () => {
+  try {
+    const port = Number(JSON.parse(readFileSync(PORT_FILE(), "utf8")).port);
+    return Number.isInteger(port) && port > 1024 && port < 65536 ? port : 0;
+  } catch { return 0; }
+};
+
+const savePort = (port) => {
+  try { writeFileSync(PORT_FILE(), JSON.stringify({ port }), "utf8"); }
+  catch (e) { console.error("[port] 记不住端口,下次启动偏好会重置:", e?.message); }
+};
+
+/** 某个端口现在能不能用。 */
+const portFree = (port) => new Promise((resolve) => {
+  const probe = createServer();
+  probe.once("error", () => resolve(false));
+  probe.listen(port, "127.0.0.1", () => probe.close(() => resolve(true)));
+});
+
+/** 随机要一个空闲端口(交给系统挑)。 */
+const freePort = () => new Promise((resolve, reject) => {
   const probe = createServer();
   probe.once("error", reject);
   probe.listen(0, "127.0.0.1", () => {
@@ -83,6 +107,21 @@ const pickPort = () => new Promise((resolve, reject) => {
     probe.close(() => resolve(port));
   });
 });
+
+/** 显式给了 WORKBENCH_PORT 就用它(比如连已在跑的 dev 服务);否则沿用上次那个。 */
+const pickPort = async () => {
+  const fixed = Number(process.env.WORKBENCH_PORT) || 0;
+  if (fixed) return fixed;
+
+  const saved = readSavedPort();
+  if (saved && await portFree(saved)) return saved;
+
+  const port = await freePort();
+  savePort(port);
+  // 换了端口 = 换了 origin,上一次的界面偏好留在旧 origin 里,这一次是空的
+  if (saved) console.warn(`[port] 上次的端口 ${saved} 被占,改用 ${port} —— 界面偏好会重置一次`);
+  return port;
+};
 
 /** GUI 场景(Finder 启动)PATH 很瘦,补上常见的 node 安装位置(开发态用 PATH 找 node)。 */
 const spawnEnv = (port, extra) => ({
@@ -182,6 +221,50 @@ const setupUpdates = async () => {
 };
 ipcMain.handle("workbench:install-update", () => { updater?.install(); });
 
+// ── 网页标签的 session:独立分区 ────────────────────────────────────────
+// 网页标签用 persist:web,不与应用自身(127.0.0.1)共用 cookie 罐:
+// 边界清楚,而且「退出所有网站」清得干净 —— 不会顺手清掉应用自己的东西。
+const WEB_PARTITION = "persist:web";
+const webSession = () => session.fromPartition(WEB_PARTITION);
+
+ipcMain.handle("workbench:chrome-import-available", async () => {
+  try {
+    const { chromeImportAvailable } = await import("./chromeImport.mjs");
+    return chromeImportAvailable();
+  } catch { return false; }
+});
+
+// 导入 Chrome 登录态。只由界面上的明确点击触发 —— 取密钥时系统会弹钥匙串授权,
+// 那是这个功能的安全闸门;用户拒绝则整次中止。
+ipcMain.handle("workbench:import-chrome-cookies", async () => {
+  try {
+    const { importChromeCookies } = await import("./chromeImport.mjs");
+    return { ok: true, ...(await importChromeCookies(webSession())) };
+  } catch (e) {
+    return { ok: false, error: e?.message || String(e) };
+  }
+});
+
+// 退出所有网站:清 cookie 与站点数据(登录态没了,缓存留着)
+ipcMain.handle("workbench:clear-web-logins", async () => {
+  try {
+    await webSession().clearStorageData({ storages: ["cookies", "localstorage", "indexdb", "websql", "serviceworkers"] });
+    return { ok: true };
+  } catch (e) {
+    return { ok: false, error: e?.message || String(e) };
+  }
+});
+
+// 清缓存:腾磁盘,**不碰登录态**(两个动作分开,别让用户一按就退登)
+ipcMain.handle("workbench:clear-web-cache", async () => {
+  try {
+    await webSession().clearCache();
+    return { ok: true };
+  } catch (e) {
+    return { ok: false, error: e?.message || String(e) };
+  }
+});
+
 const checkUpdatesManually = async () => {
   if (!updater) {
     dialog.showMessageBox({ message: "开发模式不检查更新。" });
@@ -217,7 +300,7 @@ const buildMenu = () => {
       label: "文件",
       submenu: [
         {
-          label: "新建标签页",
+          label: "新建…",
           accelerator: "CmdOrCtrl+T",
           click: () => {
             BrowserWindow.getFocusedWindow()?.webContents

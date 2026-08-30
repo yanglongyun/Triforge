@@ -68,8 +68,10 @@ userData 路径**跟着 productName 走** —— 只改显示名,数据库就"�
 
 ## 待办
 
-- **图标未定**:候选见本目录 `图标候选.html`(12 个,含 64/32/16 实际像素对照 ——
-  16px 还认得出来才是能用的图标)。定了写进 `desktop/icon.svg` 重新生成 icns;
+- ~~图标未定~~ **已定:三面晶 Tricut Gem**(Kimi k3 候选 07,见 `候选-kimi.html`),
+  已写进 `desktop/icon.svg` 并重新生成 icns。本目录留有五路候选存档:
+  `图标候选.html`(Opus 初稿)/ `图标候选2.html` / `三棱体研究.html` /
+  `候选-gemini.html` / `候选-kimi.html` / `候选-qwen-flash.html` / `候选-qwen-max.html`;
 - **仓库名未改**(还叫 Workbench),等正式发布时连同真名一起;
 - 组件的 `ui` 权限(toast/confirm)与 `fs` 权限未实现;
 - **宿主 API 对外访问**未做:组件的 `/_wb/*` 不带凭据是因为「端口即身份」,

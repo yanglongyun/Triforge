@@ -37,7 +37,6 @@ export function WorkspaceGroup({
   showNavButton,
   showSideToggle,
   sideOpen,
-  navOpen,
   onOpenNav,
   tabs,
   content,
@@ -48,7 +47,6 @@ export function WorkspaceGroup({
   showNavButton?: boolean;
   showSideToggle?: boolean;
   sideOpen: boolean;
-  navOpen?: boolean;
   onOpenNav?: () => void;
   tabs: TabActions;
   content: TabContentProps;
@@ -76,7 +74,6 @@ export function WorkspaceGroup({
         showSideToggle={showSideToggle}
         sideToggleOpen={sideOpen}
         onOpenNav={showNavButton ? onOpenNav : undefined}
-        navOpen={navOpen}
       />
       {/* data-panel-host:常驻层(PersistentPanelLayer)按这块矩形投放本组的网页/终端。
           分组只决定「摆在哪、显不显」,webview/PTY 的生命都在常驻层 —— 跨分屏移动不死 */}

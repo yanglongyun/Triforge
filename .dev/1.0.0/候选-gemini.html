@@ -1,0 +1,352 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <title>Triforge macOS Icons</title>
+    <style>
+        :root {
+            --bg: #0f1115;
+            --card-bg: #1a1d24;
+            --border: #2c313c;
+            --text-main: #f0f6fc;
+            --text-muted: #8b949e;
+        }
+        body {
+            background-color: var(--bg);
+            color: var(--text-main);
+            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+            margin: 0;
+            padding: 40px;
+        }
+        .container {
+            max-width: 1400px;
+            margin: 0 auto;
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(600px, 1fr));
+            gap: 40px;
+        }
+        .card {
+            background: var(--card-bg);
+            border: 1px solid var(--border);
+            border-radius: 20px;
+            padding: 30px;
+            display: flex;
+            gap: 30px;
+            align-items: center;
+        }
+        .preview-main {
+            flex-shrink: 0;
+            width: 128px;
+            height: 128px;
+            filter: drop-shadow(0 10px 15px rgba(0,0,0,0.5));
+        }
+        .info {
+            flex-grow: 1;
+        }
+        .title {
+            font-size: 24px;
+            font-weight: 700;
+            margin: 0 0 8px 0;
+            letter-spacing: 0.5px;
+        }
+        .desc {
+            font-size: 14px;
+            color: var(--text-muted);
+            line-height: 1.5;
+            margin: 0 0 20px 0;
+        }
+        .sizes-row {
+            display: flex;
+            gap: 20px;
+            align-items: flex-end;
+            background: rgba(0,0,0,0.3);
+            padding: 15px 20px;
+            border-radius: 12px;
+            border: 1px solid var(--border);
+        }
+        .size-box {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            gap: 8px;
+        }
+        .size-label {
+            font-size: 11px;
+            color: var(--text-muted);
+            font-variant-numeric: tabular-nums;
+        }
+        svg {
+            display: block;
+            width: 100%;
+            height: 100%;
+        }
+    </style>
+</head>
+<body>
+
+<div class="container">
+
+    <!-- Icon 1 -->
+    <div class="card">
+        <div class="preview-main" id="icon1-main"></div>
+        <div class="info">
+            <h2 class="title">1. Origami Tri-Fold (折纸三面体)</h2>
+            <p class="desc">将三个面板具象化为折纸的三个立体面，聚合为坚实的立方角。强烈的亮色渐变与深暗紫底色形成对比，象征在赛博空间中锻造想法。几何分割极具辨识度。</p>
+            <div class="sizes-row" id="icon1-sizes"></div>
+        </div>
+    </div>
+    <script>
+        const svg1 = `
+        <svg viewBox="0 0 512 512" xmlns="http://www.w3.org/2000/svg">
+            <defs>
+                <linearGradient id="g1-bg" x1="0" y1="0" x2="1" y2="1"><stop offset="0%" stop-color="#3b0a45"/><stop offset="100%" stop-color="#12021c"/></linearGradient>
+                <linearGradient id="g1-blue" x1="0" y1="0" x2="1" y2="1"><stop offset="0%" stop-color="#00f2fe"/><stop offset="100%" stop-color="#4facfe"/></linearGradient>
+                <linearGradient id="g1-pink" x1="0" y1="0" x2="1" y2="1"><stop offset="0%" stop-color="#fa709a"/><stop offset="100%" stop-color="#fee140"/></linearGradient>
+            </defs>
+            <rect x="24" y="24" width="464" height="464" rx="105" fill="url(#g1-bg)" />
+            <path d="M256 256 L120 180 L256 100 L392 180 Z" fill="#ffffff" />
+            <path d="M256 256 L392 180 L392 340 L256 420 Z" fill="url(#g1-pink)" />
+            <path d="M256 256 L256 420 L120 340 L120 180 Z" fill="url(#g1-blue)" />
+        </svg>`;
+    </script>
+
+    <!-- Icon 2 -->
+    <div class="card">
+        <div class="preview-main" id="icon2-main"></div>
+        <div class="info">
+            <h2 class="title">2. Neon Prism (霓虹闭环)</h2>
+            <p class="desc">摒弃实体，用三道极粗的荧光色带交织成无缝闭环的三角形。代表对话、文件、网站的无界限流转。极简的线条在深色 Dock 中如霓虹般醒目，16px 下依然清晰。</p>
+            <div class="sizes-row" id="icon2-sizes"></div>
+        </div>
+    </div>
+    <script>
+        const svg2 = `
+        <svg viewBox="0 0 512 512" xmlns="http://www.w3.org/2000/svg">
+            <defs>
+                <linearGradient id="g2-bg" x1="0" y1="0" x2="0" y2="1"><stop offset="0%" stop-color="#0f172a"/><stop offset="100%" stop-color="#020617"/></linearGradient>
+            </defs>
+            <rect x="24" y="24" width="464" height="464" rx="105" fill="url(#g2-bg)" />
+            <path d="M210 130 L400 370" fill="none" stroke="#f0abfc" stroke-width="64" stroke-linecap="round" stroke-linejoin="round"/>
+            <path d="M370 370 L112 370" fill="none" stroke="#2dd4bf" stroke-width="64" stroke-linecap="round" stroke-linejoin="round"/>
+            <path d="M140 370 L280 130" fill="none" stroke="#a3e635" stroke-width="64" stroke-linecap="round" stroke-linejoin="round"/>
+        </svg>`;
+    </script>
+
+    <!-- Icon 3 -->
+    <div class="card">
+        <div class="preview-main" id="icon3-main"></div>
+        <div class="info">
+            <h2 class="title">3. Cyber Anvil (赛博铁砧)</h2>
+            <p class="desc">对“锻造台”进行高科技几何化重塑，底部是沉稳的代码铁砧，上方悬浮着三个翡翠色高亮节点，代表三位一体的工作模式。硬朗、克制，充满工具属性。</p>
+            <div class="sizes-row" id="icon3-sizes"></div>
+        </div>
+    </div>
+    <script>
+        const svg3 = `
+        <svg viewBox="0 0 512 512" xmlns="http://www.w3.org/2000/svg">
+            <defs>
+                <linearGradient id="g3-bg" x1="0" y1="0" x2="1" y2="1"><stop offset="0%" stop-color="#27272a"/><stop offset="100%" stop-color="#09090b"/></linearGradient>
+            </defs>
+            <rect x="24" y="24" width="464" height="464" rx="105" fill="url(#g3-bg)" />
+            <path d="M110 320 Q256 350 402 320 L360 430 L152 430 Z" fill="#71717a"/>
+            <path d="M80 250 L432 250 L402 320 L110 320 Z" fill="#e4e4e7"/>
+            <circle cx="150" cy="150" r="36" fill="#10b981"/>
+            <circle cx="256" cy="120" r="36" fill="#10b981"/>
+            <circle cx="362" cy="150" r="36" fill="#10b981"/>
+        </svg>`;
+    </script>
+
+    <!-- Icon 4 -->
+    <div class="card">
+        <div class="preview-main" id="icon4-main"></div>
+        <div class="info">
+            <h2 class="title">4. Core Beams (核心光束)</h2>
+            <p class="desc">三道不同色彩的高能光束从边缘注入中心，交汇出纯白的核心。隐喻三种功能面板为你的创造力注入能量。纯粹的射线图形在极小尺寸下也能一眼辨识。</p>
+            <div class="sizes-row" id="icon4-sizes"></div>
+        </div>
+    </div>
+    <script>
+        const svg4 = `
+        <svg viewBox="0 0 512 512" xmlns="http://www.w3.org/2000/svg">
+            <defs>
+                <linearGradient id="g4-bg" x1="0" y1="0" x2="1" y2="1"><stop offset="0%" stop-color="#1e1b4b"/><stop offset="100%" stop-color="#020617"/></linearGradient>
+            </defs>
+            <rect x="24" y="24" width="464" height="464" rx="105" fill="url(#g4-bg)" />
+            <path d="M0 0 L256 256 L120 256 Z" fill="#38bdf8" opacity="0.9"/>
+            <path d="M512 0 L256 256 L256 120 Z" fill="#f472b6" opacity="0.9"/>
+            <path d="M256 512 L256 256 L392 256 Z" fill="#fde047" opacity="0.9"/>
+            <polygon points="256,180 332,256 256,332 180,256" fill="#ffffff" />
+        </svg>`;
+    </script>
+
+    <!-- Icon 5 -->
+    <div class="card">
+        <div class="preview-main" id="icon5-main"></div>
+        <div class="info">
+            <h2 class="title">5. Spark Window (火花视窗)</h2>
+            <p class="desc">将“视窗”切割为经典的左侧边栏+右侧上下分栏（完美呼应应用的三个面板）。在视窗交界处劈开一道明亮的黄色火花，传达“锻造/激发”的核心精神。</p>
+            <div class="sizes-row" id="icon5-sizes"></div>
+        </div>
+    </div>
+    <script>
+        const svg5 = `
+        <svg viewBox="0 0 512 512" xmlns="http://www.w3.org/2000/svg">
+            <defs>
+                <linearGradient id="g5-bg" x1="0" y1="0" x2="1" y2="1"><stop offset="0%" stop-color="#082f49"/><stop offset="100%" stop-color="#020617"/></linearGradient>
+            </defs>
+            <rect x="24" y="24" width="464" height="464" rx="105" fill="url(#g5-bg)" />
+            <rect x="90" y="110" width="150" height="292" rx="24" fill="#38bdf8"/>
+            <rect x="270" y="110" width="152" height="130" rx="24" fill="#818cf8"/>
+            <rect x="270" y="272" width="152" height="130" rx="24" fill="#c084fc"/>
+            <path d="M256 100 L210 260 L270 260 L246 412 L310 220 L240 220 Z" fill="#fde047"/>
+        </svg>`;
+    </script>
+
+    <!-- Icon 6 -->
+    <div class="card">
+        <div class="preview-main" id="icon6-main"></div>
+        <div class="info">
+            <h2 class="title">6. Stairway Forge (进阶台地)</h2>
+            <p class="desc">由三层粗壮的阶梯从左下向右上延伸，阶梯色彩从青绿过渡到橙红。代表对话->代码->输出的递进构建过程。大色块在黑色背景下极具现代个人工具感。</p>
+            <div class="sizes-row" id="icon6-sizes"></div>
+        </div>
+    </div>
+    <script>
+        const svg6 = `
+        <svg viewBox="0 0 512 512" xmlns="http://www.w3.org/2000/svg">
+            <defs>
+                <linearGradient id="g6-bg" x1="0" y1="0" x2="0" y2="1"><stop offset="0%" stop-color="#262626"/><stop offset="100%" stop-color="#0a0a0a"/></linearGradient>
+            </defs>
+            <rect x="24" y="24" width="464" height="464" rx="105" fill="url(#g6-bg)" />
+            <path d="M100 390 L412 390 L412 290 L100 290 Z" fill="#fb923c"/>
+            <path d="M100 290 L308 290 L308 190 L100 190 Z" fill="#c084fc"/>
+            <path d="M100 190 L204 190 L204 90 L100 90 Z" fill="#2dd4bf"/>
+        </svg>`;
+    </script>
+
+    <!-- Icon 7 -->
+    <div class="card">
+        <div class="preview-main" id="icon7-main"></div>
+        <div class="info">
+            <h2 class="title">7. Infinity Mobius (无尽莫比乌斯)</h2>
+            <p class="desc">用三条金属色粗带互锁成无尽循环，打破了刻板的三角形外观，强调闭环验证的工作流。高对比的金色/黄色搭配深暗色，彰显大师级锻造台的质感。</p>
+            <div class="sizes-row" id="icon7-sizes"></div>
+        </div>
+    </div>
+    <script>
+        const svg7 = `
+        <svg viewBox="0 0 512 512" xmlns="http://www.w3.org/2000/svg">
+            <defs>
+                <linearGradient id="g7-bg" x1="0" y1="0" x2="1" y2="1"><stop offset="0%" stop-color="#111827"/><stop offset="100%" stop-color="#000000"/></linearGradient>
+                <linearGradient id="g7-gold" x1="0" y1="0" x2="1" y2="1"><stop offset="0%" stop-color="#f59e0b"/><stop offset="100%" stop-color="#b45309"/></linearGradient>
+            </defs>
+            <rect x="24" y="24" width="464" height="464" rx="105" fill="url(#g7-bg)" />
+            <path d="M256 90 L400 330 L290 330 L180 160 Z" fill="url(#g7-gold)"/>
+            <path d="M400 330 L112 330 L160 230 L340 230 Z" fill="#facc15"/>
+            <path d="M112 330 L256 90 L310 180 L190 330 Z" fill="#fef08a"/>
+        </svg>`;
+    </script>
+
+    <!-- Icon 8 -->
+    <div class="card">
+        <div class="preview-main" id="icon8-main"></div>
+        <div class="info">
+            <h2 class="title">8. Code Lens (三源透镜)</h2>
+            <p class="desc">深空蓝底色上，三个发光的圆形透镜互相重叠切割，形成中央的光明地带。寓意三种介质（对话、文件、网站）透过统一的工作台聚焦。克制而极客。</p>
+            <div class="sizes-row" id="icon8-sizes"></div>
+        </div>
+    </div>
+    <script>
+        const svg8 = `
+        <svg viewBox="0 0 512 512" xmlns="http://www.w3.org/2000/svg">
+            <defs>
+                <linearGradient id="g8-bg" x1="0" y1="0" x2="1" y2="1"><stop offset="0%" stop-color="#0f172a"/><stop offset="100%" stop-color="#020617"/></linearGradient>
+            </defs>
+            <rect x="24" y="24" width="464" height="464" rx="105" fill="url(#g8-bg)" />
+            <circle cx="256" cy="180" r="110" fill="#38bdf8" opacity="0.6"/>
+            <circle cx="180" cy="310" r="110" fill="#a855f7" opacity="0.6"/>
+            <circle cx="332" cy="310" r="110" fill="#10b981" opacity="0.6"/>
+            <circle cx="256" cy="266" r="40" fill="#ffffff" />
+        </svg>`;
+    </script>
+
+    <!-- Icon 9 -->
+    <div class="card">
+        <div class="preview-main" id="icon9-main"></div>
+        <div class="info">
+            <h2 class="title">9. Forge Star (锻造星纹)</h2>
+            <p class="desc">由三个象征硬核工具的V型折角拼接，中央负空间自然形成一个向下的倒三角。这种构图避开了传统品字三角，带来了独特的重工业/航天机械感，对比极强。</p>
+            <div class="sizes-row" id="icon9-sizes"></div>
+        </div>
+    </div>
+    <script>
+        const svg9 = `
+        <svg viewBox="0 0 512 512" xmlns="http://www.w3.org/2000/svg">
+            <defs>
+                <linearGradient id="g9-bg" x1="0" y1="0" x2="1" y2="1"><stop offset="0%" stop-color="#312e81"/><stop offset="100%" stop-color="#1e1b4b"/></linearGradient>
+            </defs>
+            <rect x="24" y="24" width="464" height="464" rx="105" fill="url(#g9-bg)" />
+            <path d="M256 70 L370 270 L280 270 L256 200 L232 270 L142 270 Z" fill="#e0e7ff"/>
+            <path d="M390 410 L256 320 L290 270 L360 300 L310 200 L390 200 Z" fill="#38bdf8"/>
+            <path d="M122 410 L256 320 L222 270 L152 300 L202 200 L122 200 Z" fill="#f472b6"/>
+        </svg>`;
+    </script>
+
+    <!-- Icon 10 -->
+    <div class="card">
+        <div class="preview-main" id="icon10-main"></div>
+        <div class="info">
+            <h2 class="title">10. Hexa-Forge (六边矩阵)</h2>
+            <p class="desc">将工作区抽象为严谨的正六边形，被均分为三等分。每一份使用纯粹的红、蓝、绿原色，暗示底层与基建。立体切割感带来宛如晶体般的精细感，16px 依然如同宝石。</p>
+            <div class="sizes-row" id="icon10-sizes"></div>
+        </div>
+    </div>
+    <script>
+        const svg10 = `
+        <svg viewBox="0 0 512 512" xmlns="http://www.w3.org/2000/svg">
+            <defs>
+                <linearGradient id="g10-bg" x1="0" y1="0" x2="1" y2="1"><stop offset="0%" stop-color="#18181b"/><stop offset="100%" stop-color="#000000"/></linearGradient>
+            </defs>
+            <rect x="24" y="24" width="464" height="464" rx="105" fill="url(#g10-bg)" />
+            <path d="M256 256 L256 70 L417 163 L417 256 Z" fill="#3b82f6"/>
+            <path d="M256 256 L417 349 L256 442 L256 349 Z" fill="#ef4444"/>
+            <path d="M256 256 L95 349 L95 163 Z" fill="#10b981"/>
+            <path d="M256 256 L417 349 L256 442 Z" fill="#b91c1c" opacity="0.5"/>
+            <path d="M256 256 L417 163 L417 256 Z" fill="#1d4ed8" opacity="0.5"/>
+            <path d="M256 256 L95 163 L256 70 Z" fill="#047857" opacity="0.5"/>
+        </svg>`;
+    </script>
+
+    <script>
+        // Mount all SVGs dynamically to sizes
+        const svgs = [svg1, svg2, svg3, svg4, svg5, svg6, svg7, svg8, svg9, svg10];
+        const sizes = [128, 64, 32, 16];
+
+        svgs.forEach((svgStr, index) => {
+            const i = index + 1;
+            // Render main preview (shadows via CSS)
+            document.getElementById(`icon${i}-main`).innerHTML = svgStr;
+            
+            // Render sizes
+            const sizesContainer = document.getElementById(`icon${i}-sizes`);
+            sizes.forEach(size => {
+                const box = document.createElement('div');
+                box.className = 'size-box';
+                const wrapper = document.createElement('div');
+                wrapper.style.width = size + 'px';
+                wrapper.style.height = size + 'px';
+                wrapper.innerHTML = svgStr;
+                const label = document.createElement('div');
+                label.className = 'size-label';
+                label.innerText = `${size}px`;
+                box.appendChild(wrapper);
+                box.appendChild(label);
+                sizesContainer.appendChild(box);
+            });
+        });
+    </script>
+
+</div>
+
+</body>
+</html>

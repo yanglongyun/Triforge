@@ -33,6 +33,51 @@ const getChat = (id) => toNode(getDb().prepare("SELECT * FROM chats WHERE id = ?
 const listChats = () =>
   getDb().prepare("SELECT * FROM chats ORDER BY pinned DESC, updated_at DESC, created_at DESC").all().map(toNode);
 
+/** item 里的纯文本(与界面 thread.ts 的 itemText 同口径)。 */
+const itemText = (item) => {
+  if (typeof item?.content === "string") return item.content;
+  if (!Array.isArray(item?.content)) return "";
+  return item.content
+    .filter((part) => part?.type === "output_text" || part?.type === "input_text")
+    .map((part) => String(part?.text || ""))
+    .join("");
+};
+
+/**
+ * 每个对话「最后说了什么」:给会话列表的预览行用。
+ *
+ * 只认**用户消息**与**助手正文** —— 思考、工具调用、工具结果、系统告示都跳过:
+ * 列表要回答的是「这段对话聊到哪了」,不是「后台跑了什么」。
+ * 每个对话最多回溯 30 条:一轮里工具调用可能很密,但正文不会埋得太深。
+ */
+const lastMessages = (ids) => {
+  if (!ids.length) return {};
+  const db = getDb();
+  const out = {};
+  const stmt = db.prepare(
+    "SELECT body, meta, created_at FROM messages WHERE chat_id = ? ORDER BY id DESC LIMIT 30",
+  );
+  for (const id of ids) {
+    for (const row of stmt.all(String(id))) {
+      let item;
+      try { item = JSON.parse(row.body); } catch { continue; }
+      // 工具调用/结果/思考:没有 role 或 role 非 user/assistant,一律跳过
+      const role = item?.role;
+      if (role !== "user" && role !== "assistant") continue;
+      // 系统注入的压缩摘要、跨对话调用回执等不是「人说的话」
+      let meta = {};
+      try { meta = row.meta ? JSON.parse(row.meta) : {}; } catch { /* 无 meta */ }
+      const kind = String(meta.kind || meta.source || "");
+      if (kind === "compaction" || kind === "call" || kind === "call_result") continue;
+      const text = itemText(item).trim().replace(/\s+/g, " ");
+      if (!text) continue;
+      out[id] = { role, text: text.slice(0, 200), at: row.created_at };
+      break;
+    }
+  }
+  return out;
+};
+
 const createChat = ({ title, system = null, workdir } = {}) => {
   const id = randomUUID();
   const home = String(workdir || "").trim() || (listWorkspaces()[0]?.path || ensureRoot());
@@ -98,5 +143,5 @@ const resolveWorkdir = (chat) => {
 export {
   DEFAULT_TITLE,
   listChats, getChat, createChat, updateChat, deleteChat,
-  markRead, touchChat, unreadMap, resolveWorkdir,
+  markRead, touchChat, unreadMap, lastMessages, resolveWorkdir,
 };

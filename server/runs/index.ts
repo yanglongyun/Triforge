@@ -6,16 +6,20 @@
 //     落 [stopped]/[error] 留痕 —— 给用户看,也给模型看
 //
 // ai/ 内核完全不知道树/邮箱/进程/调用,所有状态在这里管。
-import { complete, runAgent as runAi } from "../../ai/index.js";
+import { complete, runAgent as runAi } from "../ai/index.js";
 import { EVENTS } from "../shared/events.js";
+import { homedir } from "node:os";
 import { buildExecutors, tools } from "../tools/index.js";
+import { gate } from "../permission/gate.js";
+import { listRules } from "../repo/rules.js";
+import type { Mode } from "../permission/rules.js";
 import { buildSystem } from "./system.js";
 import { maybeCompact } from "./compact.js";
 import { DEFAULT_TITLE, createChat, getChat, resolveWorkdir, touchChat, updateChat } from "../repo/chats.js";
 import { appendItem, listRows } from "../repo/messages.js";
 import { getLatestCompaction } from "../repo/compactions.js";
 import { getSettings } from "../repo/settings.js";
-import { prepareInput } from "../files.js";
+import { prepareInput } from "../host/files.js";
 import { emit } from "../bus.js";
 
 const MAX_ROUNDS = 64;
@@ -108,6 +112,7 @@ const runChat = async (chatId) => {
 
     const ctx = {
       selfChatId: chatId,
+      chatId,        // consult 要用它把请示卡投到这段对话里
       cwd,
       emit,
       toolResultMaxChars: Number(settings.toolResultMaxChars) || 30000,
@@ -154,7 +159,15 @@ const runChat = async (chatId) => {
       instructions: buildSystem(chat, settings),
       input,
       tools,
-      executors: buildExecutors(ctx),
+      // 审批门包在执行器外面:ai/ 依然不感知权限,它只知道「执行器返回了一个结果」——
+      // 被拒绝也是一种结果(回给模型的是一句人话,不是抛错中断整轮)
+      executors: gate(buildExecutors(ctx), {
+        mode: (settings.permissionMode || "rules") as Mode,
+        rules: listRules(),
+        context: { home: homedir(), cwd },
+        chatId: chat.id,
+        signal,
+      }),
       maxRounds: MAX_ROUNDS,
       errorMaxChars: ERROR_MAX_CHARS,
       workdir: cwd,

@@ -1,6 +1,6 @@
 import { useEffect, useRef, useState } from "react";
 import { iconFor, colorFor } from "../sidebar/panels/NodeRow";
-import { X, LayoutGrid, Menu, Circle, GitBranch, GitCompare, Globe, PanelRight, Plus, Radio, Settings, Terminal } from "lucide-react";
+import { X, AppWindow, LayoutGrid, Circle, Columns2, GitBranch, GitCompare, Globe, PanelLeft, PanelRight, Plus, Radio, Settings, Terminal } from "lucide-react";
 import { ContextMenu, Favicon, type MenuItem } from "../ui";
 import { beginGlobalDrag, endGlobalDrag } from "../../lib/drag";
 import type { TabActions, WorkspaceGroupId, WorkspaceTab } from "./types";
@@ -9,16 +9,18 @@ const tabIconFor = (tab: WorkspaceTab) =>
   tab.kind === "git-diff" ? GitCompare :
   tab.kind === "git" ? GitBranch :
   tab.kind === "settings" ? Settings :
+  tab.kind === "widgets" ? LayoutGrid :
   tab.kind === "terminal" ? Terminal :
-  tab.kind === "launcher" ? Plus :
+  tab.kind === "app" ? AppWindow :
   tab.kind === "web" ? Globe : iconFor(tab.kind, tab.title);
 
 const tabColorFor = (tab: WorkspaceTab) =>
   tab.kind === "git-diff" ? "text-accent" :
   tab.kind === "git" ? "text-accent" :
   tab.kind === "settings" ? "text-text-dim" :
+  tab.kind === "widgets" ? "text-accent" :
   tab.kind === "terminal" ? "text-success" :
-  tab.kind === "launcher" ? "text-accent" :
+  tab.kind === "app" ? "text-accent" :
   tab.kind === "web" ? "text-accent" : colorFor(tab.kind);
 
 type DropGuide = {
@@ -37,7 +39,6 @@ export function TabBar({
   showSideToggle,
   sideToggleOpen,
   onOpenNav,
-  navOpen,
 }: {
   tabs: WorkspaceTab[];
   activeId: string | null;
@@ -49,9 +50,8 @@ export function TabBar({
   /** 是否显示右端的分屏开关(只有最右一组显示)。 */
   showSideToggle?: boolean;
   sideToggleOpen?: boolean;
+  /** 移动端:打开侧栏抽屉。桌面端活动栏常驻,这颗汉堡不再出现。 */
   onOpenNav?: () => void;
-  /** 侧边栏当前是否展开:展开时桌面端隐藏标签栏左端的汉堡(汉堡在侧栏头部)。 */
-  navOpen?: boolean;
 }) {
   const pointerDrag = useRef<{
     startX: number;
@@ -213,17 +213,17 @@ export function TabBar({
       data-tab-count={tabs.length}
       className="flex items-stretch h-11 bg-bg-raised border-b border-border shrink-0"
     >
-      {/* 侧边栏开关:侧栏展开时汉堡在侧栏头部,这里只在收起(或移动端)时出现 */}
+      {/* 侧边栏开关:仅移动端 —— 桌面端活动栏常驻,面板开合由活动栏与侧栏头部负责 */}
       {onOpenNav && (
         <button
           onClick={onOpenNav}
           className={[
             "px-2.5 flex items-center justify-center text-text-dim hover:text-text hover:bg-bg-hover border-r border-border shrink-0",
-            navOpen ? "md:hidden" : "",
+            "md:hidden",
           ].join(" ")}
           title="展开侧边栏"
         >
-          <Menu size={16} />
+          <PanelLeft size={16} />
         </button>
       )}
 
@@ -296,12 +296,12 @@ export function TabBar({
 
       </div>
 
-      {/* 新标签页:贴着滚动区右缘 —— 标签不满时即贴着最后一个标签,溢出时也始终可见。
+      {/* 加号:方案 B 类型菜单,不创建新标签页。
           左边线补齐(-ml-px 与最后一个标签的右边线重叠,避免双线) */}
       <button
-        onClick={() => actions.newTab(groupId)}
+        onClick={(e) => actions.newTab(groupId, e.currentTarget)}
         className="px-2.5 flex items-center justify-center text-text-faint hover:text-accent hover:bg-bg-hover shrink-0 border-l border-border -ml-px"
-        title="新标签页(⌘T)"
+        title="新建…"
       >
         <Plus size={15} />
       </button>
@@ -315,7 +315,8 @@ export function TabBar({
           ].join(" ")}
           title={sideToggleOpen ? "收起右侧区域" : "开启右侧区域"}
         >
-          <PanelRight size={14} />
+          {/* 分割线居中 = 左右平分,这是分屏;偏一侧的那种(PanelLeft/Right)留给侧边栏开合 */}
+          <Columns2 size={14} />
         </button>
       )}
       {dropGuide && (

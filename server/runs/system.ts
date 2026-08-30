@@ -1,8 +1,45 @@
 // system prompt 拼装:身份 + 工作目录 + 该文件夹的约定与技能 + 工具规则。
 // 每次运行现拼,不落库 —— 目录、文档、技能都可能变。
 import path from "path";
+import { appsHome, listApps } from "../host/apps.js";
+import { listRules } from "../repo/rules.js";
+import { injection } from "../permission/rules.js";
 import { agentContext, ensureRoot } from "../repo/tree.js";
 import { resolveWorkdir } from "../repo/chats.js";
+
+/**
+ * 已安装的应用:**渐进披露**(与 SKILL.md 同一套路)。
+ *
+ * 常驻提示词里每个 app 只占一行(id / 名字 / description),细节全在各自的 APP.md 里,
+ * 模型要用时自己 read —— 十个 app 的完整 API 表塞进每一轮上下文是纯浪费。
+ * 端口不写进提示词:它每次启动都变,写进去就是过期信息;地址永远现取。
+ */
+const appsSection = () => {
+  const apps = listApps();
+  if (!apps.length) return "";
+  const ok = apps.filter((a) => !a.invalid);
+  const broken = apps.filter((a) => a.invalid);
+  const lines = [
+    ...ok.map((a) => `- ${a.id}(${a.name}):${a.description || "无说明"}`
+      + (a.hasDoc ? ` —— API 见 ${path.join(appsHome(), a.id, "APP.md")}` : "")),
+    ...broken.map((a) => `- ${a.id}:【故障】${a.invalid}`),
+  ];
+  return `# 已安装的应用
+
+应用是带界面的本地网站,用户在活动栏「应用」里点开(开在标签页)。
+你也可以直接调它的 HTTP API 替用户干活:
+
+${lines.join("\n")}
+
+调用方式:先取址 \`curl 'http://127.0.0.1:${process.env.WORKBENCH_PORT || "<宿主端口>"}/api/apps/address?id=<id>'\`
+(顺手把没起的应用拉起,返回 { origin }),再对着 origin 调 APP.md 里写的接口。
+**地址每次现取,不要缓存端口。**
+
+新建应用:在 ${appsHome()}/<id>/ 下按契约建目录,最小只要 manifest.json
+和一个监听 $PORT 的 server;写完自动出现在列表里。
+
+`;
+};
 
 /** 随包的组件契约正典(WIDGET.md):开发态在仓库根,打包态在只读资源区。 */
 const widgetDoc = () =>
@@ -11,7 +48,7 @@ const widgetDoc = () =>
 
 export const buildSystem = (
   chat: { id: string; system?: string | null; workdir?: string | null },
-  settings: { system?: string },
+  settings: { system?: string; permissionMode?: string },
 ) => {
   const base = (chat.system && chat.system.trim()) || settings.system || "";
   const cwd = resolveWorkdir(chat);
@@ -36,7 +73,7 @@ export const buildSystem = (
 - 你的工作目录(shell 在这里执行,东西都建在这里):
   ${cwd}${docsBlock}${skillsBlock}
 
-# 工具(一共五个)
+# 工具(一共六个)
 - bash(command, background?)  — 在工作目录里跑命令。会结束的命令直接跑并返回输出;
   dev server/watch 等长驻进程必须 background:true —— 立即返回进程 id/pid/日志文件路径,
   之后用 read 读日志文件、用 bash 的 kill <pid> 停止。
@@ -46,6 +83,11 @@ export const buildSystem = (
   read 读到图片(png/jpg/gif/webp)时会把图像直接交给你查看
 - browser(action, ...)        — 操作工作区里的网页标签(内置真浏览器,带用户登录态;open 会在分屏侧边打开,用户看得见你在操作):
   list 列标签 / open 开网址 / navigate·back 导航 / read 读正文 / js 执行脚本 / click·type 点击输入 / screenshot 截图(图像会交给你查看,同时存成工作目录里的文件)
+- consult(summary, detail, risk) — **动手前先请示用户**。用在你自己觉得该问一句的时候:
+  操作不可逆、影响面比你被交代的更大、要动没被明确授权的东西,或者你发现用户的处境
+  可能和你的默认假设不一样。得到允许前不要执行;用户不同意就换做法或如实说明,不要绕过。
+  它和用户的规则是两回事:规则是用户定的闸(命中必停),consult 是你自己的判断 ——
+  规则没说到的地方,该问还是要问。
 
 每个工具都必须带 summary:一句话说明这次调用的目的,用户会在界面上看到它。
 文件类工具的相对路径都相对你上面那个工作目录。
@@ -111,6 +153,8 @@ widget.json:
 
 什么时候**不**造组件:用户要的是独立网站 / 仓库 / 命令行工具 / 原生 app,
 或者只是要一个看一眼的单页 HTML —— 那就按普通文件写在你的工作目录里。
+需要真后端、要装依赖、要整页宽度的 —— 那是**应用**,见下。
 
+${appsSection()}${injection(listRules(), (settings?.permissionMode || "rules") as any)}
 `;
 };

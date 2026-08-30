@@ -4,6 +4,7 @@ export const TERMINAL_TAB_PREFIX = "__terminal__";
 export const GIT_TAB_PREFIX = "__git__";
 export const GIT_DIFF_TAB_PREFIX = "__git_diff__";
 export const SETTINGS_TAB_ID = "__settings__";
+export const WIDGETS_TAB_ID = "__widgets__";
 
 export type TerminalTab = {
   id: string;
@@ -35,13 +36,23 @@ export type SettingsTab = {
   title: "设置";
 };
 
-export const LAUNCHER_TAB_PREFIX = "__launcher__";
+/** 组件管理:装了哪些、钉/取下、删除、让 AI 造一个。
+ *  走标签页而不是侧栏面板 —— 管理是「摊开来看」的事,侧栏那 260px 摆不下。 */
+export type WidgetsTab = {
+  id: typeof WIDGETS_TAB_ID;
+  kind: "widgets";
+  title: "组件";
+};
 
-/** 新标签页(方案 C):一个全能输入框 —— 输入文字开对话,输入网址开网站;就地转身成目标标签。 */
-export type LauncherTab = {
+export const APP_TAB_PREFIX = "__app__";
+
+/** 应用标签:一个 iframe 指向 app 自己的 origin(每个 app 一个真端口)。
+ *  地址不存在这里 —— 端口每次启动都变,打开时现向宿主取。 */
+export type AppTab = {
   id: string;
-  kind: "launcher";
+  kind: "app";
   title: string;
+  appId: string;
 };
 
 export const WEB_TAB_PREFIX = "__web__";
@@ -58,7 +69,7 @@ export type WebTab = {
   favicon?: string;
 };
 
-export type WorkspaceTab = Node | TerminalTab | GitTab | GitDiffTab | SettingsTab | WebTab | LauncherTab;
+export type WorkspaceTab = Node | TerminalTab | GitTab | GitDiffTab | SettingsTab | WidgetsTab | AppTab | WebTab;
 export type WorkspaceGroupId = "main" | "side";
 
 export type WorkspaceGroupState = {
@@ -80,8 +91,7 @@ export type TabActions = {
   closeOthers: (groupId: WorkspaceGroupId, keepId: string) => void;
   closeToRight: (groupId: WorkspaceGroupId, afterId: string) => void;
   closeGroup: (groupId: WorkspaceGroupId) => void;
-  /** 新标签页(方案 C):在指定分组开启动器。 */
-  newTab: (groupId: WorkspaceGroupId) => void;
+  newTab: (groupId: WorkspaceGroupId, anchor?: HTMLElement) => void;
 };
 
 export const terminalTab = (cwd: string, title = "Terminal", initialCommand?: string): TerminalTab => ({
@@ -114,10 +124,18 @@ export const settingsTab = (): SettingsTab => ({
   title: "设置",
 });
 
-export const launcherTab = (): LauncherTab => ({
-  id: `${LAUNCHER_TAB_PREFIX}:${Date.now()}:${Math.random().toString(36).slice(2, 8)}`,
-  kind: "launcher",
-  title: "新标签页",
+export const widgetsTab = (): WidgetsTab => ({
+  id: WIDGETS_TAB_ID,
+  kind: "widgets",
+  title: "组件",
+});
+
+/** 同一个应用只开一个标签:id 由 appId 定,重复打开会聚焦到已有那个。 */
+export const appTab = (appId: string, title: string): AppTab => ({
+  id: `${APP_TAB_PREFIX}:${appId}`,
+  kind: "app",
+  title,
+  appId,
 });
 
 export const webTab = (url: string, title?: string, token?: string): WebTab => ({
@@ -140,14 +158,18 @@ export const isGitDiffTab = (tab: WorkspaceTab | null | undefined): tab is GitDi
 export const isSettingsTab = (tab: WorkspaceTab | null | undefined): tab is SettingsTab =>
   tab?.kind === "settings";
 
+export const isWidgetsTab = (tab: WorkspaceTab | null | undefined): tab is WidgetsTab =>
+  tab?.kind === "widgets";
+
+export const isAppTab = (tab: WorkspaceTab | null | undefined): tab is AppTab =>
+  tab?.kind === "app";
+
 export const isWebTab = (tab: WorkspaceTab | null | undefined): tab is WebTab =>
   tab?.kind === "web";
 
-export const isLauncherTab = (tab: WorkspaceTab | null | undefined): tab is LauncherTab =>
-  tab?.kind === "launcher";
-
 export const isNodeTab = (tab: WorkspaceTab | null | undefined): tab is Node =>
-  !!tab && tab.kind !== "terminal" && tab.kind !== "git" && tab.kind !== "git-diff" && tab.kind !== "settings" && tab.kind !== "web" && tab.kind !== "launcher";
+  !!tab && tab.kind !== "terminal" && tab.kind !== "git" && tab.kind !== "git-diff" && tab.kind !== "settings"
+  && tab.kind !== "widgets" && tab.kind !== "app" && tab.kind !== "web";
 
 export const isOpenableSpace = (node: Node | null | undefined): node is Node =>
   !!node && node.kind !== "space";

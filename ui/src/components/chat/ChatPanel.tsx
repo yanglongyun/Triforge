@@ -3,6 +3,9 @@
 // 同一面板体系下,几个对话各开各的标签互不干扰,切走的运行在服务端继续转。
 import { useCallback, useEffect, useRef, useState } from "react";
 import { FileText, Folder, Paperclip, Send, Settings, Square, X } from "lucide-react";
+import { ApprovalCard } from "./ApprovalCard";
+import { RulesControl } from "./RulesControl";
+import { permissionApi, type ApprovalCard as Card, type Mode } from "../../lib/permission";
 
 import type { Attachment, Node } from "../../api";
 import { api } from "../../api";
@@ -161,6 +164,32 @@ export function ChatPanel({
     socket.send({ type: "send", chatId: node.id, prompt: text, attachments: files });
   };
 
+  // ── 审批:卡片跟着这段对话走 ──────────────────────────────────────────
+  // 刷新页面要把还悬着的卡捞回来,否则用户永远等不到那张卡(轮次还挂在那儿等表态)
+  const [approvals, setApprovals] = useState<Card[]>([]);
+  useEffect(() => {
+    setApprovals([]);
+    void permissionApi.listApprovals(node.id).then(setApprovals).catch(() => {});
+  }, [node.id]);
+  useEffect(() => socket.on("approval_ask", (p: any) => {
+    if (String(p?.chatId) !== node.id) return;
+    setApprovals((list) => (list.some((c) => c.id === p.id) ? list : [...list, p as Card]));
+  }), [socket, node.id]);
+  useEffect(() => socket.on("approval_done", (p: any) => {
+    setApprovals((list) => list.filter((c) => c.id !== p.id));
+  }), [socket]);
+  const dismiss = (id: string) => setApprovals((list) => list.filter((c) => c.id !== id));
+
+  const [mode, setMode] = useState<Mode>("rules");
+  useEffect(() => { void api.getSettings().then((r: any) => setMode((r.settings?.permissionMode || "rules") as Mode)).catch(() => {}); }, []);
+  const changeMode = (next: Mode) => {
+    setMode(next);
+    // 只改这一项:先取回整份再合并,免得把别的设置抹成默认值
+    void api.getSettings()
+      .then((r: any) => api.saveSettings({ ...(r.settings || {}), permissionMode: next }))
+      .catch(() => {});
+  };
+
   return (
     <div className="flex-1 min-h-0 flex flex-col min-w-0 bg-bg">
       {/* 工作目录芯片:这段对话住在哪个文件夹;点击去文件树里定位它 */}
@@ -178,8 +207,19 @@ export function ChatPanel({
       )}
       <MessageStream rows={rowsRef.current} busy={busy} tick={tick} viewSeq={viewSeq} />
 
-      {/* 输入区 — 固定底部 */}
-      <div className="p-4 md:p-6 border-t border-border bg-bg">
+      {/* 审批卡:贴着消息流的末尾,和输入区之间 —— 它属于这一轮,不是浮层 */}
+      {approvals.length > 0 && (
+        <div className="shrink-0 max-h-[45vh] overflow-y-auto px-4 md:px-8 pb-3 flex flex-col items-center gap-2">
+          {approvals.map((card) => (
+            <ApprovalCard key={card.id} card={card} onDone={dismiss} />
+          ))}
+        </div>
+      )}
+
+      {/* 输入区 — 固定底部。
+          不做通栏的横条:外层只负责居中与留白,视觉边界交给输入卡自己的描边,
+          宽度与消息列一致(max-w-3xl),读和写在同一条视线上。 */}
+      <div className="shrink-0 mx-auto w-full max-w-3xl px-4 md:px-8 pt-2 pb-4">
         {!configured && (
           <div className="flex items-center gap-1.5 mb-2 text-[12.5px] text-warning">
             <Settings size={13} className="shrink-0" />
@@ -190,7 +230,8 @@ export function ChatPanel({
           </div>
         )}
         <div
-          className="flex flex-col gap-1.5 rounded-lg border border-border bg-surface px-3 py-2 focus-within:border-accent transition-colors"
+          className="flex flex-col rounded-xl border border-border bg-surface cursor-text focus-within:border-accent transition-colors"
+          onClick={(e) => { if (e.target === e.currentTarget) inputRef.current?.focus(); }}
           onDragOver={(e) => e.preventDefault()}
           onDrop={(e) => { e.preventDefault(); if (e.dataTransfer.files?.length) void upload(e.dataTransfer.files); }}
         >
@@ -198,7 +239,7 @@ export function ChatPanel({
 
           {/* 附件托盘:发送前可见可移除 */}
           {(attachments.length > 0 || uploading) && (
-            <div className="flex flex-wrap items-center gap-1.5">
+            <div className="flex flex-wrap items-center gap-1.5 px-3 pt-2.5">
               {attachments.map((file) => (
                 <span key={file.id} className="inline-flex items-center gap-1.5 pl-1.5 pr-1 py-1 rounded-md bg-bg-panel text-[12px] text-text-dim max-w-[220px]">
                   {file.mimeType.startsWith("image/")
@@ -218,43 +259,48 @@ export function ChatPanel({
             </div>
           )}
 
-          <div className="flex items-end gap-2">
+          {/* 输入框独占一行、吃满宽度 —— 工具按钮不再从左右两侧挤占正文 */}
+          <textarea
+            ref={inputRef}
+            rows={2}
+            className="w-full min-h-[62px] max-h-60 bg-transparent px-3.5 pt-3 text-[15px] text-text placeholder:text-text-faint outline-none resize-none leading-relaxed overflow-y-auto"
+            placeholder="发送消息… (Enter 发送 · Shift+Enter 换行)"
+            value={prompt}
+            onChange={(e) => { setPrompt(e.target.value); persistDraft(e.target.value); }}
+            onCompositionStart={() => { composingRef.current = true; }}
+            onCompositionEnd={() => { composingRef.current = false; }}
+            onPaste={(e) => {
+              // 粘贴截图/图片:直接走上传,不进文本
+              if (e.clipboardData?.files?.length) { e.preventDefault(); void upload(e.clipboardData.files); }
+            }}
+            onKeyDown={(e) => {
+              // 中文/日文/韩文 IME 组词期间(选词按 Enter)不触发 send
+              if (composingRef.current || (e.nativeEvent as any).isComposing || e.keyCode === 229) return;
+              if (e.key === "Enter" && !e.shiftKey) {
+                e.preventDefault();
+                send();
+              }
+            }}
+            disabled={busy}
+          />
+
+          {/* 工具行:左边附件,右边发送/停止。独立一行,不与正文抢横向空间 */}
+          <div className="flex items-center gap-2 px-2 pb-2">
             <button
               title="添加图片或文件(也可拖拽 / 粘贴)"
               onClick={() => fileRef.current?.click()}
               disabled={busy || uploading}
-              className="w-8 h-8 rounded flex items-center justify-center text-text-faint hover:text-text hover:bg-bg-hover disabled:opacity-40 transition-colors shrink-0"
+              className="w-8 h-8 rounded-md flex items-center justify-center text-text-faint hover:text-text hover:bg-bg-hover disabled:opacity-40 transition-colors shrink-0"
             >
-              <Paperclip size={15} />
+              <Paperclip size={16} />
             </button>
-            <textarea
-              ref={inputRef}
-              rows={1}
-              className="flex-1 bg-transparent text-[15px] text-text placeholder:text-text-faint outline-none resize-none leading-relaxed py-1 overflow-y-auto"
-              placeholder="发送消息… (Enter 发送 · Shift+Enter 换行)"
-              value={prompt}
-              onChange={(e) => { setPrompt(e.target.value); persistDraft(e.target.value); }}
-              onCompositionStart={() => { composingRef.current = true; }}
-              onCompositionEnd={() => { composingRef.current = false; }}
-              onPaste={(e) => {
-                // 粘贴截图/图片:直接走上传,不进文本
-                if (e.clipboardData?.files?.length) { e.preventDefault(); void upload(e.clipboardData.files); }
-              }}
-              onKeyDown={(e) => {
-                // 中文/日文/韩文 IME 组词期间(选词按 Enter)不触发 send
-                if (composingRef.current || (e.nativeEvent as any).isComposing || e.keyCode === 229) return;
-                if (e.key === "Enter" && !e.shiftKey) {
-                  e.preventDefault();
-                  send();
-                }
-              }}
-              disabled={busy}
-            />
+            <RulesControl mode={mode} onModeChange={changeMode} />
+            <div className="flex-1" />
             {busy ? (
               <button
                 title="停止"
                 onClick={() => socket.send({ type: "stop", chatId: node.id })}
-                className="w-8 h-8 rounded flex items-center justify-center text-text-faint hover:text-danger hover:bg-bg-hover transition-colors shrink-0"
+                className="w-8 h-8 rounded-md flex items-center justify-center text-text-faint hover:text-danger hover:bg-bg-hover transition-colors shrink-0"
               >
                 <Square size={14} />
               </button>
@@ -263,7 +309,7 @@ export function ChatPanel({
                 title="发送"
                 onClick={send}
                 disabled={(!prompt.trim() && !attachments.length) || uploading}
-                className="w-8 h-8 rounded flex items-center justify-center bg-accent text-white hover:opacity-85 disabled:opacity-30 disabled:cursor-not-allowed transition-all shrink-0"
+                className="w-8 h-8 rounded-md flex items-center justify-center bg-accent text-white hover:opacity-85 disabled:opacity-30 disabled:cursor-not-allowed transition-all shrink-0"
               >
                 <Send size={14} />
               </button>

@@ -1,8 +1,12 @@
-// @ts-nocheck
-// Interactive terminal sessions, scoped to one websocket client.
+// 交互式终端会话,按 ws 连接分组:连接断了,它开的终端全部收尾。
 import { existsSync } from "fs";
 import * as pty from "node-pty";
-import * as tree from "./service/tree.js";
+import * as tree from "../service/tree.js";
+
+type Session = { id: string; term: pty.IPty; cwd: string };
+/** ws 连接:终端会话挂在连接对象上,连接消失即随之回收。 */
+type Client = { terminals?: Map<string, Session> };
+type SendJson = (message: Record<string, unknown>) => void;
 
 const SHELL_CANDIDATES = process.platform === "win32"
   ? [process.env.COMSPEC, "powershell.exe", "cmd.exe"]
@@ -10,37 +14,37 @@ const SHELL_CANDIDATES = process.platform === "win32"
 
 const resolveShell = () => SHELL_CANDIDATES.find((s) => s && existsSync(s)) || "/bin/sh";
 
-const publicCwd = (cwd) => String(cwd || "").replace(process.env.HOME || "", "~");
+const publicCwd = (cwd: string) => String(cwd || "").replace(process.env.HOME || "", "~");
 
-const ensureTerminalMap = (client) => {
-  if (!client.terminals) client.terminals = new Map();
+const ensureTerminalMap = (client: Client) => {
+  if (!client.terminals) client.terminals = new Map<string, Session>();
   return client.terminals;
 };
 
-const writeOutput = (sendJson, terminalId, data) => {
+const writeOutput = (sendJson: SendJson, terminalId: string, data: string) => {
   if (!data) return;
   sendJson({ type: "terminal_output", terminalId, data: String(data) });
 };
 
-const stopTerminal = (client, terminalId, sendJson) => {
+const stopTerminal = (client: Client, terminalId: string, sendJson?: SendJson) => {
   const sessions = ensureTerminalMap(client);
   const id = String(terminalId || "");
   const session = sessions.get(id);
   if (!session) return;
   sessions.delete(id);
-  try { session.term.write("exit\r"); } catch {}
+  try { session.term.write("exit\r"); } catch { /* 已经死了 */ }
   setTimeout(() => {
-    try { session.term.kill(); } catch {}
+    try { session.term.kill(); } catch { /* 已经死了 */ }
   }, 300);
   sendJson?.({ type: "terminal_exit", terminalId: id, code: null, signal: "stopped" });
 };
 
-const stopAllTerminals = (client, sendJson) => {
+const stopAllTerminals = (client: Client, sendJson?: SendJson) => {
   const sessions = ensureTerminalMap(client);
   for (const id of Array.from(sessions.keys())) stopTerminal(client, id, sendJson);
 };
 
-const startTerminal = (client, payload, sendJson) => {
+const startTerminal = (client: Client, payload: any, sendJson: SendJson) => {
   const sessions = ensureTerminalMap(client);
   const terminalId = String(payload.terminalId || "").trim();
   if (!terminalId) {
@@ -49,16 +53,16 @@ const startTerminal = (client, payload, sendJson) => {
   }
   if (sessions.has(terminalId)) stopTerminal(client, terminalId, sendJson);
 
-  let cwd;
+  let cwd: string;
   try {
     cwd = tree.terminalCwd(payload.cwd || payload.nodeId || "");
   } catch (error) {
-    sendJson({ type: "terminal_error", terminalId, error: error.message });
+    sendJson({ type: "terminal_error", terminalId, error: (error as Error).message });
     return;
   }
 
   const shell = resolveShell();
-  let term;
+  let term: pty.IPty;
   try {
     term = pty.spawn(shell, process.platform === "win32" ? [] : ["-i"], {
       name: "xterm-256color",
@@ -74,13 +78,13 @@ const startTerminal = (client, payload, sendJson) => {
       },
     });
   } catch (error) {
-    sendJson({ type: "terminal_error", terminalId, error: error.message || String(error) });
+    sendJson({ type: "terminal_error", terminalId, error: (error as Error).message || String(error) });
     return;
   }
 
-  const session = { id: terminalId, term, cwd };
-  term.onData((data) => writeOutput(sendJson, terminalId, data));
-  term.onExit(({ exitCode, signal }) => {
+  const session: Session = { id: terminalId, term, cwd };
+  term.onData((data: string) => writeOutput(sendJson, terminalId, data));
+  term.onExit(({ exitCode, signal }: { exitCode: number; signal?: number }) => {
     if (sessions.get(terminalId) !== session) return;
     sessions.delete(terminalId);
     sendJson({ type: "terminal_exit", terminalId, code: exitCode, signal });
@@ -89,7 +93,7 @@ const startTerminal = (client, payload, sendJson) => {
   sendJson({ type: "terminal_started", terminalId, cwd, title: payload.title || publicCwd(cwd) });
 };
 
-const writeTerminal = (client, payload) => {
+const writeTerminal = (client: Client, payload: any) => {
   const sessions = ensureTerminalMap(client);
   const terminalId = String(payload.terminalId || "");
   const session = sessions.get(terminalId);
@@ -97,7 +101,7 @@ const writeTerminal = (client, payload) => {
   session.term.write(String(payload.data || ""));
 };
 
-const resizeTerminal = (client, payload) => {
+const resizeTerminal = (client: Client, payload: any) => {
   const sessions = ensureTerminalMap(client);
   const terminalId = String(payload.terminalId || "");
   const session = sessions.get(terminalId);
@@ -105,7 +109,7 @@ const resizeTerminal = (client, payload) => {
   const cols = Math.max(20, Number(payload.cols) || 0);
   const rows = Math.max(5, Number(payload.rows) || 0);
   if (!cols || !rows) return;
-  try { session.term.resize(cols, rows); } catch {}
+  try { session.term.resize(cols, rows); } catch { /* 尺寸非法或已退出 */ }
 };
 
 export { startTerminal, stopTerminal, stopAllTerminals, writeTerminal, resizeTerminal };

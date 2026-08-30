@@ -1,0 +1,686 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Triforge · macOS 图标候选 12 方向</title>
+<style>
+  :root{
+    --bg:#08090d; --panel:#131720; --panel2:#0e1219;
+    --line:#222b38; --line2:#2c3648;
+    --tx:#e8edf4; --tx2:#c4cddb; --tx3:#8a95a7;
+    --gold:#f2b54a; --mint:#4fe0ae;
+    --disp:'Futura','Futura PT','Century Gothic','Avenir Next','Trebuchet MS',sans-serif;
+    --mono:ui-monospace,'SF Mono',Menlo,Consolas,'Liberation Mono',monospace;
+  }
+  *{margin:0;padding:0;box-sizing:border-box}
+  html{scroll-behavior:smooth}
+  body{
+    background:var(--bg); color:var(--tx);
+    font:14px/1.65 -apple-system,'SF Pro Text','PingFang SC','Hiragino Sans GB','Microsoft YaHei',sans-serif;
+    overflow-x:hidden;
+  }
+  body::before{
+    content:""; position:fixed; inset:0; z-index:0; pointer-events:none;
+    background-image:
+      linear-gradient(rgba(140,165,200,.045) 1px, transparent 1px),
+      linear-gradient(90deg, rgba(140,165,200,.045) 1px, transparent 1px);
+    background-size:88px 88px;
+  }
+  #sky{position:fixed; inset:0; z-index:0; pointer-events:none; transition:transform .6s cubic-bezier(.2,.8,.2,1)}
+  .glow{position:absolute; border-radius:50%; filter:blur(95px)}
+  .g1{width:560px;height:560px;left:-160px;top:-140px;background:rgba(64,224,180,.13);animation:drift 26s ease-in-out infinite alternate}
+  .g2{width:520px;height:520px;right:-140px;top:120px;background:rgba(242,181,74,.10);animation:drift 32s ease-in-out infinite alternate-reverse}
+  .g3{width:640px;height:640px;left:22%;bottom:-300px;background:rgba(96,128,255,.09);animation:drift 38s ease-in-out infinite alternate}
+  @keyframes drift{from{transform:translate(0,0)}to{transform:translate(60px,40px)}}
+
+  .wrap{position:relative; z-index:1}
+
+  /* ---------- hero ---------- */
+  header{position:relative; padding:72px 6vw 30px; overflow:hidden}
+  .hero-tri{position:absolute; right:-70px; top:-90px; width:520px; opacity:.06; animation:spin 110s linear infinite; pointer-events:none}
+  @keyframes spin{to{transform:rotate(360deg)}}
+  .kicker{font:600 12px/1 var(--mono); letter-spacing:.42em; color:var(--gold); animation:up .7s .05s both}
+  h1{
+    font-family:var(--disp); font-weight:700; letter-spacing:.035em;
+    font-size:clamp(54px,8.6vw,104px); line-height:1.02; margin:18px 0 10px;
+    animation:up .7s .14s both;
+  }
+  h1 .tri{color:var(--gold)}
+  h1 .forge{color:#f4f7fb}
+  .sub{max-width:640px; color:var(--tx2); font-size:15px; animation:up .7s .22s both}
+  .sub b{color:var(--mint); font-weight:600}
+  .hero-row{display:flex; flex-wrap:wrap; gap:40px; align-items:flex-end; justify-content:space-between}
+  .specs{border-left:1px solid var(--line2); padding-left:26px; display:grid; gap:9px; min-width:250px; animation:up .7s .3s both}
+  .specs div{display:flex; justify-content:space-between; gap:26px; font-family:var(--mono); font-size:11.5px; letter-spacing:.08em}
+  .specs span{color:var(--tx3)} .specs b{color:var(--tx); font-weight:600}
+  .chips{display:flex; flex-wrap:wrap; gap:10px; margin-top:30px; animation:up .7s .38s both}
+  .chip{font:600 11px/1 var(--mono); letter-spacing:.16em; color:var(--tx2);
+    border:1px solid var(--line2); border-radius:100px; padding:9px 15px; background:rgba(255,255,255,.02);
+    transition:.25s}
+  .chip:hover{border-color:var(--gold); color:var(--gold); transform:translateY(-2px)}
+  @keyframes up{from{opacity:0;transform:translateY(18px)}to{opacity:1;transform:none}}
+
+  /* ---------- section head ---------- */
+  .sec{display:flex; align-items:center; gap:16px; margin:52px 6vw 22px}
+  .sec .idx{font:700 12px var(--mono); color:var(--gold); letter-spacing:.2em}
+  .sec h2{font-family:var(--disp); font-size:21px; letter-spacing:.12em; font-weight:700}
+  .sec .rule{flex:1; height:1px; background:linear-gradient(90deg,var(--line2),transparent)}
+  .sec .hint{font:11px var(--mono); color:var(--tx3); letter-spacing:.06em}
+
+  /* ---------- dock ---------- */
+  .dock-zone{padding:8px 6vw 4px}
+  .dock{
+    width:max-content; max-width:100%; margin:0 auto; overflow-x:auto;
+    display:flex; gap:11px; align-items:flex-end; padding:13px 20px 12px;
+    background:rgba(255,255,255,.055); border:1px solid rgba(255,255,255,.10);
+    border-radius:24px; backdrop-filter:blur(14px); -webkit-backdrop-filter:blur(14px);
+    box-shadow:0 24px 60px -30px rgba(0,0,0,.85), inset 0 1px 0 rgba(255,255,255,.07);
+  }
+  .dock-item{width:46px;height:46px; flex:none; transform-origin:50% 100%;
+    transition:transform .28s cubic-bezier(.2,.9,.3,1.4); cursor:pointer}
+  .dock-item:hover{transform:translateY(-11px) scale(1.32)}
+  .dock-item svg{width:100%;height:100%;display:block}
+  .dock-cap{text-align:center; font:11px var(--mono); color:var(--tx3); letter-spacing:.14em; margin-top:14px}
+
+  /* ---------- grid ---------- */
+  .grid{display:grid; grid-template-columns:repeat(auto-fill,minmax(430px,1fr)); gap:18px; padding:0 6vw 30px}
+  @media(max-width:520px){.grid{grid-template-columns:1fr}}
+  .card{
+    position:relative; background:linear-gradient(180deg,#151a24,#0e1219);
+    border:1px solid var(--line); border-radius:14px; padding:22px 22px 16px;
+    opacity:0; transition:border-color .3s, box-shadow .3s;
+  }
+  .card.in{animation:rise .65s cubic-bezier(.2,.8,.2,1) both; animation-delay:var(--d,0ms)}
+  @keyframes rise{from{opacity:0;transform:translateY(26px)}to{opacity:1;transform:none}}
+  .card::before{content:""; position:absolute; left:18px; right:18px; top:0; height:2px;
+    background:linear-gradient(90deg,var(--acc),transparent 70%); border-radius:2px; opacity:.85}
+  .card:hover{border-color:color-mix(in srgb,var(--acc) 45%,var(--line));
+    box-shadow:0 24px 50px -28px rgba(0,0,0,.9), 0 0 30px -18px color-mix(in srgb,var(--acc) 50%,transparent)}
+  .pick{position:absolute; top:14px; right:14px; font:700 9.5px var(--mono); letter-spacing:.22em;
+    color:#1c1406; background:linear-gradient(135deg,#ffd76a,#e8912c); padding:5px 9px; border-radius:4px}
+  .top{display:flex; gap:24px; align-items:flex-end}
+  .big{width:128px;height:128px;flex:none}
+  .big svg{width:100%;height:100%;display:block;filter:drop-shadow(0 10px 18px rgba(0,0,0,.5));
+    transition:transform .4s cubic-bezier(.2,.9,.3,1.3)}
+  .card:hover .big svg{transform:scale(1.06) rotate(-1.5deg)}
+  .ladder{display:flex; align-items:flex-end; gap:16px; margin-left:auto}
+  .ladder figure{text-align:center}
+  .ladder svg{display:block; margin:0 auto}
+  .ladder figcaption{font:10px var(--mono); color:var(--tx3); margin-top:7px; letter-spacing:.08em}
+  .px16{position:relative; cursor:zoom-in}
+  .px16 svg{transition:transform .3s cubic-bezier(.2,.9,.3,1.3); position:relative; z-index:3}
+  .px16:hover svg{transform:scale(2.4)}
+  .px16::after{content:""; position:absolute; inset:-5px; border:1px dashed var(--line2); border-radius:6px; transition:.3s}
+  .px16:hover::after{border-color:var(--acc)}
+  .meta{margin-top:18px; border-top:1px dashed var(--line2); padding-top:13px}
+  .row1{display:flex; align-items:baseline; gap:12px}
+  .num{font:700 12px var(--mono); color:var(--acc); letter-spacing:.1em}
+  .meta h3{font-family:var(--disp); font-size:17.5px; letter-spacing:.1em; font-weight:700}
+  .tags{font:10.5px var(--mono); color:var(--tx3); letter-spacing:.05em; margin-top:5px}
+  .note{font-size:13px; color:var(--tx2); margin-top:9px; line-height:1.7}
+
+  footer{padding:26px 6vw 64px; font:11px/2 var(--mono); color:#68727f; letter-spacing:.05em}
+  footer .fg{display:flex; align-items:center; gap:10px; margin-bottom:8px}
+  footer .bar{flex:1;height:1px;background:var(--line)}
+
+  .reveal{opacity:0}
+  .reveal.in{animation:rise .7s cubic-bezier(.2,.8,.2,1) both}
+
+  @media (prefers-reduced-motion: reduce){
+    *,*::before,*::after{animation:none!important; transition:none!important}
+    .card,.reveal{opacity:1}
+  }
+</style>
+</head>
+<body>
+<div id="sky"><div class="glow g1"></div><div class="glow g2"></div><div class="glow g3"></div></div>
+
+<!-- ============ 图标符号定义（渐变 id 全部以 tfN- 前缀隔离） ============ -->
+<svg width="0" height="0" style="position:absolute" aria-hidden="true">
+<defs>
+
+<!-- 01 三环锻造 -->
+<symbol id="tf1" viewBox="0 0 512 512">
+  <defs>
+    <linearGradient id="tf1-base" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0" stop-color="#164049"/><stop offset="1" stop-color="#081114"/>
+    </linearGradient>
+    <linearGradient id="tf1-a" gradientUnits="userSpaceOnUse" x1="291" y1="165" x2="366.5" y2="295">
+      <stop offset="0" stop-color="#ffd76a"/><stop offset="1" stop-color="#ff8a3c"/>
+    </linearGradient>
+    <linearGradient id="tf1-b" gradientUnits="userSpaceOnUse" x1="291" y1="165" x2="366.5" y2="295">
+      <stop offset="0" stop-color="#5ff0b8"/><stop offset="1" stop-color="#a4ef5e"/>
+    </linearGradient>
+  </defs>
+  <rect width="512" height="512" rx="114" fill="url(#tf1-base)"/>
+  <g fill="none" stroke-width="60" stroke-linecap="round" transform="rotate(10 256 272)">
+    <path d="M291 165 L366.5 295" stroke="url(#tf1-a)"/>
+    <path d="M291 165 L366.5 295" stroke="url(#tf1-b)" transform="rotate(120 256 272)"/>
+    <path d="M291 165 L366.5 295" stroke="url(#tf1-b)" transform="rotate(240 256 272)"/>
+  </g>
+  <rect x="1.5" y="1.5" width="509" height="509" rx="113" fill="none" stroke="rgba(255,255,255,.08)" stroke-width="3"/>
+</symbol>
+
+<!-- 02 熔心三角 -->
+<symbol id="tf2" viewBox="0 0 512 512">
+  <defs>
+    <linearGradient id="tf2-base" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0" stop-color="#361119"/><stop offset="1" stop-color="#170a0f"/>
+    </linearGradient>
+    <linearGradient id="tf2-g" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0" stop-color="#ffeaa6"/><stop offset="1" stop-color="#ef9d33"/>
+    </linearGradient>
+  </defs>
+  <rect width="512" height="512" rx="114" fill="url(#tf2-base)"/>
+  <path d="M256 108 L416 388 L96 388 Z" fill="url(#tf2-g)" stroke="url(#tf2-g)" stroke-width="26" stroke-linejoin="round"/>
+  <circle cx="256" cy="300" r="56" fill="#240e15"/>
+  <circle cx="256" cy="300" r="22" fill="#ffedbb"/>
+  <rect x="1.5" y="1.5" width="509" height="509" rx="113" fill="none" stroke="rgba(255,255,255,.08)" stroke-width="3"/>
+</symbol>
+
+<!-- 03 三联屏 -->
+<symbol id="tf3" viewBox="0 0 512 512">
+  <defs>
+    <linearGradient id="tf3-base" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0" stop-color="#181b22"/><stop offset="1" stop-color="#0c0e13"/>
+    </linearGradient>
+    <linearGradient id="tf3-a" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0" stop-color="#45e6cf"/><stop offset="1" stop-color="#0f9a8c"/>
+    </linearGradient>
+    <linearGradient id="tf3-b" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0" stop-color="#ffdf82"/><stop offset="1" stop-color="#ef9430"/>
+    </linearGradient>
+    <linearGradient id="tf3-c" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0" stop-color="#ff8d76"/><stop offset="1" stop-color="#dd4d3c"/>
+    </linearGradient>
+  </defs>
+  <rect width="512" height="512" rx="114" fill="url(#tf3-base)"/>
+  <rect x="112" y="200" width="84" height="216" rx="24" fill="url(#tf3-a)"/>
+  <rect x="214" y="96"  width="84" height="320" rx="24" fill="url(#tf3-b)"/>
+  <rect x="316" y="272" width="84" height="144" rx="24" fill="url(#tf3-c)"/>
+  <rect x="1.5" y="1.5" width="509" height="509" rx="113" fill="none" stroke="rgba(255,255,255,.08)" stroke-width="3"/>
+</symbol>
+
+<!-- 04 铸字 T -->
+<symbol id="tf4" viewBox="0 0 512 512">
+  <defs>
+    <linearGradient id="tf4-base" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0" stop-color="#131822"/><stop offset="1" stop-color="#0a0d13"/>
+    </linearGradient>
+    <linearGradient id="tf4-s" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0" stop-color="#e9eff7"/><stop offset="1" stop-color="#8fa3ba"/>
+    </linearGradient>
+    <linearGradient id="tf4-a" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0" stop-color="#eec472"/><stop offset="1" stop-color="#c79a4e"/>
+    </linearGradient>
+    <linearGradient id="tf4-b" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0" stop-color="#ffb45c"/><stop offset="1" stop-color="#ef7f3a"/>
+    </linearGradient>
+    <linearGradient id="tf4-c" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0" stop-color="#ff8a4d"/><stop offset="1" stop-color="#f24e2e"/>
+    </linearGradient>
+  </defs>
+  <rect width="512" height="512" rx="114" fill="url(#tf4-base)"/>
+  <rect x="96" y="126" width="320" height="74" rx="24" fill="url(#tf4-s)"/>
+  <rect x="188" y="224" width="136" height="58" rx="16" fill="url(#tf4-a)"/>
+  <rect x="188" y="304" width="136" height="58" rx="16" fill="url(#tf4-b)"/>
+  <rect x="188" y="384" width="136" height="58" rx="16" fill="url(#tf4-c)"/>
+  <rect x="1.5" y="1.5" width="509" height="509" rx="113" fill="none" stroke="rgba(255,255,255,.08)" stroke-width="3"/>
+</symbol>
+
+<!-- 05 汇光成炉 -->
+<symbol id="tf5" viewBox="0 0 512 512">
+  <defs>
+    <linearGradient id="tf5-base" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0" stop-color="#0d1322"/><stop offset="1" stop-color="#060810"/>
+    </linearGradient>
+    <linearGradient id="tf5-l" gradientUnits="userSpaceOnUse" x1="138" y1="128" x2="230" y2="320">
+      <stop offset="0" stop-color="#52f0d8"/><stop offset="1" stop-color="#12a38e"/>
+    </linearGradient>
+    <linearGradient id="tf5-c" gradientUnits="userSpaceOnUse" x1="256" y1="92" x2="256" y2="318">
+      <stop offset="0" stop-color="#ffe9a0"/><stop offset="1" stop-color="#ffb648"/>
+    </linearGradient>
+    <linearGradient id="tf5-r" gradientUnits="userSpaceOnUse" x1="374" y1="128" x2="282" y2="320">
+      <stop offset="0" stop-color="#ff9077"/><stop offset="1" stop-color="#e0503c"/>
+    </linearGradient>
+  </defs>
+  <rect width="512" height="512" rx="114" fill="url(#tf5-base)"/>
+  <g fill="none" stroke-width="46" stroke-linecap="round">
+    <path d="M138 128 L230 320" stroke="url(#tf5-l)"/>
+    <path d="M256 92 L256 318" stroke="url(#tf5-c)"/>
+    <path d="M374 128 L282 320" stroke="url(#tf5-r)"/>
+  </g>
+  <circle cx="256" cy="372" r="58" fill="#ffb648" opacity=".16"/>
+  <circle cx="256" cy="372" r="36" fill="#ffcf7d" opacity=".4"/>
+  <circle cx="256" cy="372" r="21" fill="#fff6dd"/>
+  <rect x="1.5" y="1.5" width="509" height="509" rx="113" fill="none" stroke="rgba(255,255,255,.08)" stroke-width="3"/>
+</symbol>
+
+<!-- 06 玉三环 -->
+<symbol id="tf6" viewBox="0 0 512 512">
+  <defs>
+    <linearGradient id="tf6-base" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0" stop-color="#0e1915"/><stop offset="1" stop-color="#070c0a"/>
+    </linearGradient>
+  </defs>
+  <rect width="512" height="512" rx="114" fill="url(#tf6-base)"/>
+  <polygon points="256,88 338.25,230.5 281.1,263.5 256,220 230.9,263.5 173.75,230.5" fill="#c9f7dc"/>
+  <polygon points="256,88 338.25,230.5 281.1,263.5 256,220 230.9,263.5 173.75,230.5" fill="#3fd193" transform="rotate(120 256 278)"/>
+  <polygon points="256,88 338.25,230.5 281.1,263.5 256,220 230.9,263.5 173.75,230.5" fill="#178a63" transform="rotate(240 256 278)"/>
+  <rect x="1.5" y="1.5" width="509" height="509" rx="113" fill="none" stroke="rgba(255,255,255,.08)" stroke-width="3"/>
+</symbol>
+
+<!-- 07 三角对话 -->
+<symbol id="tf7" viewBox="0 0 512 512">
+  <defs>
+    <linearGradient id="tf7-base" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0" stop-color="#0f1a14"/><stop offset="1" stop-color="#070d0a"/>
+    </linearGradient>
+    <linearGradient id="tf7-g" gradientUnits="userSpaceOnUse" x1="256" y1="100" x2="256" y2="470">
+      <stop offset="0" stop-color="#56f2a6"/><stop offset="1" stop-color="#0fa964"/>
+    </linearGradient>
+  </defs>
+  <rect width="512" height="512" rx="114" fill="url(#tf7-base)"/>
+  <path d="M256 112 L402 376 L196 376 L118 462 L148 376 L110 376 Z"
+        fill="url(#tf7-g)" stroke="url(#tf7-g)" stroke-width="26" stroke-linejoin="round"/>
+  <circle cx="196" cy="296" r="20" fill="#07130c"/>
+  <circle cx="256" cy="296" r="20" fill="#07130c"/>
+  <circle cx="316" cy="296" r="20" fill="#07130c"/>
+  <rect x="1.5" y="1.5" width="509" height="509" rx="113" fill="none" stroke="rgba(255,255,255,.08)" stroke-width="3"/>
+</symbol>
+
+<!-- 08 三叶风箱 -->
+<symbol id="tf8" viewBox="0 0 512 512">
+  <defs>
+    <linearGradient id="tf8-base" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0" stop-color="#2038ba"/><stop offset="1" stop-color="#0b1254"/>
+    </linearGradient>
+    <linearGradient id="tf8-g" gradientUnits="userSpaceOnUse" x1="268" y1="244" x2="414" y2="128">
+      <stop offset="0" stop-color="#ffffff"/><stop offset="1" stop-color="#a8d4ff"/>
+    </linearGradient>
+  </defs>
+  <rect width="512" height="512" rx="114" fill="url(#tf8-base)"/>
+  <g fill="none" stroke="url(#tf8-g)" stroke-width="60" stroke-linecap="round">
+    <path d="M268 244 C296 176 344 136 414 128"/>
+    <path d="M268 244 C296 176 344 136 414 128" transform="rotate(120 256 266)"/>
+    <path d="M268 244 C296 176 344 136 414 128" transform="rotate(240 256 266)"/>
+  </g>
+  <circle cx="256" cy="266" r="34" fill="#ffd76a"/>
+  <rect x="1.5" y="1.5" width="509" height="509" rx="113" fill="none" stroke="rgba(255,255,255,.08)" stroke-width="3"/>
+</symbol>
+
+<!-- 09 砧火一星 -->
+<symbol id="tf9" viewBox="0 0 512 512">
+  <defs>
+    <linearGradient id="tf9-base" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0" stop-color="#1d2644"/><stop offset="1" stop-color="#0d1224"/>
+    </linearGradient>
+    <linearGradient id="tf9-s" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0" stop-color="#eff4fa"/><stop offset="1" stop-color="#9db0c6"/>
+    </linearGradient>
+    <linearGradient id="tf9-g" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0" stop-color="#fff0b8"/><stop offset="1" stop-color="#ffb84d"/>
+    </linearGradient>
+  </defs>
+  <rect width="512" height="512" rx="114" fill="url(#tf9-base)"/>
+  <path d="M256 92 L271 131 L310 146 L271 161 L256 200 L241 161 L202 146 L241 131 Z" fill="url(#tf9-g)"/>
+  <path d="M118 234 L376 234 C414 234 440 242 456 254 C440 266 414 272 376 272 L348 272 L348 298 L366 298 L388 352 L124 352 L146 298 L164 298 L164 272 L118 272 Z" fill="url(#tf9-s)"/>
+  <rect x="100" y="376" width="312" height="26" rx="13" fill="#3a4866"/>
+  <rect x="1.5" y="1.5" width="509" height="509" rx="113" fill="none" stroke="rgba(255,255,255,.08)" stroke-width="3"/>
+</symbol>
+
+<!-- 10 折面三角 -->
+<symbol id="tf10" viewBox="0 0 512 512">
+  <defs>
+    <linearGradient id="tf10-base" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0" stop-color="#1b202a"/><stop offset="1" stop-color="#0d1016"/>
+    </linearGradient>
+    <linearGradient id="tf10-g" gradientUnits="userSpaceOnUse" x1="256" y1="295" x2="256" y2="388">
+      <stop offset="0" stop-color="#ffb64d"/><stop offset="1" stop-color="#ff6a3a"/>
+    </linearGradient>
+  </defs>
+  <rect width="512" height="512" rx="114" fill="url(#tf10-base)"/>
+  <g stroke="#0f1218" stroke-width="8" stroke-linejoin="round">
+    <path d="M256 108 L96 388 L256 295 Z" fill="#d7e0ea"/>
+    <path d="M256 108 L416 388 L256 295 Z" fill="#6d8098"/>
+    <path d="M96 388 L416 388 L256 295 Z" fill="url(#tf10-g)"/>
+  </g>
+  <rect x="1.5" y="1.5" width="509" height="509" rx="113" fill="none" stroke="rgba(255,255,255,.08)" stroke-width="3"/>
+</symbol>
+
+<!-- 11 环轨三角 -->
+<symbol id="tf11" viewBox="0 0 512 512">
+  <defs>
+    <linearGradient id="tf11-base" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0" stop-color="#111c34"/><stop offset="1" stop-color="#070b15"/>
+    </linearGradient>
+    <linearGradient id="tf11-g" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0" stop-color="#ffe9a0"/><stop offset="1" stop-color="#e8912c"/>
+    </linearGradient>
+  </defs>
+  <rect width="512" height="512" rx="114" fill="url(#tf11-base)"/>
+  <ellipse cx="256" cy="276" rx="216" ry="72" fill="none" stroke="url(#tf11-g)" stroke-width="20" opacity=".85" transform="rotate(-22 256 276)"/>
+  <path d="M256 132 L398 378 L114 378 Z" fill="none" stroke="#f2f6fc" stroke-width="40" stroke-linejoin="round"/>
+  <ellipse cx="256" cy="276" rx="216" ry="72" pathLength="100" fill="none" stroke="url(#tf11-g)" stroke-width="20" stroke-linecap="round" stroke-dasharray="16 84" stroke-dashoffset="-19" transform="rotate(-22 256 276)"/>
+  <rect x="1.5" y="1.5" width="509" height="509" rx="113" fill="none" stroke="rgba(255,255,255,.08)" stroke-width="3"/>
+</symbol>
+
+<!-- 12 三节点电路 -->
+<symbol id="tf12" viewBox="0 0 512 512">
+  <defs>
+    <linearGradient id="tf12-base" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0" stop-color="#151520"/><stop offset="1" stop-color="#0a0a10"/>
+    </linearGradient>
+    <linearGradient id="tf12-a" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0" stop-color="#ffdf82"/><stop offset="1" stop-color="#ef9430"/>
+    </linearGradient>
+    <linearGradient id="tf12-b" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0" stop-color="#4fe3cf"/><stop offset="1" stop-color="#0f9a8c"/>
+    </linearGradient>
+    <linearGradient id="tf12-c" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0" stop-color="#ff8d76"/><stop offset="1" stop-color="#dd4d3c"/>
+    </linearGradient>
+  </defs>
+  <rect width="512" height="512" rx="114" fill="url(#tf12-base)"/>
+  <path d="M256 150 L150 340 L362 340 Z" fill="none" stroke="#e9dfc8" stroke-width="40" stroke-linejoin="round" opacity=".92"/>
+  <circle cx="256" cy="150" r="56" fill="url(#tf12-a)"/>
+  <circle cx="150" cy="340" r="56" fill="url(#tf12-b)"/>
+  <circle cx="362" cy="340" r="56" fill="url(#tf12-c)"/>
+  <rect x="1.5" y="1.5" width="509" height="509" rx="113" fill="none" stroke="rgba(255,255,255,.08)" stroke-width="3"/>
+</symbol>
+
+</defs>
+</svg>
+
+<div class="wrap">
+
+<header>
+  <svg class="hero-tri" viewBox="0 0 512 512" aria-hidden="true">
+    <polygon points="256,40 476,430 36,430" fill="none" stroke="#f2b54a" stroke-width="6"/>
+    <polygon points="256,150 386,380 126,380" fill="none" stroke="#4fe0ae" stroke-width="4"/>
+  </svg>
+  <div class="hero-row">
+    <div>
+      <div class="kicker">TRIFORGE · MACOS APP ICON EXPLORATION</div>
+      <h1><span class="tri">TRI</span><span class="forge">FORGE</span></h1>
+      <p class="sub">三角之力 × 锻造台。会话 · 文件 · 网站，三面一窗，闭环锻造。<br>以下 <b>12 个方向</b>全部按同一验收标准打磨：512 画布、深色 Dock 醒目、<b>16px 仍可辨识</b>。</p>
+      <div class="chips">
+        <span class="chip">512 GRID</span>
+        <span class="chip">圆角 ≈ 22.4%</span>
+        <span class="chip">16PX 硬门槛</span>
+        <span class="chip">深色 DOCK 友好</span>
+        <span class="chip">规避 TRIFORCE 品字构图</span>
+      </div>
+    </div>
+    <div class="specs">
+      <div><span>CANVAS</span><b>512 × 512</b></div>
+      <div><span>CANDIDATES</span><b>12 方向 / 均为原创</b></div>
+      <div><span>RENDER</span><b>内嵌 SVG · 零外链</b></div>
+      <div><span>LADDER</span><b>128 → 64 → 32 → 16</b></div>
+    </div>
+  </div>
+</header>
+
+<div class="sec reveal"><span class="idx">01</span><h2>DARK DOCK 模拟</h2><div class="rule"></div><span class="hint">悬停可放大 · 先看整体阵列的跳脱度</span></div>
+<div class="dock-zone reveal">
+  <div class="dock">
+    <span class="dock-item"><svg viewBox="0 0 512 512"><use href="#tf1"/></svg></span>
+    <span class="dock-item"><svg viewBox="0 0 512 512"><use href="#tf2"/></svg></span>
+    <span class="dock-item"><svg viewBox="0 0 512 512"><use href="#tf3"/></svg></span>
+    <span class="dock-item"><svg viewBox="0 0 512 512"><use href="#tf4"/></svg></span>
+    <span class="dock-item"><svg viewBox="0 0 512 512"><use href="#tf5"/></svg></span>
+    <span class="dock-item"><svg viewBox="0 0 512 512"><use href="#tf6"/></svg></span>
+    <span class="dock-item"><svg viewBox="0 0 512 512"><use href="#tf7"/></svg></span>
+    <span class="dock-item"><svg viewBox="0 0 512 512"><use href="#tf8"/></svg></span>
+    <span class="dock-item"><svg viewBox="0 0 512 512"><use href="#tf9"/></svg></span>
+    <span class="dock-item"><svg viewBox="0 0 512 512"><use href="#tf10"/></svg></span>
+    <span class="dock-item"><svg viewBox="0 0 512 512"><use href="#tf11"/></svg></span>
+    <span class="dock-item"><svg viewBox="0 0 512 512"><use href="#tf12"/></svg></span>
+  </div>
+  <p class="dock-cap">DOCK BAR · 46PX · 深色背景</p>
+</div>
+
+<div class="sec reveal"><span class="idx">02</span><h2>十二个方向</h2><div class="rule"></div><span class="hint">右下角 16px 为实际像素，悬停可放大检视</span></div>
+
+<div class="grid">
+
+  <article class="card" style="--acc:#5fe0ae; --d:0ms">
+    <span class="pick">SHORTLIST</span>
+    <div class="top">
+      <div class="big"><svg viewBox="0 0 512 512"><use href="#tf1"/></svg></div>
+      <div class="ladder">
+        <figure><svg viewBox="0 0 512 512" width="64" height="64"><use href="#tf1"/></svg><figcaption>64</figcaption></figure>
+        <figure><svg viewBox="0 0 512 512" width="32" height="32"><use href="#tf1"/></svg><figcaption>32</figcaption></figure>
+        <figure class="px16"><svg viewBox="0 0 512 512" width="16" height="16"><use href="#tf1"/></svg><figcaption>16</figcaption></figure>
+      </div>
+    </div>
+    <div class="meta">
+      <div class="row1"><span class="num">01</span><h3>TRI-FORGE RING · 三环锻造</h3></div>
+      <p class="tags">循环 / 断笔三角 / 石油黑 × 薄荷 × 锻金</p>
+      <p class="note">三根断笔旋转成环，一笔烧成锻金——对话→改文件→验证的闭环永不熄火；断开处正是「锻接口」。</p>
+    </div>
+  </article>
+
+  <article class="card" style="--acc:#f0b345; --d:90ms">
+    <div class="top">
+      <div class="big"><svg viewBox="0 0 512 512"><use href="#tf2"/></svg></div>
+      <div class="ladder">
+        <figure><svg viewBox="0 0 512 512" width="64" height="64"><use href="#tf2"/></svg><figcaption>64</figcaption></figure>
+        <figure><svg viewBox="0 0 512 512" width="32" height="32"><use href="#tf2"/></svg><figcaption>32</figcaption></figure>
+        <figure class="px16"><svg viewBox="0 0 512 512" width="16" height="16"><use href="#tf2"/></svg><figcaption>16</figcaption></figure>
+      </div>
+    </div>
+    <div class="meta">
+      <div class="row1"><span class="num">02</span><h3>DELTA CORE · 熔心三角</h3></div>
+      <p class="tags">实心三角 / 环形炉心 / 鎏金 × 牛血红</p>
+      <p class="note">实心三角在重心处凿出环形炉膛，内藏一点白热——三力归一核；牛血红底在 Dock 里极为少见，跳脱度高。</p>
+    </div>
+  </article>
+
+  <article class="card" style="--acc:#ffd76a; --d:180ms">
+    <div class="top">
+      <div class="big"><svg viewBox="0 0 512 512"><use href="#tf3"/></svg></div>
+      <div class="ladder">
+        <figure><svg viewBox="0 0 512 512" width="64" height="64"><use href="#tf3"/></svg><figcaption>64</figcaption></figure>
+        <figure><svg viewBox="0 0 512 512" width="32" height="32"><use href="#tf3"/></svg><figcaption>32</figcaption></figure>
+        <figure class="px16"><svg viewBox="0 0 512 512" width="16" height="16"><use href="#tf3"/></svg><figcaption>16</figcaption></figure>
+      </div>
+    </div>
+    <div class="meta">
+      <div class="row1"><span class="num">03</span><h3>TRIPTYCH · 三联屏</h3></div>
+      <p class="tags">三块面板 / 同底齐平 / 青·金·珊瑚三色</p>
+      <p class="note">会话、文件、网站三块面板并排而立，中块最高如锻炉主膛——产品结构的直译版，一眼讲清「三合一」。</p>
+    </div>
+  </article>
+
+  <article class="card" style="--acc:#ff9d45; --d:0ms">
+    <div class="top">
+      <div class="big"><svg viewBox="0 0 512 512"><use href="#tf4"/></svg></div>
+      <div class="ladder">
+        <figure><svg viewBox="0 0 512 512" width="64" height="64"><use href="#tf4"/></svg><figcaption>64</figcaption></figure>
+        <figure><svg viewBox="0 0 512 512" width="32" height="32"><use href="#tf4"/></svg><figcaption>32</figcaption></figure>
+        <figure class="px16"><svg viewBox="0 0 512 512" width="16" height="16"><use href="#tf4"/></svg><figcaption>16</figcaption></figure>
+      </div>
+    </div>
+    <div class="meta">
+      <div class="row1"><span class="num">04</span><h3>INGOT T · 铸字 T</h3></div>
+      <p class="tags">字母 T / 三段锭块 / 热色自上而下递增</p>
+      <p class="note">T 的横梁是砧板，竖笔拆成三段锭块，越往下越接近白热——把 Triforge 一个字一笔一笔锻出来。</p>
+    </div>
+  </article>
+
+  <article class="card" style="--acc:#ffcf7d; --d:90ms">
+    <span class="pick">SHORTLIST</span>
+    <div class="top">
+      <div class="big"><svg viewBox="0 0 512 512"><use href="#tf5"/></svg></div>
+      <div class="ladder">
+        <figure><svg viewBox="0 0 512 512" width="64" height="64"><use href="#tf5"/></svg><figcaption>64</figcaption></figure>
+        <figure><svg viewBox="0 0 512 512" width="32" height="32"><use href="#tf5"/></svg><figcaption>32</figcaption></figure>
+        <figure class="px16"><svg viewBox="0 0 512 512" width="16" height="16"><use href="#tf5"/></svg><figcaption>16</figcaption></figure>
+      </div>
+    </div>
+    <div class="meta">
+      <div class="row1"><span class="num">05</span><h3>CONVERGENCE · 汇光成炉</h3></div>
+      <p class="tags">棱镜反向 / 三束汇一点 / 深夜蓝 × 三彩光束</p>
+      <p class="note">把「色散」反过来做：三束光刺入黑暗、汇聚成一个白热锻点——三个面板的能量在这里锻成一件成品。</p>
+    </div>
+  </article>
+
+  <article class="card" style="--acc:#3fd193; --d:180ms">
+    <div class="top">
+      <div class="big"><svg viewBox="0 0 512 512"><use href="#tf6"/></svg></div>
+      <div class="ladder">
+        <figure><svg viewBox="0 0 512 512" width="64" height="64"><use href="#tf6"/></svg><figcaption>64</figcaption></figure>
+        <figure><svg viewBox="0 0 512 512" width="32" height="32"><use href="#tf6"/></svg><figcaption>32</figcaption></figure>
+        <figure class="px16"><svg viewBox="0 0 512 512" width="16" height="16"><use href="#tf6"/></svg><figcaption>16</figcaption></figure>
+      </div>
+    </div>
+    <div class="meta">
+      <div class="row1"><span class="num">06</span><h3>JADE RING · 玉三环</h3></div>
+      <p class="tags">三色拼合 / 中心留空 / 玉绿三阶</p>
+      <p class="note">三片玉绿箭榫咬合成三角环，中心留空是炉口也是取景框——克制的本地工具气质，绿系在 Dock 里独一份。</p>
+    </div>
+  </article>
+
+  <article class="card" style="--acc:#3fe89b; --d:0ms">
+    <span class="pick">SHORTLIST</span>
+    <div class="top">
+      <div class="big"><svg viewBox="0 0 512 512"><use href="#tf7"/></svg></div>
+      <div class="ladder">
+        <figure><svg viewBox="0 0 512 512" width="64" height="64"><use href="#tf7"/></svg><figcaption>64</figcaption></figure>
+        <figure><svg viewBox="0 0 512 512" width="32" height="32"><use href="#tf7"/></svg><figcaption>32</figcaption></figure>
+        <figure class="px16"><svg viewBox="0 0 512 512" width="16" height="16"><use href="#tf7"/></svg><figcaption>16</figcaption></figure>
+      </div>
+    </div>
+    <div class="meta">
+      <div class="row1"><span class="num">07</span><h3>TRI-CHAT · 三角对话</h3></div>
+      <p class="tags">对话气泡 / 输入中三点 / 翡翠绿</p>
+      <p class="note">对话是一等公民：一只三角气泡、三个「正在输入」的圆点——AI 正在开口，也正好是三枚圆点暗合三面板。</p>
+    </div>
+  </article>
+
+  <article class="card" style="--acc:#9fc0ff; --d:90ms">
+    <div class="top">
+      <div class="big"><svg viewBox="0 0 512 512"><use href="#tf8"/></svg></div>
+      <div class="ladder">
+        <figure><svg viewBox="0 0 512 512" width="64" height="64"><use href="#tf8"/></svg><figcaption>64</figcaption></figure>
+        <figure><svg viewBox="0 0 512 512" width="32" height="32"><use href="#tf8"/></svg><figcaption>32</figcaption></figure>
+        <figure class="px16"><svg viewBox="0 0 512 512" width="16" height="16"><use href="#tf8"/></svg><figcaption>16</figcaption></figure>
+      </div>
+    </div>
+    <div class="meta">
+      <div class="row1"><span class="num">08</span><h3>BELLOWS · 三叶风箱</h3></div>
+      <p class="tags">三曲叶片 / 金色轴心 / 皇家蓝</p>
+      <p class="note">三叶围绕金轴旋转如锻炉风箱，叶片即三个面板，轴心即工作台——动力源源不断，克制而不喧哗。</p>
+    </div>
+  </article>
+
+  <article class="card" style="--acc:#ffd76a; --d:180ms">
+    <div class="top">
+      <div class="big"><svg viewBox="0 0 512 512"><use href="#tf9"/></svg></div>
+      <div class="ladder">
+        <figure><svg viewBox="0 0 512 512" width="64" height="64"><use href="#tf9"/></svg><figcaption>64</figcaption></figure>
+        <figure><svg viewBox="0 0 512 512" width="32" height="32"><use href="#tf9"/></svg><figcaption>32</figcaption></figure>
+        <figure class="px16"><svg viewBox="0 0 512 512" width="16" height="16"><use href="#tf9"/></svg><figcaption>16</figcaption></figure>
+      </div>
+    </div>
+    <div class="meta">
+      <div class="row1"><span class="num">09</span><h3>ANVIL SPARK · 砧火一星</h3></div>
+      <p class="tags">铁砧与台座 / 单颗火星 / 钢板灰 × 鎏金</p>
+      <p class="note">铁砧与台座静置，一颗金星刚被敲起——锻造将成的一瞬。只画一颗火星，刻意避开品字三三角。</p>
+    </div>
+  </article>
+
+  <article class="card" style="--acc:#ff9a4d; --d:0ms">
+    <div class="top">
+      <div class="big"><svg viewBox="0 0 512 512"><use href="#tf10"/></svg></div>
+      <div class="ladder">
+        <figure><svg viewBox="0 0 512 512" width="64" height="64"><use href="#tf10"/></svg><figcaption>64</figcaption></figure>
+        <figure><svg viewBox="0 0 512 512" width="32" height="32"><use href="#tf10"/></svg><figcaption>32</figcaption></figure>
+        <figure class="px16"><svg viewBox="0 0 512 512" width="16" height="16"><use href="#tf10"/></svg><figcaption>16</figcaption></figure>
+      </div>
+    </div>
+    <div class="meta">
+      <div class="row1"><span class="num">10</span><h3>FACET DELTA · 折面三角</h3></div>
+      <p class="tags">三折面 / 暗缝拼接 / 钢灰 × 琥珀炉火</p>
+      <p class="note">一张钢板折出三个面，炉火从底面透出——三块面板本是同一块材料折成，「三合一」的另一种读法。</p>
+    </div>
+  </article>
+
+  <article class="card" style="--acc:#ffd76a; --d:90ms">
+    <div class="top">
+      <div class="big"><svg viewBox="0 0 512 512"><use href="#tf11"/></svg></div>
+      <div class="ladder">
+        <figure><svg viewBox="0 0 512 512" width="64" height="64"><use href="#tf11"/></svg><figcaption>64</figcaption></figure>
+        <figure><svg viewBox="0 0 512 512" width="32" height="32"><use href="#tf11"/></svg><figcaption>32</figcaption></figure>
+        <figure class="px16"><svg viewBox="0 0 512 512" width="16" height="16"><use href="#tf11"/></svg><figcaption>16</figcaption></figure>
+      </div>
+    </div>
+    <div class="meta">
+      <div class="row1"><span class="num">11</span><h3>ORBIT DELTA · 环轨三角</h3></div>
+      <p class="tags">白色空三角 / 金色交叠轨道 / 藏蓝 × 金</p>
+      <p class="note">白色三角静止，金色轨道前后交叠绕行——工作闭环如星体运行；轨道穿前穿后，暗示三个面板互相穿越协作。</p>
+    </div>
+  </article>
+
+  <article class="card" style="--acc:#e9dfc8; --d:180ms">
+    <div class="top">
+      <div class="big"><svg viewBox="0 0 512 512"><use href="#tf12"/></svg></div>
+      <div class="ladder">
+        <figure><svg viewBox="0 0 512 512" width="64" height="64"><use href="#tf12"/></svg><figcaption>64</figcaption></figure>
+        <figure><svg viewBox="0 0 512 512" width="32" height="32"><use href="#tf12"/></svg><figcaption>32</figcaption></figure>
+        <figure class="px16"><svg viewBox="0 0 512 512" width="16" height="16"><use href="#tf12"/></svg><figcaption>16</figcaption></figure>
+      </div>
+    </div>
+    <div class="meta">
+      <div class="row1"><span class="num">12</span><h3>TRI-NODE · 三节点电路</h3></div>
+      <p class="tags">三色节点 / 一笔回路 / 墨黑 × 米白连线</p>
+      <p class="note">三枚节点、三种颜色、一笔接通——agent 的工具、三块面板、工作闭环，全部落在同一条回路上。</p>
+    </div>
+  </article>
+
+</div>
+
+<footer>
+  <div class="fg">
+    <svg width="14" height="14" viewBox="0 0 512 512"><polygon points="256,60 452,420 60,420" fill="none" stroke="#f2b54a" stroke-width="42"/></svg>
+    TRIFORGE ICON LAB · V0.1
+    <div class="bar"></div>
+  </div>
+  全部图形为内嵌 SVG，无任何外部资源 · 渐变 id 以 tfN- 前缀隔离，互不串色 · 16px 栏为实际物理像素渲染 · SHORTLIST 为三枚先行送审方向
+</footer>
+
+</div>
+
+<script>
+(function(){
+  var reduced = window.matchMedia && matchMedia('(prefers-reduced-motion: reduce)').matches;
+  var targets = document.querySelectorAll('.card, .reveal');
+
+  if (!reduced && 'IntersectionObserver' in window) {
+    var io = new IntersectionObserver(function(entries){
+      entries.forEach(function(en){
+        if (en.isIntersecting) { en.target.classList.add('in'); io.unobserve(en.target); }
+      });
+    }, { threshold: .12, rootMargin: '0px 0px -5% 0px' });
+    targets.forEach(function(el){ io.observe(el); });
+  } else {
+    targets.forEach(function(el){ el.classList.add('in'); });
+  }
+
+  if (!reduced) {
+    var sky = document.getElementById('sky'), ticking = false;
+    addEventListener('mousemove', function(e){
+      if (ticking) return; ticking = true;
+      requestAnimationFrame(function(){
+        var x = e.clientX / innerWidth - .5, y = e.clientY / innerHeight - .5;
+        sky.style.transform = 'translate(' + (x * -16) + 'px,' + (y * -12) + 'px)';
+        ticking = false;
+      });
+    }, { passive: true });
+  }
+})();
+</script>
+</body>
+</html>

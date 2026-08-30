@@ -2,6 +2,7 @@ import { useEffect, useState, type ReactNode } from "react";
 import type { Settings } from "../../api";
 import { api } from "../../api";
 import { getThemePref, setThemePref, type ThemePref } from "../../lib/theme";
+import { chromeImportAvailable, importChromeCookies } from "../../lib/chromeImport";
 import { Check, Settings2 } from "lucide-react";
 
 const emptySettings: Settings = {
@@ -18,13 +19,13 @@ const emptySettings: Settings = {
 
 /** 两种接口协议:URL 提示跟着走。 */
 const DRIVER_OPTIONS = [
-  { id: "responses", label: "Responses API(OpenAI / DeepSeek 等)", urlPlaceholder: "https://api.openai.com/v1/responses" },
-  { id: "chat", label: "Chat Completions(GLM 等)", urlPlaceholder: "https://open.bigmodel.cn/api/paas/v4/chat/completions" },
+  { id: "responses", label: "Responses API", urlPlaceholder: "https://api.openai.com/v1/responses" },
+  { id: "chat", label: "Chat Completions", urlPlaceholder: "https://open.bigmodel.cn/api/paas/v4/chat/completions" },
 ];
 
 const inputClass =
   "w-full border border-border bg-bg px-3 py-2 text-[13px] text-text outline-none transition-colors focus:border-accent";
-const repositoryUrl = "https://github.com/yanglongyun/Workbench";
+const repositoryUrl = "https://github.com/yanglongyun/Triforge";
 
 export function SettingsPanel({ onSaved }: { onSaved?: (settings: Settings) => void }) {
   const [form, setForm] = useState<Settings>(emptySettings);
@@ -100,7 +101,7 @@ export function SettingsPanel({ onSaved }: { onSaved?: (settings: Settings) => v
               </select>
             </Field>
 
-            <Field label="API URL">
+            <Field label="接口地址">
               <input
                 className={inputClass}
                 value={form.apiUrl}
@@ -109,7 +110,7 @@ export function SettingsPanel({ onSaved }: { onSaved?: (settings: Settings) => v
               />
             </Field>
 
-            <Field label="API Key">
+            <Field label="密钥">
               <input
                 className={inputClass}
                 type="password"
@@ -118,7 +119,7 @@ export function SettingsPanel({ onSaved }: { onSaved?: (settings: Settings) => v
               />
             </Field>
 
-            <Field label="Model">
+            <Field label="模型">
               <input
                 className={inputClass}
                 value={form.model}
@@ -127,7 +128,7 @@ export function SettingsPanel({ onSaved }: { onSaved?: (settings: Settings) => v
               />
             </Field>
 
-            <Field label="Default System Prompt" alignTop>
+            <Field label="默认系统提示词" alignTop>
               <textarea
                 className={`${inputClass} min-h-40 resize-y leading-relaxed`}
                 rows={8}
@@ -136,7 +137,7 @@ export function SettingsPanel({ onSaved }: { onSaved?: (settings: Settings) => v
               />
             </Field>
 
-            <Field label="Compress Threshold">
+            <Field label="压缩阈值">
               <input
                 className={inputClass}
                 type="number"
@@ -147,7 +148,7 @@ export function SettingsPanel({ onSaved }: { onSaved?: (settings: Settings) => v
               />
             </Field>
 
-            <Field label="Tool Result Limit">
+            <Field label="工具结果上限">
               <input
                 className={inputClass}
                 type="number"
@@ -159,13 +160,17 @@ export function SettingsPanel({ onSaved }: { onSaved?: (settings: Settings) => v
               />
             </Field>
 
-            <Field label="Compaction Prompt" alignTop>
+            <Field label="压缩提示词" alignTop>
               <textarea
                 className={`${inputClass} min-h-32 resize-y leading-relaxed`}
                 rows={6}
                 value={form.compactPrompt || ""}
                 onChange={(e) => set("compactPrompt", e.target.value)}
               />
+            </Field>
+
+            <Field label="网页登录状态" alignTop>
+              <BrowserLogins />
             </Field>
 
             <Field label="匿名统计">
@@ -200,6 +205,89 @@ export function SettingsPanel({ onSaved }: { onSaved?: (settings: Settings) => v
           </div>
         </div>
       </div>
+    </div>
+  );
+}
+
+/** 网页标签的登录态:导入、退出、清缓存。三个动作分开 —— 别让用户一按就退登。 */
+function BrowserLogins() {
+  const [available, setAvailable] = useState(false);
+  const [busy, setBusy] = useState("");
+  const [note, setNote] = useState("");
+
+  useEffect(() => { void chromeImportAvailable().then(setAvailable); }, []);
+
+  const run = (key: string, action: () => Promise<string>) => {
+    setBusy(key);
+    setNote("");
+    void action()
+      .then(setNote)
+      .catch((e) => setNote(e?.message || "操作失败"))
+      .finally(() => setBusy(""));
+  };
+
+  const rowBtn = "shrink-0 px-3 py-1.5 border border-border text-[13px] text-text hover:bg-bg-hover disabled:opacity-40 transition-colors";
+
+  return (
+    <div className="space-y-3 py-1">
+      <div className="flex items-start gap-3">
+        <div className="min-w-0 flex-1">
+          <div className="text-[13px] text-text">从 Chrome 导入登录状态</div>
+          <div className="mt-0.5 text-[12px] text-text-faint leading-relaxed">
+            {available
+              ? <>导入的是<b>全部站点</b>的登录信息,系统会先弹钥匙串授权。导入后 AI 也能在这些已登录的页面上替你操作。</>
+              : "需要 macOS 上装有 Chrome"}
+          </div>
+        </div>
+        <button
+          className={rowBtn}
+          disabled={!available || !!busy}
+          onClick={() => run("import", async () => {
+            const r = await importChromeCookies();
+            return `已从 ${r.profile} 导入 ${r.imported} 条${r.failed ? `,跳过 ${r.failed} 条` : ""} —— 刷新页面生效`;
+          })}
+        >
+          {busy === "import" ? "导入中…" : "导入"}
+        </button>
+      </div>
+
+      <div className="flex items-start gap-3">
+        <div className="min-w-0 flex-1">
+          <div className="text-[13px] text-text">退出所有网站</div>
+          <div className="mt-0.5 text-[12px] text-text-faint">清除 Cookie 与站点数据,你将从已登录的网站退出</div>
+        </div>
+        <button
+          className={rowBtn}
+          disabled={!!busy}
+          onClick={() => run("logout", async () => {
+            const r = await window.workbenchDesktop?.clearWebLogins();
+            if (r && !r.ok) throw new Error(r.error || "清除失败");
+            return "已退出所有网站";
+          })}
+        >
+          {busy === "logout" ? "清除中…" : "清除"}
+        </button>
+      </div>
+
+      <div className="flex items-start gap-3">
+        <div className="min-w-0 flex-1">
+          <div className="text-[13px] text-text">清除缓存</div>
+          <div className="mt-0.5 text-[12px] text-text-faint">腾出磁盘空间,不影响登录状态</div>
+        </div>
+        <button
+          className={rowBtn}
+          disabled={!!busy}
+          onClick={() => run("cache", async () => {
+            const r = await window.workbenchDesktop?.clearWebCache();
+            if (r && !r.ok) throw new Error(r.error || "清除失败");
+            return "缓存已清除";
+          })}
+        >
+          {busy === "cache" ? "清除中…" : "清除"}
+        </button>
+      </div>
+
+      {note && <div className="text-[12px] text-accent">{note}</div>}
     </div>
   );
 }

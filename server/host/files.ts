@@ -1,4 +1,3 @@
-// @ts-nocheck
 // 附件:图片与文件上传的整套数据链路(与 AGENT 0.0.4 同源,按 workbench 结构落位)。
 //
 //   - 上传内容按 SHA-256 存入 $WORKBENCH_HOME/files;消息与 SQLite 只存元数据
@@ -9,8 +8,19 @@
 //     最多 MAX_LIVE_TOOL_IMAGES 张 —— 旧轮次不反复携带图片字节。
 import { createHash } from "crypto";
 import { mkdirSync, readFileSync, statSync, writeFileSync } from "fs";
+import type { ServerResponse } from "http";
 import { basename, dirname, extname, join } from "path";
 import { fileURLToPath } from "url";
+
+/** 附件元数据:落库与随消息传的就是这一份,不含字节。 */
+export type Attachment = {
+  id: string;
+  name: string;
+  path: string;
+  mimeType: string;
+  size: number;
+  url: string;
+};
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
 const HOME = process.env.WORKBENCH_HOME || join(__dirname, "..");
@@ -26,15 +36,15 @@ const IMAGE_TYPES = new Map([
 ]);
 const IMAGE_EXTENSIONS = new Map([...IMAGE_TYPES].map(([ext, mime]) => [mime, ext === ".jpeg" ? ".jpg" : ext]));
 
-const safeName = (value) => basename(String(value || "file")).replace(/[^\p{L}\p{N}._ -]/gu, "_").slice(0, 120) || "file";
+const safeName = (value: unknown) => basename(String(value || "file")).replace(/[^\p{L}\p{N}._ -]/gu, "_").slice(0, 120) || "file";
 
-const dataUrl = (image) => {
+const dataUrl = (image: { path: string; mimeType: string }) => {
   const bytes = readFileSync(image.path);
   return `data:${image.mimeType};base64,${bytes.toString("base64")}`;
 };
 
 /** 元数据归一:只认 files 根下的内容寻址文件名,路径逃逸直接拒绝。 */
-const normalize = (input) => {
+const normalize = (input: any): Attachment | null => {
   const file = basename(String(input?.file || input?.id || ""));
   if (!file) return null;
   const path = join(ROOT, file);
@@ -50,32 +60,32 @@ const normalize = (input) => {
 };
 
 /** 上传:{name, mimeType, dataBase64} → 附件元数据。同内容天然去重(SHA-256 命名)。 */
-export const upload = (input) => {
+export const upload = (input: any) => {
   const bytes = Buffer.from(String(input?.dataBase64 || ""), "base64");
   if (!bytes.length) throw new Error("文件内容为空");
   if (bytes.length > MAX_BYTES) throw new Error(`文件不能超过 ${Math.floor(MAX_BYTES / 1024 / 1024)}MB`);
   let name = safeName(input?.name);
   let ext = extname(name).toLowerCase().slice(0, 12);
   if (!IMAGE_TYPES.has(ext) && IMAGE_EXTENSIONS.has(input?.mimeType)) {
-    ext = IMAGE_EXTENSIONS.get(input.mimeType);
+    ext = IMAGE_EXTENSIONS.get(input.mimeType)!;
     name = `${name.replace(/\.[^.]*$/, "")}${ext}`;
   }
   const id = `${createHash("sha256").update(bytes).digest("hex")}${ext}`;
   mkdirSync(ROOT, { recursive: true });
   try { writeFileSync(join(ROOT, id), bytes, { flag: "wx" }); }
-  catch (error) { if (error.code !== "EEXIST") throw error; }
+  catch (error) { if ((error as NodeJS.ErrnoException).code !== "EEXIST") throw error; }
   return normalize({ file: id, name, mimeType: IMAGE_TYPES.get(ext) || String(input?.mimeType || "application/octet-stream"), size: bytes.length });
 };
 
 /** 一条消息随附的附件数组归一(数量上限 + 逐个校验)。 */
-export const normalizeMany = (values) => {
+export const normalizeMany = (values: unknown): Attachment[] => {
   if (!Array.isArray(values)) return [];
   if (values.length > MAX_PER_MESSAGE) throw new Error(`每条消息最多 ${MAX_PER_MESSAGE} 个文件`);
-  return values.map(normalize).filter(Boolean);
+  return values.map(normalize).filter((a): a is Attachment => a !== null);
 };
 
 /** GET /api/files/<id>:按内容寻址名回吐字节。 */
-export const serve = (id, res) => {
+export const serve = (id: unknown, res: ServerResponse) => {
   const file = normalize({ file: id });
   if (!file) return false;
   try {
@@ -96,14 +106,14 @@ export const serve = (id, res) => {
  *   - 当前轮(最后一条用户消息之后)的工具图片:最多展开 MAX_LIVE_TOOL_IMAGES 张;
  *   - 其余条目剥掉 attachments / image 字段 —— 旧轮不携带图片字节,协议也不认这些字段。
  */
-export const prepareInput = async (items) => {
-  const lastUser = items.reduce((found, item, index) => (item?.role === "user" ? index : found), -1);
+export const prepareInput = async (items: any[]) => {
+  const lastUser = items.reduce((found: number, item: any, index: number) => (item?.role === "user" ? index : found), -1);
   let toolImages = 0;
-  const output = [];
+  const output: any[] = [];
   for (let index = items.length - 1; index >= 0; index -= 1) {
     const item = items[index];
     if (index === lastUser && item?.attachments?.length) {
-      const parts = [];
+      const parts: any[] = [];
       const text = typeof item.content === "string" ? item.content : "";
       if (text) parts.push({ type: "input_text", text });
       for (const attachment of item.attachments) {

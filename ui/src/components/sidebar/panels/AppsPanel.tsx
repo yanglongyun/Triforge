@@ -1,0 +1,97 @@
+// 应用列表:活动栏第四格。
+//
+// 它是**启动器**,不是面板 —— 组件挂进侧栏那格里,应用开在标签页。
+// 所以这里除了名字还得有「跑没跑」:应用有进程、会按需启停、会崩,
+// 状态看不见的话用户根本不知道该不该等。
+import { useCallback, useEffect, useState } from "react";
+import { api, type AppInfo } from "../../../api";
+import { ContextMenu, type MenuItem } from "../../ui";
+import { AlertTriangle, RotateCw, Square } from "lucide-react";
+
+type Socket = { send: (m: any) => void; on: (t: string, fn: (p: any) => void) => () => void };
+
+/** 没有 icon.svg 就用名字首字 —— 比一个通用占位图标好认。 */
+const Initial = ({ name }: { name: string }) => (
+  <span className="shrink-0 w-[18px] h-[18px] rounded bg-bg-inset text-text-dim
+    flex items-center justify-center text-[10px] font-medium">
+    {Array.from(name)[0] || "?"}
+  </span>
+);
+
+const DOT: Record<string, string> = {
+  ready: "bg-success",
+  starting: "bg-accent animate-pulse",
+  failed: "bg-danger",
+  invalid: "bg-danger",
+};
+
+export function AppsPanel({ socket, onOpenApp }: { socket: Socket; onOpenApp: (app: AppInfo) => void }) {
+  const [apps, setApps] = useState<AppInfo[]>([]);
+  const [menu, setMenu] = useState<{ x: number; y: number; items: MenuItem[] } | null>(null);
+
+  const load = useCallback(() => { void api.listApps().then(setApps).catch(() => {}); }, []);
+  useEffect(() => { load(); }, [load]);
+  // 目录变了(AI 刚写完一个)、状态变了(起来了/崩了)都要跟上
+  useEffect(() => socket.on("apps_changed", load), [socket, load]);
+  useEffect(() => socket.on("app_status", load), [socket, load]);
+
+  const onContext = (e: React.MouseEvent, app: AppInfo) => {
+    e.preventDefault();
+    e.stopPropagation();
+    const running = app.status === "ready" || app.status === "starting";
+    setMenu({
+      x: e.clientX, y: e.clientY,
+      items: [
+        { label: "打开", onClick: () => onOpenApp(app), disabled: !!app.invalid },
+        { label: "重启", icon: <RotateCw size={13} />, disabled: !!app.invalid,
+          onClick: () => { void api.restartApp(app.id).then(load).catch(() => {}); } },
+        { label: "停止", icon: <Square size={13} />, disabled: !running,
+          onClick: () => { void api.stopApp(app.id).then(load).catch(() => {}); } },
+      ],
+    });
+  };
+
+  return (
+    <div className="flex-1 overflow-y-auto py-1">
+      {apps.map((app) => (
+        <div
+          key={app.id}
+          onClick={() => { if (!app.invalid) onOpenApp(app); }}
+          onContextMenu={(e) => onContext(e, app)}
+          title={app.invalid || `${app.name}${app.description ? `\n${app.description}` : ""}`}
+          className={[
+            "group flex items-center gap-2 py-[5px] pl-3 pr-2 select-none",
+            app.invalid ? "cursor-default text-text-faint" : "cursor-pointer text-text hover:bg-bg-hover",
+          ].join(" ")}
+        >
+          {app.hasIcon
+            ? <img src={`/api/apps/icon?id=${encodeURIComponent(app.id)}`} alt="" className="shrink-0 w-[18px] h-[18px] rounded" />
+            : <Initial name={app.name} />}
+          <div className="min-w-0 flex-1">
+            <div className="truncate text-[13.5px]">{app.name}</div>
+            {app.invalid && (
+              <div className="flex items-center gap-1 text-[11px] text-danger">
+                <AlertTriangle size={10} className="shrink-0" />
+                <span className="truncate">{app.invalid}</span>
+              </div>
+            )}
+          </div>
+          {!app.invalid && DOT[app.status] && (
+            <span className={`shrink-0 w-1.5 h-1.5 rounded-full ${DOT[app.status]}`}
+              title={app.status === "ready" ? "运行中" : app.status === "starting" ? "启动中" : app.error || "启动失败"} />
+          )}
+        </div>
+      ))}
+
+      {!apps.length && (
+        <div className="px-4 py-16 text-center text-[12.5px] text-text-faint leading-relaxed">
+          还没有应用<br />
+          让 AI 在应用的家里建一个目录<br />
+          <span className="text-[11.5px]">(manifest.json + 一个监听 $PORT 的 server)</span>
+        </div>
+      )}
+
+      {menu && <ContextMenu x={menu.x} y={menu.y} items={menu.items} onClose={() => setMenu(null)} />}
+    </div>
+  );
+}

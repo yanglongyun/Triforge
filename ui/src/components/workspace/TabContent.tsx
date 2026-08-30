@@ -2,8 +2,9 @@ import type { Settings, Node } from "../../api";
 import { ChatPanel } from "../chat";
 import { FilePanel } from "../files";
 import { SettingsPanel } from "../settings";
-import { EmptyPanel, GitDiffPanel, GitView, LauncherPanel } from "./panels";
-import { isGitDiffTab, isGitTab, isLauncherTab, isSettingsTab, isNodeTab, type WorkspaceGroupId, type WorkspaceTab } from "./types";
+import { WidgetsManager } from "../widgets/WidgetsManager";
+import { AppPanel, EmptyPanel, GitDiffPanel, GitView } from "./panels";
+import { isAppTab, isGitDiffTab, isGitTab, isSettingsTab, isWidgetsTab, isNodeTab, type WorkspaceGroupId, type WorkspaceTab } from "./types";
 
 type Socket = {
   send: (m: any) => void;
@@ -47,10 +48,6 @@ export function TabContent({
 }) {
   if (!tab) return <EmptyPanel />;
 
-  if (isLauncherTab(tab)) {
-    return <LauncherPanel key={tab.id} tab={tab} groupId={groupId} />;
-  }
-
   // 终端不在这里:它和网页标签一样常驻挂载在 WorkspaceGroup(卸载 = 杀 PTY)
 
   if (isGitTab(tab)) {
@@ -71,6 +68,16 @@ export function TabContent({
 
   if (isSettingsTab(tab)) {
     return <SettingsPanel onSaved={onSettingsSaved} />;
+  }
+
+  if (isAppTab(tab)) {
+    return <AppPanel tab={tab} socket={socket} />;
+  }
+
+  if (isWidgetsTab(tab)) {
+    return (
+      <WidgetsManager />
+    );
   }
 
   if (isNodeTab(tab) && tab.kind === "chat") {

@@ -7,6 +7,9 @@ import * as tree from "../service/tree.js";
 import * as chats from "../service/chats.js";
 import * as sites from "../service/sites.js";
 import { handleWidgetRoutes } from "./widget.js";
+import { handleAppRoutes } from "./app.js";
+import { handlePermissionRoutes } from "./permission.js";
+import { handleHostRoutes } from "../host/appBridge.js";
 import { listRows } from "../repo/messages.js";
 import { runningIds } from "../runs/index.js";
 import { getSettings, saveSettings } from "../repo/settings.js";
@@ -23,10 +26,10 @@ import {
   listGitRepositories,
   repositoryStatusForPath,
 } from "../repo/git.js";
-import { pickDirectory } from "../directoryPicker.js";
-import { syncWatchers } from "../watcher.js";
-import * as files from "../files.js";
-import { serveFavicon } from "../favicons.js";
+import { pickDirectory } from "../host/directoryPicker.js";
+import { syncWatchers } from "../host/watcher.js";
+import * as files from "../host/files.js";
+import { serveFavicon } from "../host/favicons.js";
 
 const parseBody = async (req) => {
   const chunks = [];
@@ -69,6 +72,13 @@ const handleApi = async (req, res) => {
 
     // 组件的路由面(注册表 / 地址 / 卸载)
     if (await handleWidgetRoutes(req, res, url, String(method || "GET").toUpperCase())) return true;
+
+    // 应用:界面用的路由面 + app 自己调的宿主能力面(/host/*,token 即身份)
+    if (await handleAppRoutes(req, res, url, String(method || "GET").toUpperCase())) return true;
+    if (await handleHostRoutes(req, res, path)) return true;
+
+    // 权限:规则 CRUD + 审批表态
+    if (await handlePermissionRoutes(req, res, url, String(method || "GET").toUpperCase())) return true;
 
     // ---- 附件(图片/文件上传;内容寻址,消息里只存元数据)----
     if (path === "/api/upload" && method === "POST") {

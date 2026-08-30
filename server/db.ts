@@ -70,6 +70,20 @@ const initDb = () => {
     );
 
     -- 网站:活动栏「网站」面板的收藏(在网页标签里打开)
+    -- 权限规则:一条规则 = 一个「命中就停下来问」的触发条件。
+    -- text 是用户原话(真相),prompt 和 match_json 都是它的派生物。
+    -- match_json 为 '{}' 表示编译不出条件,这条只剩提示词一个出口(界面要如实标出)。
+    CREATE TABLE IF NOT EXISTS rules (
+      id         TEXT PRIMARY KEY,
+      text       TEXT NOT NULL,
+      prompt     TEXT NOT NULL DEFAULT '',
+      match_json TEXT NOT NULL DEFAULT '{}',
+      enabled    INTEGER NOT NULL DEFAULT 1,
+      origin     TEXT NOT NULL DEFAULT 'user',
+      position   INTEGER NOT NULL DEFAULT 0,
+      created_at TEXT NOT NULL DEFAULT (datetime('now'))
+    );
+
     CREATE TABLE IF NOT EXISTS sites (
       id         TEXT PRIMARY KEY,
       title      TEXT NOT NULL,

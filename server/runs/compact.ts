@@ -5,7 +5,7 @@
 // 压缩永远不能因为模型失败而不发生,不然下一轮直接撞上下文墙。
 // 摘要作为一条 user 消息落进邮箱(meta.kind='compaction'),并记一条 compactions 锚点;
 // 此后每次运行的历史都从锚点之后取,摘要行自然在其中。
-import { complete } from "../../ai/index.js";
+import { complete } from "../ai/index.js";
 import { createCompaction, getLatestCompaction } from "../repo/compactions.js";
 import { appendItem, latestUsage, listRows } from "../repo/messages.js";
 import { EVENTS } from "../shared/events.js";

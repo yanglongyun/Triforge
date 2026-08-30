@@ -6,7 +6,7 @@
 // 纯浏览器/dev(没有桌面壳)时诚实报错,不装能行。
 import { writeFileSync, mkdirSync } from "fs";
 import { dirname, isAbsolute, resolve } from "path";
-import { browserRequest, hasHost, listTabs, openTab } from "../browserHost.js";
+import { browserRequest, hasHost, listTabs, openTab } from "../host/browserHost.js";
 
 export const browserDef = {
   type: "function",

@@ -12,6 +12,9 @@ const DEFAULTS = {
   toolResultMaxChars: "30000",
   // 匿名使用统计:on/off。只收 事件名/版本/平台/匿名安装 id(见 server/telemetry.ts)。
   telemetry: "on",
+  // 护盾:rules = 盾开(按规则把关)/ skip = 盾关(见 server/permission/)。
+  // 旧「逐步确认」档已收敛为内置规则「任何操作都问我」,老库的 ask 启动时被迁移。
+  permissionMode: "rules",
   // 默认人格(无自定义 system 的对话的兜底)。工具清单 / 身份 / 协作规则由 buildSystem 每次注入,
   // 这里只放一段简洁、务实的基调,避免和注入内容重复或过时。
   system:

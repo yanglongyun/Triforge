@@ -1,36 +1,26 @@
-// 面板宿主:侧边栏的「壳」。
+// 面板宿主:侧边栏的「壳」= 最左侧竖排活动栏 + 内容面板。
 //
-// 活动栏 = 原生三件(会话/文件/应用,焊死)+ 钉上来的应用面板(panel 挂载)。
-// 宿主只管:品牌行与汉堡、tab 行(空间不足退化纯图标)、应用的钉与卸、宽度、移动端抽屉、
-// 底部 活动/组件/设置。组件的身体是 iframe,指向组件自己的 origin,契约见 WIDGET.md。
-import { useEffect, useRef, useState } from "react";
+// 活动栏仿 VS Code:贯穿整个窗口高度,分三段 ——
+//   原生四件(会话/文件/网站/应用,焊死)钉顶 → 钉住的组件(唯一可滚动段)→ 加号/设置钉底。
+// 组件再多也挤不走原生入口;状态点(会话未读/运行、应用在跑)上浮到图标上,面板关着也看得见。
+// 「收起侧栏」只收内容面板,活动栏常驻;点当前图标一下 = 收起(VS Code 的肌肉记忆)。
+// 组件的身体是 iframe,指向组件自己的 origin,契约见 WIDGET.md。
+import { useEffect, useState } from "react";
 import { api, type GitRepositoryStatus, type Node } from "../../api";
 import { ContextMenu, dialog, type MenuItem } from "../ui";
-import { LayoutGrid, Menu, Plus, Settings, X } from "lucide-react";
+import { LayoutGrid, PanelLeft, Plus, Settings, Sparkles, X } from "lucide-react";
 import { APP_NAME } from "../../lib/brand";
 import { beginGlobalDrag, endGlobalDrag } from "../../lib/drag";
+import { CREATE_WIDGET_EVENT, dropPin, togglePin as togglePinId, useWidgetPins } from "../../lib/widgetPins";
+import { EVENTS } from "../../../../server/shared/events";
 import { NATIVE_PANELS, type WidgetDef } from "./registry";
 import { ChatRail } from "./panels/ChatRail";
 import { FilesPanel } from "./panels/FilesPanel";
-import { WidgetsPanel } from "./panels/WidgetsPanel";
 import { SitesPanel } from "./panels/SitesPanel";
+import { AppsPanel } from "./panels/AppsPanel";
 import { WidgetFrame } from "../widgets/WidgetFrame";
 
 type Socket = { send: (m: any) => void; on: (t: string, fn: (p: any) => void) => () => void };
-
-const load = <T,>(key: string, fallback: T): T => {
-  try {
-    const raw = localStorage.getItem(key);
-    return raw == null ? fallback : (JSON.parse(raw) as T);
-  } catch { return fallback; }
-};
-const save = (key: string, value: unknown) => localStorage.setItem(key, JSON.stringify(value));
-
-/** 钉在活动栏上的组件。默认一个都不钉 —— 装了 ≠ 常用。 */
-const initialPinned = (): string[] => {
-  const saved = load<string[] | null>("workbench.widgets.pinned", null);
-  return Array.isArray(saved) ? saved.filter((id) => typeof id === "string") : [];
-};
 
 /** 「让 AI 造一个组件」的开工指令:自包含的契约速查表(全写进提示词,不指望 AI 去翻文档)。 */
 const buildWidgetPrompt = (desc: string) => `请为我造一个组件:${desc.trim()}
@@ -78,14 +68,16 @@ widget.json:
 4. **窄**:它挂在侧栏面板里,最窄 240px 也要能用;
 5. 建表用 CREATE TABLE IF NOT EXISTS,放在启动时跑一次。
 
-写完告诉我组件名,以及在「组件」面板里怎么把它钉到活动栏上。`;
+写完告诉我组件名,以及在「组件」标签页里怎么打开它的显示开关。`;
 
 export function PanelHost({
   selectedId,
   onSelect,
   socket,
   onOpenUrl,
+  onOpenApp,
   onToggleNav,
+  onSetDesktopOpen,
   onOpenSide,
   onOpenTerminal,
   onOpenGit,
@@ -93,6 +85,7 @@ export function PanelHost({
   refreshKey,
   settingsActive,
   onOpenSettings,
+  onOpenWidgets,
   mobileOpen = false,
   desktopOpen = true,
   onCloseMobile,
@@ -102,8 +95,11 @@ export function PanelHost({
   onSelect: (n: Node | null) => void;
   socket: Socket;
   onOpenUrl: (url: string, title?: string) => void;
-  /** 在标签页打开应用(tab 挂载;去重聚焦与 route 推送在工作区层)。 */
+  /** 打开一个应用(开在标签页 —— 组件挂侧栏,应用上标签)。 */
+  onOpenApp: (appId: string, name: string) => void;
   onToggleNav?: () => void;
+  /** 直接设定内容面板开合(点当前图标收起、点别的图标展开都要一个确定态,toggle 不够)。 */
+  onSetDesktopOpen?: (open: boolean) => void;
   onOpenSide?: (n: Node) => void;
   onOpenTerminal?: (n: Node, opts?: { command?: string; titlePrefix?: string }) => void;
   onOpenGit?: (repo: GitRepositoryStatus) => void;
@@ -111,13 +107,15 @@ export function PanelHost({
   refreshKey: number;
   settingsActive: boolean;
   onOpenSettings: () => void;
+  /** 打开「组件」管理标签页(管理是摊开来看的事,不塞侧栏)。 */
+  onOpenWidgets?: () => void;
   mobileOpen?: boolean;
   desktopOpen?: boolean;
   onCloseMobile?: () => void;
   onChanged?: () => void;
 }) {
   // ── 组件:全部来自组件的家(<家>/widgets/<id>/),目录即安装 ──
-  const [pinned, setPinned] = useState<string[]>(initialPinned);
+  const pinned = useWidgetPins();
   const [widgets, setWidgets] = useState<WidgetDef[]>([]);
   const reloadWidgets = () => api.listWidgets()
     .then((list) => setWidgets(list as WidgetDef[]))
@@ -129,20 +127,59 @@ export function PanelHost({
 
   const [sideTab, setSideTab] = useState<string>(() => localStorage.getItem("workbench.sideTab") || "agents");
   const nativeIds = NATIVE_PANELS.map((p) => p.id as string);
-  const activePanelId = nativeIds.includes(sideTab) || sideTab === "widgets" || pinnedWidgets.some((w) => w.id === sideTab)
+  const activePanelId = nativeIds.includes(sideTab) || pinnedWidgets.some((w) => w.id === sideTab)
     ? sideTab : "agents";
   const switchTab = (tab: string) => {
     setSideTab(tab);
     localStorage.setItem("workbench.sideTab", tab);
   };
 
+  // 活动栏点击:点当前图标 = 收起面板;点别的 = 切换并展开(VS Code 的肌肉记忆)
+  const onRailClick = (id: string) => {
+    const desktop = window.matchMedia("(min-width: 768px)").matches;
+    if (desktop && activePanelId === id && desktopOpen) { onSetDesktopOpen?.(false); return; }
+    switchTab(id);
+    if (desktop && !desktopOpen) onSetDesktopOpen?.(true);
+  };
+
+  // ── 图标上的状态点:面板关着也看得见 ──
+  // 会话:运行中亮蓝点,只有未读亮绿点(与列表里的点同一套语义)
+  const [chatBadge, setChatBadge] = useState<"" | "run" | "unread">("");
+  useEffect(() => {
+    let gone = false;
+    const load = () => {
+      void Promise.all([api.listChats().catch(() => null), api.listRuns().catch(() => null)])
+        .then(([chats, runs]) => {
+          if (gone) return;
+          const running = !!(runs?.ids || []).length;
+          const unread = !!chats?.chats.some((c) => c.unread);
+          setChatBadge(running ? "run" : unread ? "unread" : "");
+        });
+    };
+    load();
+    // refreshKey 不含 START(App 只在终局事件上节流刷新),运行点要即时亮,这里自己订阅
+    const offs = [EVENTS.START, EVENTS.DONE, EVENTS.ABORTED, EVENTS.ERROR, EVENTS.INPUT, "chats_changed"]
+      .map((t) => socket.on(t, load));
+    return () => { gone = true; offs.forEach((off) => off()); };
+  }, [socket, refreshKey]);
+  // 应用:有一个在跑就亮蓝点
+  const [appsRunning, setAppsRunning] = useState(false);
+  useEffect(() => {
+    const load = () => void api.listApps()
+      .then((list) => setAppsRunning(list.some((a) => a.status === "ready" || a.status === "starting")))
+      .catch(() => {});
+    load();
+    return socket.on("app_status", load);
+  }, [socket]);
+  const nativeBadge = (id: string): "" | "run" | "unread" => {
+    if (id === "agents") return chatBadge;
+    if (id === "apps") return appsRunning ? "run" : "";
+    return "";
+  };
+
   const togglePin = (widget: WidgetDef) => {
-    setPinned((prev) => {
-      const next = prev.includes(widget.id) ? prev.filter((x) => x !== widget.id) : [...prev, widget.id];
-      save("workbench.widgets.pinned", next);
-      return next;
-    });
-    if (sideTab === widget.id) switchTab("widgets");
+    togglePinId(widget.id);
+    if (sideTab === widget.id) switchTab("agents"); // 取下的正是当前面板,回会话
   };
   const removeWidget = async (widget: WidgetDef) => {
     const ok = await dialog.confirm(
@@ -152,12 +189,8 @@ export function PanelHost({
     if (!ok) return;
     try { await api.removeWidget(widget.id); } catch (e: any) { void dialog.alert(e?.message || "删除失败"); return; }
     void reloadWidgets();
-    setPinned((prev) => {
-      const next = prev.filter((x) => x !== widget.id);
-      save("workbench.widgets.pinned", next);
-      return next;
-    });
-    if (sideTab === widget.id) switchTab("widgets");
+    dropPin(widget.id);
+    if (sideTab === widget.id) switchTab("agents");
   };
 
   // 让 AI 造一个组件:一句话 → 新对话 → agent 在 widgets/ 里写出目录 → 自动出现在「组件」面板
@@ -192,7 +225,14 @@ export function PanelHost({
     return () => window.removeEventListener("workbench:reveal-path", onReveal);
   }, []);
 
-  // ── 宽度拖拽 ──
+  // 组件管理页(标签页)里点「让 AI 造一个」—— 动作住在这儿(要开对话、发提示词)
+  useEffect(() => {
+    const onCreate = () => { void createWidgetWithAI(); };
+    window.addEventListener(CREATE_WIDGET_EVENT, onCreate);
+    return () => window.removeEventListener(CREATE_WIDGET_EVENT, onCreate);
+  });
+
+  // ── 宽度拖拽(只管内容面板;活动栏定宽)──
   const [sidebarWidth, setSidebarWidth] = useState(() => {
     const saved = Number(localStorage.getItem("workbench.sidebarWidth") || "");
     return Number.isFinite(saved) && saved >= 220 && saved <= 420 ? saved : 260;
@@ -226,39 +266,37 @@ export function PanelHost({
     window.addEventListener("pointerup", onUp);
   };
 
-  // ── tab 行响应式:放不下「图标+文字」就整行纯图标 ──
-  const measureCtxRef = useRef<CanvasRenderingContext2D | null>(null);
-  const labelWidth = (text: string) => {
-    if (!measureCtxRef.current) measureCtxRef.current = document.createElement("canvas").getContext("2d");
-    const ctx = measureCtxRef.current;
-    if (!ctx) return text.length * 13;
-    ctx.font = '500 13px Inter, -apple-system, BlinkMacSystemFont, "PingFang SC", "Microsoft YaHei", sans-serif';
-    return ctx.measureText(text).width;
-  };
-  const TAB_CHROME = 8 + 14 + 6; // 内边距 + 图标 + 间距
-  const tabTitles = [...NATIVE_PANELS.map((p) => p.title), ...pinnedWidgets.map((w) => w.name)];
-  const needWidth = tabTitles.reduce((sum, t) => sum + TAB_CHROME + Math.ceil(labelWidth(t)), 0) + 36 + 8;
-  const iconOnly = needWidth > sidebarWidth;
-
-  // ── 宿主菜单:+ = 钉面板快捷入口;钉住的应用 tab 右键 = 取下 ──
+  // ── 加号菜单:勾选哪些组件上活动栏(仿 VS Code),外加创建/管理入口 ──
+  // 点完即关 —— 菜单项是打开那一刻的快照,留着不关勾选状态就是假的。
   const [menu, setMenu] = useState<{ x: number; y: number; items: MenuItem[] } | null>(null);
-  const openPinPicker = (e: React.MouseEvent) => {
+  const openPlusMenu = (e: React.MouseEvent) => {
     const r = (e.currentTarget as HTMLElement).getBoundingClientRect();
-    const candidates = widgets.filter((w) => !pinned.includes(w.id));
-    const items: MenuItem[] = candidates.map((w) => ({
-      label: `钉上「${w.name}」`,
-      icon: <span className="text-[13px] leading-none">{w.icon}</span>,
-      onClick: () => { togglePin(w); switchTab(w.id); },
-    }));
-    if (items.length) items.push("divider");
-    items.push({ label: "在「组件」里管理…", icon: <LayoutGrid size={13} />, onClick: () => switchTab("widgets") });
-    setMenu({ x: r.left, y: r.bottom + 4, items });
+    const items: MenuItem[] = widgets.map((w) => {
+      const on = pinned.includes(w.id);
+      return {
+        label: w.name,
+        checked: on,
+        icon: <span className="text-[13px] leading-none">{w.icon}</span>,
+        onClick: () => {
+          togglePin(w);
+          if (!on) { switchTab(w.id); onSetDesktopOpen?.(true); } // 刚勾上就切过去,省一次点击
+        },
+      };
+    });
+    if (!widgets.length) {
+      items.push({ label: "还没有组件", disabled: true, onClick: () => {} });
+    }
+    items.push("divider");
+    items.push({ label: "创建组件…", icon: <Sparkles size={13} />, onClick: createWidgetWithAI });
+    items.push({ label: "管理组件…", icon: <LayoutGrid size={13} />, onClick: () => onOpenWidgets?.() });
+    // 挂在活动栏右侧、与按钮同高;越界翻转交给 ContextMenu 自己
+    setMenu({ x: r.right + 6, y: r.top, items });
   };
-  const onPinnedTabContext = (e: React.MouseEvent, widget: WidgetDef) => {
+  const onWidgetContext = (e: React.MouseEvent, widget: WidgetDef) => {
     e.preventDefault();
     setMenu({
       x: e.clientX, y: e.clientY,
-      items: [{ label: `从活动栏取下「${widget.name}」`, icon: <X size={13} />, onClick: () => togglePin(widget) }],
+      items: [{ label: `从活动栏隐藏「${widget.name}」`, icon: <X size={13} />, onClick: () => togglePin(widget) }],
     });
   };
 
@@ -272,132 +310,176 @@ export function PanelHost({
     if (mobileOpen) onCloseMobile?.();
   };
 
-  const tabClass = (active: boolean) => [
-    "flex-1 min-w-0 flex items-center justify-center gap-1.5 h-9 px-1 text-[13px] transition-colors border-b-2 -mb-px",
-    active ? "border-accent text-text font-medium" : "border-transparent text-text-dim hover:text-text hover:bg-bg-hover",
-  ].join(" ");
-
   const activeWidget = pinnedWidgets.find((w) => w.id === activePanelId) || null;
+  const activeNative = NATIVE_PANELS.find((p) => p.id === activePanelId) || null;
 
   return (
     <aside
-      style={{ width: `min(${sidebarWidth}px, calc(100vw - 32px))` }}
       className={[
-        "flex-col border-r border-border bg-bg-raised shrink-0",
+        "flex border-r border-border bg-bg-raised shrink-0",
         "absolute inset-y-0 left-0 z-40 shadow-2xl shadow-black/10",
         "md:relative md:shadow-none",
         mobileOpen ? "flex" : "hidden",
-        desktopOpen ? "md:flex" : "md:hidden",
+        "md:flex", // 桌面端活动栏常驻 —— 收起收的是内容面板,不是它
       ].join(" ")}
     >
-      {/* brand:右上角 = 汉堡,只管侧栏收起(移动端沿用 X 关闭抽屉) */}
-      <div className="flex items-center gap-2.5 px-3.5 h-11 border-b border-border">
-        <span className="text-[20px] leading-none select-none">🌳</span>
-        <span className="text-[17px] font-semibold text-text flex-1 tracking-tight">{APP_NAME}</span>
-        {onToggleNav && (
-          <button
-            onClick={onToggleNav}
-            title="收起侧边栏"
-            className="hidden md:flex w-6 h-6 rounded items-center justify-center text-text-faint hover:text-text hover:bg-bg-hover transition-colors"
-          >
-            <Menu size={16} />
-          </button>
-        )}
-        {onCloseMobile && (
-          <button
-            onClick={onCloseMobile}
-            className="md:hidden w-6 h-6 rounded flex items-center justify-center text-text-faint hover:text-text hover:bg-bg-hover transition-colors"
-          >
-            <X size={14} />
-          </button>
-        )}
+      {/* ── 活动栏:52px 竖排,三段 ── */}
+      <div className="w-[52px] shrink-0 flex flex-col items-center pt-2 pb-1.5 border-r border-border">
+        <div className="shrink-0 w-full flex flex-col items-center gap-0.5">
+          {NATIVE_PANELS.map((p) => (
+            <RailButton
+              key={p.id}
+              title={p.title}
+              active={activePanelId === p.id && !settingsActive}
+              badge={nativeBadge(p.id)}
+              onClick={() => onRailClick(p.id)}
+            >
+              <p.icon size={18} />
+            </RailButton>
+          ))}
+        </div>
+        <div className="shrink-0 w-7 h-px bg-border my-1.5" />
+        {/* 组件段:唯一允许滚动的一段 —— 组件再多,原生四件和底部加号/设置也永远钉住 */}
+        <div className="flex-1 min-h-0 w-full overflow-y-auto no-scrollbar flex flex-col items-center gap-0.5">
+          {pinnedWidgets.map((w) => (
+            <RailButton
+              key={w.id}
+              title={`${w.name}(组件,右键可从活动栏隐藏)`}
+              active={activePanelId === w.id && !settingsActive}
+              onClick={() => onRailClick(w.id)}
+              onContextMenu={(e) => onWidgetContext(e, w)}
+            >
+              <span className="text-[16px] leading-none">{w.icon}</span>
+            </RailButton>
+          ))}
+        </div>
+        <div className="shrink-0 w-full flex flex-col items-center gap-0.5 pt-1">
+          <div className="w-7 h-px bg-border mb-1" />
+          <RailButton title="组件:选择、创建、管理" active={false} onClick={openPlusMenu}>
+            <Plus size={18} />
+          </RailButton>
+          <RailButton title="设置" active={settingsActive} onClick={handleToggleSettings}>
+            <Settings size={18} />
+          </RailButton>
+        </div>
       </div>
 
-      {/* 活动栏:原生三件 + 钉住的应用面板;行末 + = 钉面板快捷入口 */}
-      <div className="flex items-stretch border-b border-border">
-        {NATIVE_PANELS.map((p) => (
-          <button key={p.id} onClick={() => switchTab(p.id)} title={p.title} className={tabClass(activePanelId === p.id)}>
-            <p.icon size={13} className="shrink-0" />
-            {!iconOnly && <span className="truncate">{p.title}</span>}
-          </button>
-        ))}
-        {pinnedWidgets.map((w) => (
-          <button
-            key={w.id}
-            onClick={() => switchTab(w.id)}
-            onContextMenu={(e) => onPinnedTabContext(e, w)}
-            title={`${w.name}(组件,右键可取下)`}
-            className={tabClass(activePanelId === w.id)}
-          >
-            <span className="shrink-0 text-[13px] leading-none">{w.icon}</span>
-            {!iconOnly && <span className="truncate">{w.name}</span>}
-          </button>
-        ))}
-        <button
-          onClick={openPinPicker}
-          title="钉一个组件到活动栏"
-          className="self-center shrink-0 w-6 h-6 mx-1.5 rounded flex items-center justify-center text-text-faint hover:text-accent hover:bg-bg-hover transition-colors"
-        >
-          <Plus size={15} />
-        </button>
-      </div>
+      {/* ── 内容面板:桌面端可收起(活动栏留着),移动端跟抽屉走 ── */}
+      <div
+        style={{ width: `min(${sidebarWidth}px, calc(100vw - 84px))` }}
+        className={[
+          "relative flex flex-col min-w-0",
+          desktopOpen ? "" : "md:hidden",
+        ].join(" ")}
+      >
+        {/* brand:右上角 = 收起面板(移动端沿用 X 关闭抽屉) */}
+        <div className="flex items-center gap-2.5 px-3.5 h-11 border-b border-border">
+          <span className="text-[20px] leading-none select-none">🌳</span>
+          <span className="text-[17px] font-semibold text-text flex-1 tracking-tight">{APP_NAME}</span>
+          {onToggleNav && (
+            <button
+              onClick={onToggleNav}
+              title="收起侧栏面板(活动栏不会消失)"
+              className="hidden md:flex w-6 h-6 rounded items-center justify-center text-text-faint hover:text-text hover:bg-bg-hover transition-colors"
+            >
+              <PanelLeft size={16} />
+            </button>
+          )}
+          {onCloseMobile && (
+            <button
+              onClick={onCloseMobile}
+              className="md:hidden w-6 h-6 rounded flex items-center justify-center text-text-faint hover:text-text hover:bg-bg-hover transition-colors"
+            >
+              <X size={14} />
+            </button>
+          )}
+        </div>
 
-      {/* ── 面板身体:会话切走即卸;文件常驻隐藏保重状态;应用 = iframe 沙箱 ── */}
-      {activePanelId === "agents" && (
-        <ChatRail
+        {/* 面板标题:活动栏只有图标,当前视图叫什么在这儿说 */}
+        <div className="shrink-0 h-9 flex items-center gap-2 px-3.5 border-b border-border">
+          {activeWidget
+            ? <span className="text-[14px] leading-none">{activeWidget.icon}</span>
+            : activeNative && <activeNative.icon size={14} className="text-accent shrink-0" />}
+          <span className="text-[13px] font-medium text-text truncate">
+            {activeWidget ? activeWidget.name : activeNative?.title}
+          </span>
+        </div>
+
+        {/* ── 面板身体:会话切走即卸;文件常驻隐藏保重状态;组件 = iframe 沙箱 ── */}
+        {activePanelId === "agents" && (
+          <ChatRail
+            selectedId={selectedId}
+            onSelect={handleSelect}
+            refreshKey={refreshKey}
+            socket={socket}
+            createReq={agentCreateReq}
+            onCreateHandled={() => setAgentCreateReq(null)}
+          />
+        )}
+        <FilesPanel
+          active={activePanelId === "files"}
           selectedId={selectedId}
           onSelect={handleSelect}
+          onOpenSide={onOpenSide}
+          onOpenTerminal={onOpenTerminal}
+          onOpenGit={onOpenGit}
+          onCreateAgentAt={createAgentAt}
+          createParentId={createParentId}
           refreshKey={refreshKey}
-          socket={socket}
-          createReq={agentCreateReq}
-          onCreateHandled={() => setAgentCreateReq(null)}
+          onChanged={onChanged}
         />
-      )}
-      <FilesPanel
-        active={activePanelId === "files"}
-        selectedId={selectedId}
-        onSelect={handleSelect}
-        onOpenSide={onOpenSide}
-        onOpenTerminal={onOpenTerminal}
-        onOpenGit={onOpenGit}
-        onCreateAgentAt={createAgentAt}
-        createParentId={createParentId}
-        refreshKey={refreshKey}
-        onChanged={onChanged}
-      />
-      {activePanelId === "sites" && <SitesPanel onOpenUrl={onOpenUrl} socket={socket} />}
-      {activePanelId === "widgets" && (
-        <WidgetsPanel
-          widgets={widgets}
-          pinnedIds={pinned}
-          onTogglePin={(w) => { togglePin(w); if (!pinned.includes(w.id)) switchTab(w.id); }}
-          onRemove={removeWidget}
-          onCreateWithAI={createWidgetWithAI}
-        />
-      )}
-      {activeWidget && <WidgetFrame key={activeWidget.id} widget={activeWidget} />}
+        {activePanelId === "sites" && <SitesPanel onOpenUrl={onOpenUrl} socket={socket} />}
+        {activePanelId === "apps" && (
+          <AppsPanel socket={socket} onOpenApp={(app) => onOpenApp(app.id, app.name)} />
+        )}
+        {activeWidget && <WidgetFrame key={activeWidget.id} widget={activeWidget} />}
 
-      {/* footer:只剩设置一项,按普通行左对齐(不再是两个并排的等分格) */}
-      <div className="border-t border-border px-1.5 py-1.5">
-        <button
-          onClick={handleToggleSettings}
-          title="设置"
-          className={[
-            "w-full flex items-center gap-2 px-2 py-1.5 rounded text-[13px] transition-colors",
-            settingsActive ? "bg-bg-inset text-text" : "text-text-dim hover:bg-bg-hover hover:text-text",
-          ].join(" ")}
-        >
-          <Settings size={13} className="shrink-0" />
-          <span>设置</span>
-        </button>
+        <div
+          onPointerDown={startResize}
+          className="hidden md:block absolute top-0 right-[-3px] z-20 h-full w-1.5 cursor-col-resize hover:bg-accent/25"
+          title="调整侧边栏宽度"
+        />
       </div>
 
       {menu && <ContextMenu x={menu.x} y={menu.y} items={menu.items} onClose={() => setMenu(null)} />}
-      <div
-        onPointerDown={startResize}
-        className="hidden md:block absolute top-0 right-[-3px] z-20 h-full w-1.5 cursor-col-resize hover:bg-accent/25"
-        title="调整侧边栏宽度"
-      />
     </aside>
+  );
+}
+
+/** 活动栏按钮:44×40,选中 = 软底色 + 左缘指示条;状态点压在图标右上角。 */
+function RailButton({
+  title,
+  active,
+  badge = "",
+  onClick,
+  onContextMenu,
+  children,
+}: {
+  title: string;
+  active: boolean;
+  badge?: "" | "run" | "unread";
+  onClick: (e: React.MouseEvent) => void;
+  onContextMenu?: (e: React.MouseEvent) => void;
+  children: React.ReactNode;
+}) {
+  return (
+    <button
+      onClick={onClick}
+      onContextMenu={onContextMenu}
+      title={title}
+      className={[
+        "relative w-11 h-10 shrink-0 rounded-lg flex items-center justify-center transition-colors",
+        active ? "bg-accent-soft text-accent" : "text-text-faint hover:text-text-dim hover:bg-bg-hover",
+      ].join(" ")}
+    >
+      {children}
+      {badge && (
+        <span className={[
+          "absolute top-1.5 right-2 w-[7px] h-[7px] rounded-full border-2 border-bg-raised",
+          badge === "run" ? "bg-accent" : "bg-success",
+        ].join(" ")} />
+      )}
+      {active && <span className="absolute -left-1 top-2 bottom-2 w-[3px] rounded-r bg-accent" />}
+    </button>
   );
 }

@@ -2,13 +2,15 @@
 // 内核(ai/)只认 tools 数组 + executors Map,不知道 Workbench 是什么;
 // Workbench 的外部能力(文件、进程、浏览器)全部通过 ctx 闭包进执行器。
 //
-// 五个工具,一个不多:
+// 六个工具:
 //   bash(background?)  — 命令与后台进程(读日志用 read 日志文件,停止用 kill)
 //   read / edit / write — 文件三件套
 //   browser            — 操作网页标签(Electron <webview>,真登录态,分屏可见)
+//   consult            — 主动请示(助手自己的判断;规则是用户定的闸,两者互补)
 import { bash, bashDef } from "./bash.js";
 import { edit, editDef, read, readDef, write, writeDef } from "./files.js";
 import { browser, browserDef } from "./browser.js";
+import { consult, consultDef } from "./consult.js";
 
 export const tools = [
   bashDef,
@@ -16,6 +18,7 @@ export const tools = [
   editDef,
   writeDef,
   browserDef,
+  consultDef,
 ];
 
 const IMPLS = {
@@ -24,6 +27,7 @@ const IMPLS = {
   edit,
   write,
   browser,
+  consult,
 };
 
 /**

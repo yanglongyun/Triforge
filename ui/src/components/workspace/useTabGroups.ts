@@ -1,21 +1,7 @@
 import { useCallback, useMemo, useRef, useState } from "react";
 import { exactKey, hostKey } from "../../lib/urls";
 import type { Node } from "../../api";
-import {
-  isOpenableSpace,
-  isNodeTab,
-  gitTab,
-  gitDiffTab,
-  settingsTab,
-  terminalTab,
-  launcherTab,
-  webTab,
-  isWebTab,
-  type WebTab,
-  type WorkspaceGroupId,
-  type WorkspaceGroupState,
-  type WorkspaceTab,
-} from "./types";
+import { isOpenableSpace, isNodeTab, gitTab, gitDiffTab, settingsTab, widgetsTab, appTab, terminalTab, webTab, isWebTab, type WebTab, type WorkspaceGroupId, type WorkspaceGroupState, type WorkspaceTab } from "./types";
 
 type UseTabGroupsOptions = {
   canCloseTab?: (tab: WorkspaceTab) => boolean | Promise<boolean>;
@@ -127,31 +113,14 @@ export function useTabGroups({ canCloseTab = () => true, onTabClosed = () => {} 
     openTab(settingsTab(), opts);
   }, [openTab]);
 
-  const openLauncher = useCallback((opts: { groupId?: WorkspaceGroupId; side?: boolean } = {}) => {
-    openTab(launcherTab(), opts);
+  const openWidgets = useCallback((opts: { groupId?: WorkspaceGroupId; side?: boolean } = {}) => {
+    openTab(widgetsTab(), opts);
   }, [openTab]);
 
-  /** 就地换身:同位置把 oldId 替换成新标签(新标签页 Enter 后变成对话/网站,位置不跳)。 */
-  const replaceTab = useCallback((groupId: WorkspaceGroupId, oldId: string, tab: WorkspaceTab) => {
-    setGroups((prev) => {
-      const group = prev[groupId];
-      const idx = group.tabs.findIndex((t) => t.id === oldId);
-      if (idx === -1) return prev;
-      const tabs = [...group.tabs];
-      tabs[idx] = tab;
-      return {
-        ...prev,
-        [groupId]: {
-          ...group,
-          tabs,
-          activeId: group.activeId === oldId ? tab.id : group.activeId,
-          previewId: group.previewId === oldId ? null : group.previewId,
-        },
-      };
-    });
-  }, []);
+  const openApp = useCallback((appId: string, name: string, opts: { groupId?: WorkspaceGroupId; side?: boolean } = {}) => {
+    openTab(appTab(appId, name), opts);
+  }, [openTab]);
 
-  /** 按站点身份找已开的网页标签(去重口径与 openWeb 一致:先精确键,后站点键)。 */
   const findWebTab = useCallback((url: string): { groupId: WorkspaceGroupId; tab: WebTab } | null => {
     const exact = exactKey(url);
     const host = hostKey(url);
@@ -394,8 +363,8 @@ export function useTabGroups({ canCloseTab = () => true, onTabClosed = () => {} 
     openGit,
     openGitDiff,
     openSettings,
-    openLauncher,
-    replaceTab,
+    openWidgets,
+    openApp,
     findWebTab,
     openWeb,
     updateWebTab,

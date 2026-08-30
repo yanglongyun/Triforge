@@ -82,8 +82,8 @@ workspaces/                    ← 你挂进来的真实目录
 ## 跑起来
 
 ```bash
-git clone https://github.com/yanglongyun/Workbench
-cd Workbench
+git clone https://github.com/yanglongyun/Triforge
+cd Triforge
 npm install
 
 # 开发(两个进程)
@@ -117,8 +117,8 @@ Vite · CodeMirror 6 · @dnd-kit · ws · Electron
 分层清晰:**ai(内核)→ tools / runs(编排)→ repo(数据)→ api / realtime(通道)**。
 
 ```
-ai/               🧠 无状态 AI 内核(Responses 协议,纯 JS 零依赖):模型 → 工具 → 模型的循环 / SSE 解析
 server/
+├── ai/           🧠 无状态 AI 内核(纯 JS 零依赖):模型 → 工具 → 模型的循环 / SSE 解析
 ├── shared/       📜 事件名契约,服务端与界面共用一份
 ├── tools/        🔧 五个工具的定义与实现(全部必填 summary);外部能力经 ctx 注入
 ├── runs/         🎬 运行编排——逐条落库 / 事件广播 / 压缩水位 / 停止收尾(悬空调用补输出)
@@ -130,7 +130,7 @@ desktop/          🖥 Electron 壳:esbuild 单文件 server 由壳拉起,窗口
 ui/src/components/   React 前端:sidebar(三原生 + 组件)/ workspace(标签页)/ chat / files / widgets
 ```
 
-`ai/` 不知道对话是什么,只接收组装好的 items、工具表和执行映射跑循环。消息**逐条落库**:
+`server/ai/` 不知道对话是什么,只接收组装好的 items、工具表和执行映射跑循环。消息**逐条落库**:
 每个 item(思考 / 正文 / 工具调用 / 结果)完成即入库,中途停止只丢正在流式的半句。
 
 ## 几句实话

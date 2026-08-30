@@ -6,7 +6,7 @@
 //     background 也会被自动识别转后台,别让模型卡死自己。
 import { spawn } from "child_process";
 import { existsSync } from "fs";
-import { getProcess, looksLongRunning, startProcess } from "../processes.js";
+import { getProcess, looksLongRunning, startProcess } from "../host/jobs.js";
 
 const SHELL_CANDIDATES = [process.env.SHELL, "/bin/zsh", "/bin/bash", "/bin/sh"];
 const resolveShell = () => {

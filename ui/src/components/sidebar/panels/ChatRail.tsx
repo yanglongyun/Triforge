@@ -4,9 +4,17 @@ import { useCallback, useEffect, useState } from "react";
 import type { Node } from "../../../api";
 import { api } from "../../../api";
 import { ContextMenu, dialog, type MenuItem } from "../../ui";
-import { Bot, Copy, FolderOpen, Pencil, Pin, PinOff, Plus, Trash2 } from "lucide-react";
+import { Bot, Copy, Folder, FolderOpen, Pencil, Pin, PinOff, Plus, SlidersHorizontal, Trash2 } from "lucide-react";
+import { relativeTime, toggleChatRowField, useChatRowFields, type ChatRowFields } from "../../../lib/chatRows";
 
 type Socket = { send: (m: any) => void; on: (t: string, fn: (p: any) => void) => () => void };
+
+/** 目录短形:家目录换 ~,只留最后两级 —— 侧栏放不下全路径,尾部才是有信息量的那头。 */
+const shortDir = (path: string) => {
+  const parts = path.replace(/\/+$/, "").split("/").filter(Boolean);
+  const tail = parts.slice(-2).join("/");
+  return parts.length > 2 ? `…/${tail}` : `/${tail}`;
+};
 
 const REVEAL_LABEL = /Mac/i.test(navigator.platform) ? "在 Finder 中显示工作目录" : "在文件管理器中显示工作目录";
 
@@ -31,6 +39,17 @@ export function ChatRail({
   const [renamingId, setRenamingId] = useState<string | null>(null);
   const [renameDraft, setRenameDraft] = useState("");
   const [menu, setMenu] = useState<{ x: number; y: number; items: MenuItem[] } | null>(null);
+  const fields = useChatRowFields();
+  // 显示项菜单只存**位置**:菜单项每次渲染现算 —— 勾完不关菜单,对勾要立刻跟着变,
+  // 存成 items 快照的话勾了也不动(菜单是打开那一刻算的)
+  const [fieldsMenuAt, setFieldsMenuAt] = useState<{ x: number; y: number } | null>(null);
+  const fieldsMenuItems: MenuItem[] = ([
+    ["dir", "所在目录"],
+    ["last", "最后一条消息"],
+    ["time", "时间"],
+  ] as [keyof ChatRowFields, string][]).map(([key, label]) => ({
+    label, checked: fields[key], keepOpen: true, onClick: () => toggleChatRowField(key),
+  }));
 
   const load = useCallback(async () => {
     const result = await api.listChats().catch(() => null);
@@ -110,11 +129,11 @@ export function ChatRail({
         onClick={() => { if (!isRenaming) onSelect(agent); }}
         onContextMenu={(e) => onContext(e, agent)}
         className={[
-          "group flex items-center gap-1.5 py-[4px] pl-3 pr-2 cursor-pointer select-none text-text",
+          "group flex items-start gap-1.5 py-[4px] pl-3 pr-2 cursor-pointer select-none text-text",
           isSelected && !isRenaming ? "bg-bg-inset" : "hover:bg-bg-hover",
         ].join(" ")}
       >
-        <Bot size={14} className="shrink-0 text-warning" />
+        <Bot size={14} className="shrink-0 text-warning mt-[3px]" />
         {isRenaming ? (
           <input
             autoFocus
@@ -129,16 +148,37 @@ export function ChatRail({
             className="flex-1 min-w-0 bg-surface border border-accent rounded px-1 -mx-1 py-px text-[14px] text-text outline-none"
           />
         ) : (
-          <span className="flex-1 min-w-0 truncate text-[14.5px]">{agent.title}</span>
+          <div className="flex-1 min-w-0">
+            <div className="flex items-center gap-1.5">
+              <span className="flex-1 min-w-0 truncate text-[14.5px]">{agent.title}</span>
+              {fields.time && (
+                <span className="shrink-0 text-[11px] tabular-nums text-text-faint">
+                  {relativeTime(agent.last?.at || agent.updated_at)}
+                </span>
+              )}
+            </div>
+            {fields.dir && agent.workdir && (
+              <div className="flex items-center gap-1 mt-px text-[11px] text-text-faint font-mono">
+                <Folder size={10} className="shrink-0" />
+                <span className="truncate">{shortDir(agent.workdir)}</span>
+              </div>
+            )}
+            {fields.last && agent.last && (
+              <div className="mt-px truncate text-[11.5px] text-text-faint">
+                <span className="text-text-dim">{agent.last.role === "user" ? "我" : "助手"}:</span>{" "}
+                {agent.last.text}
+              </div>
+            )}
+          </div>
         )}
         {live
-          ? <span className="w-1.5 h-1.5 rounded-full shrink-0 bg-accent animate-pulse" title="正在运行" />
+          ? <span className="w-1.5 h-1.5 rounded-full shrink-0 mt-[6px] bg-accent animate-pulse" title="正在运行" />
           : agent.unread
-            ? <span className="w-1.5 h-1.5 rounded-full shrink-0 bg-success" title="未读" />
+            ? <span className="w-1.5 h-1.5 rounded-full shrink-0 mt-[6px] bg-success" title="未读" />
             : null}
         <button
           onClick={(e) => { e.stopPropagation(); onContext(e, agent); }}
-          className="shrink-0 w-5 h-5 rounded flex items-center justify-center text-text-faint hover:text-text hover:bg-bg-inset opacity-0 group-hover:opacity-100 max-md:opacity-60"
+          className="shrink-0 w-5 h-5 mt-px rounded flex items-center justify-center text-text-faint hover:text-text hover:bg-bg-inset opacity-0 group-hover:opacity-100 max-md:opacity-60"
           title="更多操作"
         >
           <span className="text-[15px] leading-none -mt-1">⋯</span>
@@ -167,7 +207,21 @@ export function ChatRail({
         {pinned.map(row)}
       </>)}
       {recent.length > 0 && (<>
-        <div className="px-3 pt-2 pb-1 text-[11px] font-medium text-text-faint select-none">最近</div>
+        <div className="flex items-center gap-1 pl-3 pr-2 pt-2 pb-1 text-[11px] font-medium text-text-faint select-none">
+          <span className="flex-1">最近</span>
+          {/* 显示项:控制点就在这一行右端,不占额外空间、也不必进设置页 */}
+          <button
+            onClick={(e) => {
+              e.stopPropagation();
+              const r = (e.currentTarget as HTMLElement).getBoundingClientRect();
+              setFieldsMenuAt((open) => (open ? null : { x: r.right - 176, y: r.bottom + 4 }));
+            }}
+            title="每行显示哪些信息"
+            className="shrink-0 w-5 h-5 rounded flex items-center justify-center hover:text-text hover:bg-bg-hover transition-colors"
+          >
+            <SlidersHorizontal size={12} />
+          </button>
+        </div>
         {recent.map(row)}
       </>)}
 
@@ -187,6 +241,9 @@ export function ChatRail({
       )}
 
       {menu && <ContextMenu x={menu.x} y={menu.y} items={menu.items} onClose={() => setMenu(null)} />}
+      {fieldsMenuAt && (
+        <ContextMenu x={fieldsMenuAt.x} y={fieldsMenuAt.y} items={fieldsMenuItems} onClose={() => setFieldsMenuAt(null)} />
+      )}
     </div>
   );
 }

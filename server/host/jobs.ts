@@ -1,13 +1,40 @@
-// @ts-nocheck
-// Background process registry for long-running commands/dev servers.
-// Records are intentionally in-memory: they describe this Workbench server process,
-// not durable project state.
-import { spawn } from "child_process";
+// 后台任务注册表:`bash` 工具 background:true 时,进程交给这里托管 ——
+// 立即返回 id/pid/日志路径,之后可查状态、读日志、停止。
+//
+// 曾经它是 0.5~0.9 的「预览机制」后端(ProcessPanel / process 标签 / /api/processes),
+// 那套在 0.10.0 拔掉了,但**它没被删,是转岗了**:现在唯一的使用者是 tools/bash.ts。
+// 1.1.0 从 processes.ts 改名为 jobs.ts,免得下次读代码的人当成残渣顺手删掉。
+//
+// 记录**故意只在内存**:它描述的是当前这个服务进程,不是项目的持久状态 ——
+// 服务重启后进程本就没了,落库只会留下一堆假的「运行中」。
+import { spawn, type ChildProcess } from "child_process";
 import { randomUUID } from "crypto";
 import { createWriteStream, existsSync, mkdirSync } from "fs";
 import { dirname, join } from "path";
 import { fileURLToPath } from "url";
-import { emit } from "./bus.js";
+import type { WriteStream } from "fs";
+import { emit } from "../bus.js";
+
+/** 一条后台任务的全部状态。child/logStream 是句柄,只在本模块内用,不出网。 */
+type Job = {
+  id: string;
+  command: string;
+  cwd: string;
+  reason: string;
+  child: ChildProcess;
+  pid: number | undefined;
+  status: "running" | "stopped" | "exited" | "error";
+  started_at: string;
+  ended_at: string | null;
+  exit_code: number | null;
+  signal: NodeJS.Signals | null;
+  stopping: boolean;
+  ports: number[];
+  preview_url: string | null;
+  output: string;
+  log_file: string | null;
+  logStream: WriteStream | null;
+};
 
 const MAX_LOG_CHARS = 200_000;
 const DEFAULT_TAIL = 40_000;
@@ -27,20 +54,20 @@ const resolveShell = () => {
   return undefined;
 };
 
-const processes = new Map();
-const emitTimers = new Map();
+const processes = new Map<string, Job>();
+const emitTimers = new Map<string, NodeJS.Timeout>();
 
-const stripAnsi = (text) =>
+const stripAnsi = (text: unknown) =>
   String(text || "").replace(
     // eslint-disable-next-line no-control-regex
     /[\u001b\u009b][[\]()#;?]*(?:(?:(?:[a-zA-Z\d]*(?:;[a-zA-Z\d]*)*)?\u0007)|(?:(?:\d{1,4}(?:;\d{0,4})*)?[\dA-PR-TZcf-nq-uy=><~]))/g,
     "",
   );
 
-const unique = (items) => Array.from(new Set(items.filter(Boolean)));
+const unique = <T,>(items: T[]) => Array.from(new Set(items.filter(Boolean)));
 
-const urlsFromText = (text) => {
-  const urls = [];
+const urlsFromText = (text: unknown): string[] => {
+  const urls: string[] = [];
   const re = /https?:\/\/(?:localhost|127\.0\.0\.1|0\.0\.0\.0|\[::1\])(?::\d+)?(?:\/[^\s"'<>)]*)?/gi;
   let m;
   while ((m = re.exec(String(text || "")))) {
@@ -49,8 +76,8 @@ const urlsFromText = (text) => {
   return urls;
 };
 
-const portsFromText = (text) => {
-  const ports = [];
+const portsFromText = (text: unknown): number[] => {
+  const ports: number[] = [];
   const raw = String(text || "");
   const patterns = [
     /(?:localhost|127\.0\.0\.1|0\.0\.0\.0|\[::1\]):(\d{2,5})/gi,
@@ -69,7 +96,7 @@ const portsFromText = (text) => {
   return unique(ports);
 };
 
-const inferPreviewUrl = (record) => {
+const inferPreviewUrl = (record: Job): string | null => {
   const urls = urlsFromText(`${record.command}\n${record.output || ""}`);
   if (urls.length) return urls[0];
   const ports = unique([...portsFromText(record.command), ...portsFromText(record.output || "")]);
@@ -77,7 +104,7 @@ const inferPreviewUrl = (record) => {
   return ports.length ? `http://127.0.0.1:${ports[0]}` : null;
 };
 
-const publicProcess = (record, { tail = DEFAULT_TAIL } = {}) => {
+const publicProcess = (record: Job | undefined, { tail = DEFAULT_TAIL }: { tail?: number } = {}) => {
   if (!record) return null;
   const output = String(record.output || "");
   return {
@@ -98,13 +125,14 @@ const publicProcess = (record, { tail = DEFAULT_TAIL } = {}) => {
   };
 };
 
-const scheduleEmit = (record, immediate = false) => {
+const scheduleEmit = (record: Job, immediate = false) => {
   const send = () => {
     emitTimers.delete(record.id);
     emit({ type: "process_changed", process: publicProcess(record, { tail: 20_000 }) });
   };
   if (immediate) {
-    if (emitTimers.has(record.id)) clearTimeout(emitTimers.get(record.id));
+    const pending = emitTimers.get(record.id);
+    if (pending) clearTimeout(pending);
     send();
     return;
   }
@@ -112,7 +140,7 @@ const scheduleEmit = (record, immediate = false) => {
   emitTimers.set(record.id, setTimeout(send, 250));
 };
 
-const appendLog = (record, chunk) => {
+const appendLog = (record: Job, chunk: string) => {
   if (!chunk) return;
   const clean = stripAnsi(chunk);
   record.output = `${record.output || ""}${clean}`;
@@ -122,7 +150,7 @@ const appendLog = (record, chunk) => {
   scheduleEmit(record);
 };
 
-const startProcess = ({ command, cwd, reason = "" }) => {
+const startProcess = ({ command, cwd, reason = "" }: { command: string; cwd?: string; reason?: string }) => {
   const cmd = String(command || "").trim();
   if (!cmd) throw new Error("command is required");
 
@@ -136,8 +164,8 @@ const startProcess = ({ command, cwd, reason = "" }) => {
     env: { ...process.env, FORCE_COLOR: "0" },
   });
 
-  let logStream = null;
-  let logFile = null;
+  let logStream: WriteStream | null = null;
+  let logFile: string | null = null;
   try {
     mkdirSync(LOG_DIR, { recursive: true });
     logFile = join(LOG_DIR, `${id}.log`);
@@ -145,7 +173,7 @@ const startProcess = ({ command, cwd, reason = "" }) => {
     logStream.write(`# ${cmd}\n# cwd: ${cwd || process.cwd()}\n# started: ${new Date().toISOString()}\n\n`);
   } catch { /* 开不出日志文件也照常跑,只是少了文件视角 */ }
 
-  const record = {
+  const record: Job = {
     id,
     command: cmd,
     cwd: cwd && existsSync(cwd) ? cwd : process.cwd(),
@@ -169,14 +197,14 @@ const startProcess = ({ command, cwd, reason = "" }) => {
 
   child.stdout?.on("data", (d) => appendLog(record, d.toString("utf8")));
   child.stderr?.on("data", (d) => appendLog(record, d.toString("utf8")));
-  child.on("error", (error) => {
+  child.on("error", (error: Error) => {
     record.status = "error";
     record.ended_at = new Date().toISOString();
     appendLog(record, `\n[process error] ${error.message}\n`);
     try { record.logStream?.end(); } catch { /* noop */ }
     scheduleEmit(record, true);
   });
-  child.on("exit", (code, signal) => {
+  child.on("exit", (code: number | null, signal: NodeJS.Signals | null) => {
     record.ended_at = new Date().toISOString();
     record.exit_code = code;
     record.signal = signal;
@@ -196,9 +224,9 @@ const listProcesses = () =>
     .sort((a, b) => String(b.started_at).localeCompare(String(a.started_at)))
     .map((p) => publicProcess(p));
 
-const getProcess = (id, opts = {}) => publicProcess(processes.get(String(id || "")), opts);
+const getProcess = (id: string, opts: { tail?: number } = {}) => publicProcess(processes.get(String(id || "")), opts);
 
-const stopProcess = (id) => {
+const stopProcess = (id: string) => {
   const record = processes.get(String(id || ""));
   if (!record) throw new Error(`process not found: ${id}`);
   if (record.status !== "running") return publicProcess(record);
@@ -216,7 +244,7 @@ const stopProcess = (id) => {
         if (process.platform !== "win32" && record.pid) process.kill(-record.pid, "SIGKILL");
         else record.child.kill("SIGKILL");
       } catch {
-        try { record.child.kill("SIGKILL"); } catch {}
+        try { record.child.kill("SIGKILL"); } catch { /* 进程已经没了 */ }
       }
     }
   }, 2500).unref?.();
@@ -228,7 +256,7 @@ const LONG_RUNNING_RE =
 
 const EXPLICIT_BACKGROUND_RE = /(^|\s)(&|nohup|pm2|forever)\b|\bdocker\s+compose\s+up\s+-d\b/i;
 
-const looksLongRunning = (command) =>
+const looksLongRunning = (command: unknown) =>
   LONG_RUNNING_RE.test(String(command || "")) && !EXPLICIT_BACKGROUND_RE.test(String(command || ""));
 
 export { startProcess, listProcesses, getProcess, stopProcess, looksLongRunning, publicProcess };

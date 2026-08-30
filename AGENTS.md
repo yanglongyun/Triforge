@@ -8,7 +8,8 @@
 - `ui/src/components/widgets/` — 组件宿主:WidgetFrame(iframe,指向组件自己的 origin);**组件契约见 WIDGET.md(唯一正典)**
 - `ui/src/components/workspace/` — 标签分组与内容区;网页/终端活在 `PersistentPanelLayer`(常驻层),分组只是投影位置,**不要把有生命周期的资源挂回分组子树**
 - `server/` — 分层:`api/`(路由分发)→ `service/`(业务规则)→ `repo/`(纯存取:fs / sqlite / git 命令);`runs/` 对话运行轮(运行状态只在内存);`tools/` 五工具;`service/widget*.ts` 组件机制(注册表/站点/数据库)
-- `ai/` — 内核,与 AGENT 仓库双向同步:**改它必须两边同步**,不在日常迭代范围
+- `server/ai/` — AI 内核(纯 JS、零依赖):模型 → 工具 → 模型的循环 + SSE 解析。
+  源自 AGENT 仓库,**1.1.0 起本仓自己维护**,不再回同步;改它照常走日常流程
 
 ## 后端三规则(渐进还债,不搞运动)
 

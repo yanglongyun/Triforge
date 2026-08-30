@@ -11,9 +11,9 @@ import { runChat, stopChat } from "./runs/index.js";
 import { appendItem } from "./repo/messages.js";
 import { touchChat } from "./repo/chats.js";
 import { emit } from "./bus.js";
-import { resizeTerminal, startTerminal, stopAllTerminals, stopTerminal, writeTerminal } from "./terminals.js";
-import { registerHost, registerTab, resolveBrowserResult, unregisterClient, unregisterTab, updateTab } from "./browserHost.js";
-import { normalizeMany as normalizeAttachments } from "./files.js";
+import { resizeTerminal, startTerminal, stopAllTerminals, stopTerminal, writeTerminal } from "./host/terminals.js";
+import { registerHost, registerTab, resolveBrowserResult, unregisterClient, unregisterTab, updateTab } from "./host/browserHost.js";
+import { normalizeMany as normalizeAttachments } from "./host/files.js";
 import { isTrustedOrigin } from "./origin.js";
 
 const clients = new Set();

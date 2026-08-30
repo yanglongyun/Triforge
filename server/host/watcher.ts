@@ -7,8 +7,8 @@
 // 零依赖 —— 这里对每个工作区根挂一个递归监听,事件节流后广播 tree_changed。
 import fs from "fs";
 import path from "path";
-import { emit } from "./bus.js";
-import { IGNORE_DIRS, ensureRoot, listWorkspaces } from "./repo/tree.js";
+import { emit } from "../bus.js";
+import { IGNORE_DIRS, ensureRoot, listWorkspaces } from "../repo/tree.js";
 
 const watchers = new Map(); // root -> fs.FSWatcher
 

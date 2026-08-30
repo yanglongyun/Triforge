@@ -10,8 +10,11 @@ type ChatPatch = { title?: string; system?: string | null; workdir?: string; pin
 
 const list = () => {
   const rows = repo.listChats() as any[];
-  const unread = repo.unreadMap(rows.map((r) => r.id)) as Record<string, boolean>;
-  return rows.map((r) => ({ ...r, unread: !!unread[r.id] }));
+  const ids = rows.map((r) => r.id);
+  const unread = repo.unreadMap(ids) as Record<string, boolean>;
+  // 最后一句:会话列表的「最后消息」显示项要用(用户可在列表里逐项勾选显示什么)
+  const last = repo.lastMessages(ids) as Record<string, { role: string; text: string; at: string }>;
+  return rows.map((r) => ({ ...r, unread: !!unread[r.id], last: last[r.id] || null }));
 };
 
 const get = (id: string) => {

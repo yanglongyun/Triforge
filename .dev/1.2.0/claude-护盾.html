@@ -1,0 +1,369 @@
+<!doctype html>
+<meta charset="utf-8">
+<title>对话护盾</title>
+<style>
+  :root{
+    --bg:#fff; --bg-raised:#fbfbfa; --bg-panel:#f7f7f5; --bg-inset:#f1f1ef; --bg-hover:#efefed;
+    --border:#ebebea; --border-strong:#d3d3d1;
+    --text:#37352f; --text-dim:#5f5e5b; --text-faint:#9b9a97;
+    --accent:#2383e2; --accent-soft:#e7f0f9; --warning:#cb6b16; --danger:#e03e3e;
+    --success:#0f7b6c; --surface:#fff;
+  }
+  [data-theme="dark"]{
+    --bg:#191919; --bg-raised:#202020; --bg-panel:#262626; --bg-inset:#2e2e2e; --bg-hover:#2b2b2b;
+    --border:#2f2f2f; --border-strong:#4a4a4a;
+    --text:#d4d4d1; --text-dim:#a5a5a2; --text-faint:#767672;
+    --accent:#4a9de8; --accent-soft:#1d3247; --warning:#e59a4a; --danger:#f06a6a;
+    --success:#4dab9a; --surface:#202020;
+  }
+  *{box-sizing:border-box;margin:0;padding:0}
+  body{background:var(--bg-panel);color:var(--text);
+    font:14px/1.5 "Inter",-apple-system,BlinkMacSystemFont,"PingFang SC",sans-serif;padding:26px 30px 90px}
+  h1{font-size:20px;font-weight:600;letter-spacing:-.2px}
+  .lede{color:var(--text-dim);font-size:13px;margin-top:7px;max-width:940px;line-height:1.8}
+  .lede b{color:var(--text)}
+  header{display:flex;align-items:flex-start;gap:16px;margin-bottom:18px}
+  header button{margin-left:auto;flex-shrink:0;background:var(--surface);color:var(--text);
+    border:1px solid var(--border-strong);border-radius:7px;padding:6px 12px;cursor:pointer;font-size:13px}
+  .idea{margin:0 0 26px;padding:12px 15px;border-left:3px solid var(--accent);background:var(--surface);
+    border-radius:0 8px 8px 0;font-size:12.5px;color:var(--text-dim);line-height:1.8;max-width:940px}
+  .idea b{color:var(--text)}
+
+  .board{display:flex;gap:30px;align-items:flex-start;flex-wrap:wrap}
+  .col{flex:0 0 430px;min-height:560px;display:flex;flex-direction:column}
+  .col h2{font-size:13.5px;font-weight:600;margin-bottom:4px}
+  .col p{font-size:12px;color:var(--text-faint);line-height:1.7;margin-bottom:12px}
+
+  /* 输入框 */
+  .composer{background:var(--bg);border:1px solid var(--border);border-radius:12px;position:relative;margin-top:auto}
+  .ta{padding:13px 15px;color:var(--text-faint);font-size:14px;min-height:54px}
+  .bar{display:flex;align-items:center;gap:6px;padding:0 8px 8px}
+  .ic{width:28px;height:28px;border-radius:6px;display:grid;place-items:center;color:var(--text-faint)}
+  .send{width:28px;height:28px;border-radius:6px;background:var(--accent);color:#fff;display:grid;place-items:center}
+  .spacer{flex:1}
+
+  /* 盾牌按钮:状态一眼可见 —— 开是实心带色,关是空心灰 */
+  .sbtn{display:inline-flex;align-items:center;gap:6px;height:28px;padding:0 9px;border-radius:7px;
+    border:0;cursor:pointer;font:inherit;font-size:12.5px;transition:background .15s,color .15s}
+  .sbtn.on{color:var(--success);background:color-mix(in srgb,var(--success) 12%,transparent)}
+  .sbtn.on:hover{background:color-mix(in srgb,var(--success) 18%,transparent)}
+  .sbtn.off{color:var(--danger);background:color-mix(in srgb,var(--danger) 11%,transparent)}
+  .sbtn.off:hover{background:color-mix(in srgb,var(--danger) 17%,transparent)}
+
+  /* 面板 */
+  .panel{position:absolute;bottom:calc(100% + 8px);left:8px;width:372px;z-index:30;border-radius:14px;
+    border:1px solid var(--border);background:var(--surface);overflow:hidden;
+    box-shadow:0 14px 40px rgba(15,15,15,.16),0 2px 8px rgba(15,15,15,.08)}
+
+  /* 头:盾牌开关 */
+  .phead{display:flex;align-items:center;gap:11px;padding:13px 14px}
+  .pico{flex-shrink:0;width:34px;height:34px;border-radius:9px;display:grid;place-items:center}
+  .pico.on{background:color-mix(in srgb,var(--success) 14%,transparent);color:var(--success)}
+  .pico.off{background:var(--bg-inset);color:var(--text-faint)}
+  .ptxt{flex:1;min-width:0}
+  .ptxt b{display:block;font-size:14px;font-weight:600;line-height:1.3}
+  .ptxt span{display:block;font-size:11.5px;color:var(--text-faint);margin-top:1px;line-height:1.4}
+  .sw{flex-shrink:0;position:relative;width:38px;height:22px;border:0;border-radius:99px;cursor:pointer;
+    background:var(--border-strong);transition:background .18s;padding:0}
+  .sw.on{background:var(--success)}
+  .sw i{position:absolute;top:2px;left:2px;width:18px;height:18px;border-radius:99px;background:#fff;
+    box-shadow:0 1px 3px rgba(0,0,0,.2);transition:transform .18s}
+  .sw.on i{transform:translateX(16px)}
+
+  /* 关闭态 */
+  .offbox{padding:0 14px 14px}
+  .offcard{border-radius:10px;padding:11px 13px;background:color-mix(in srgb,var(--danger) 7%,transparent);
+    border:1px solid color-mix(in srgb,var(--danger) 22%,transparent)}
+  .offcard b{display:block;font-size:12.5px;color:var(--danger);margin-bottom:3px}
+  .offcard span{font-size:11.5px;color:var(--text-dim);line-height:1.6}
+
+  /* 两级导航:列表 ⇄ 详情 */
+  .stack{position:relative;overflow:hidden;border-top:1px solid var(--border)}
+  .pane{transition:transform .24s cubic-bezier(.32,.72,0,1)}
+  .pane.list.pushed{transform:translateX(-26%)}
+  .pane.detail{position:absolute;inset:0;background:var(--surface);transform:translateX(100%);
+    display:flex;flex-direction:column}
+  .pane.detail.in{transform:translateX(0)}
+
+  .lhead{display:flex;align-items:center;gap:6px;padding:8px 13px 6px}
+  .lhead .t{flex:1;font-size:11px;color:var(--text-faint);letter-spacing:.03em}
+  .list{max-height:224px;overflow-y:auto;padding-bottom:2px}
+  .list::-webkit-scrollbar{width:0}
+
+  .r{display:flex;gap:8px;align-items:center;padding:7px 12px 7px 3px;cursor:pointer;position:relative}
+  .r:hover{background:var(--bg-hover)}
+  .r.drag{opacity:.3}
+  .r.over::before{content:"";position:absolute;left:10px;right:10px;top:-1px;height:2px;background:var(--accent);border-radius:2px}
+  .grip{flex-shrink:0;width:15px;display:flex;justify-content:center;color:var(--text-faint);
+    cursor:grab;opacity:0;transition:opacity .12s}
+  .r:hover .grip{opacity:.7}
+  .cb{flex-shrink:0;width:15px;height:15px;border-radius:4px;border:1.5px solid var(--border-strong);
+    display:grid;place-items:center;cursor:pointer;background:transparent;color:transparent;padding:0}
+  .cb.on{background:var(--success);border-color:var(--success);color:#fff}
+  .rb{min-width:0;flex:1}
+  .rt{font-size:12.5px;line-height:1.4}
+  .off .rt{color:var(--text-faint)}
+  .cond{margin-top:1px;font-size:10.5px;color:var(--text-faint);font-family:ui-monospace,Menlo,monospace;
+    overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+  .soft{margin-top:1px;font-size:10.5px;color:var(--warning);display:flex;align-items:center;gap:3px}
+  .chev{flex-shrink:0;color:var(--text-faint);opacity:.5}
+  .r:hover .chev{opacity:1}
+  .builtin{background:var(--accent-soft)}
+  .builtin .rt{font-weight:500}
+  .tag{display:inline-block;margin-left:5px;font-size:9.5px;padding:1px 5px;border-radius:4px;
+    background:var(--accent);color:#fff;vertical-align:1px}
+
+  .addrow{display:flex;gap:6px;padding:8px;border-top:1px solid var(--border)}
+  .addrow input{flex:1;min-width:0;height:29px;padding:0 10px;border-radius:7px;border:1px solid var(--border);
+    background:var(--bg);color:var(--text);font:inherit;font-size:12.5px;outline:none}
+  .addrow input:focus{border-color:var(--accent)}
+  .addrow button{width:29px;height:29px;border:0;border-radius:7px;background:var(--accent);color:#fff;
+    cursor:pointer;display:grid;place-items:center;padding:0}
+
+  /* 详情 */
+  .dhead{display:flex;align-items:center;gap:6px;padding:9px 12px;border-bottom:1px solid var(--border)}
+  .dhead button{width:24px;height:24px;border:0;background:none;border-radius:6px;cursor:pointer;
+    color:var(--text-dim);display:grid;place-items:center;padding:0}
+  .dhead button:hover{background:var(--bg-hover);color:var(--text)}
+  .dhead .t{flex:1;font-size:12.5px;font-weight:600}
+  .dbody{flex:1;padding:12px 14px;display:flex;flex-direction:column;gap:5px;min-height:0;overflow-y:auto}
+  .dbody::-webkit-scrollbar{width:0}
+  .lbl{font-size:10.5px;color:var(--text-faint);text-transform:uppercase;letter-spacing:.05em}
+  textarea.big{width:100%;min-height:54px;padding:9px;border-radius:8px;border:1px solid var(--border);
+    background:var(--bg);color:var(--text);font:inherit;font-size:12.5px;resize:none;outline:none;line-height:1.55}
+  textarea.big:focus{border-color:var(--accent)}
+  .chips{display:flex;flex-wrap:wrap;gap:5px}
+  .chip{font-size:11px;padding:3px 8px;border-radius:6px;background:var(--accent-soft);color:var(--accent);
+    font-family:ui-monospace,Menlo,monospace}
+  .chip.warn{background:color-mix(in srgb,var(--warning) 15%,transparent);color:var(--warning);font-family:inherit;
+    display:flex;align-items:center;gap:4px}
+  .hint{font-size:11px;color:var(--text-faint);line-height:1.65}
+  .dfoot{display:flex;gap:7px;padding:10px 14px;border-top:1px solid var(--border)}
+  .dfoot button{height:29px;padding:0 12px;border-radius:7px;border:1px solid var(--border);background:var(--surface);
+    color:var(--text);font:inherit;font-size:12.5px;cursor:pointer}
+  .dfoot button.p{background:var(--accent);border-color:var(--accent);color:#fff}
+  .dfoot button.d{color:var(--danger);border-color:transparent;margin-left:auto}
+  svg{display:block}
+</style>
+
+<header>
+  <div>
+    <h1>对话护盾</h1>
+    <p class="lede">
+      不叫「权限模式」,叫<b>护盾</b>。普通人不需要理解三种档位,他只需要知道<b>盾开着还是关着</b>。
+      盾默认开着,按你定的规则把关;整个盾可以一键关掉。规则的增删改走<b>两级导航</b>:列表点进详情,详情推回列表。
+    </p>
+  </div>
+  <button onclick="document.documentElement.toggleAttribute('data-theme')">切换明暗</button>
+</header>
+
+<div class="idea">
+  <b>顺手合并掉一个概念。</b>
+  原来的「逐步确认 / 按照规则 / 完全跳过」三档,其实是<b>一个开关 + 一条规则</b>:
+  盾关掉 = 完全跳过;盾开着 = 按照规则;而「逐步确认」变成列表里一条<b>内置规则「任何操作都问我」</b>——
+  勾上它就等于逐步确认。<br>
+  这样整个模型只剩两个概念:<b>盾是开关,规则是内容</b>。没有第三种东西要解释。
+</div>
+
+<div class="board" id="board"></div>
+
+<script>
+const RULES = [
+  { id:"all",text:"任何操作都问我",     on:false, cond:[], soft:false, builtin:true,
+    hint:"最保守的一档:助手每一次动手前都会停下来。适合你想全程盯着的时候。" },
+  { id:"1", text:"删我文档以外的东西之前先问我", on:true, cond:["delete","~/Documents/**"], soft:false },
+  { id:"2", text:"装任何软件包之前问一下",       on:true, cond:["install"],               soft:false },
+  { id:"3", text:"推代码到远端前必须确认",        on:true, cond:["gitPush"],               soft:false },
+  { id:"4", text:"别自作主张改我的配置文件",      on:false, cond:[],                       soft:true  },
+];
+
+const I = {
+  shieldOn:'<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M20 13c0 5-3.5 7.5-7.7 9a1 1 0 0 1-.6 0C7.5 20.5 4 18 4 13V6a1 1 0 0 1 1-1c2 0 4.5-1.2 6.2-2.7a1 1 0 0 1 1.5 0C14.5 3.8 17 5 19 5a1 1 0 0 1 1 1Z"/><path d="m9 12 2 2 4-4"/></svg>',
+  shieldOff:'<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M20 13c0 5-3.5 7.5-7.7 9a1 1 0 0 1-.6 0C7.5 20.5 4 18 4 13V6a1 1 0 0 1 1-1c2 0 4.5-1.2 6.2-2.7a1 1 0 0 1 1.5 0C14.5 3.8 17 5 19 5a1 1 0 0 1 1 1Z"/><path d="m2 2 20 20"/></svg>',
+  s14on:'<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M20 13c0 5-3.5 7.5-7.7 9a1 1 0 0 1-.6 0C7.5 20.5 4 18 4 13V6a1 1 0 0 1 1-1c2 0 4.5-1.2 6.2-2.7a1 1 0 0 1 1.5 0C14.5 3.8 17 5 19 5a1 1 0 0 1 1 1Z"/><path d="m9 12 2 2 4-4"/></svg>',
+  s14off:'<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M20 13c0 5-3.5 7.5-7.7 9a1 1 0 0 1-.6 0C7.5 20.5 4 18 4 13V6a1 1 0 0 1 1-1c2 0 4.5-1.2 6.2-2.7a1 1 0 0 1 1.5 0C14.5 3.8 17 5 19 5a1 1 0 0 1 1 1Z"/><path d="m2 2 20 20"/></svg>',
+  cb:'<svg width="9" height="9" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="4" stroke-linecap="round" stroke-linejoin="round"><path d="M20 6 9 17l-5-5"/></svg>',
+  grip:'<svg width="9" height="13" viewBox="0 0 10 16" fill="currentColor"><circle cx="2.5" cy="3" r="1.2"/><circle cx="7.5" cy="3" r="1.2"/><circle cx="2.5" cy="8" r="1.2"/><circle cx="7.5" cy="8" r="1.2"/><circle cx="2.5" cy="13" r="1.2"/><circle cx="7.5" cy="13" r="1.2"/></svg>',
+  chev:'<svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="m9 18 6-6-6-6"/></svg>',
+  back:'<svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="m15 18-6-6 6-6"/></svg>',
+  plus:'<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round"><path d="M12 5v14M5 12h14"/></svg>',
+  warn:'<svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 9v4M12 17h.01M10.3 3.9 1.8 18a2 2 0 0 0 1.7 3h17a2 2 0 0 0 1.7-3L13.7 3.9a2 2 0 0 0-3.4 0Z"/></svg>',
+  clip:'<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M21.4 11.05 12.25 20.2a6 6 0 0 1-8.49-8.49l9.2-9.19a4 4 0 0 1 5.65 5.66L9.4 17.4a2 2 0 0 1-2.83-2.83l8.49-8.48"/></svg>',
+  send:'<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="m22 2-7 20-4-9-9-4Z"/></svg>',
+};
+
+const S = {
+  A: { shield:true,  rules:RULES.map(r=>({...r})), open:true, detail:null, draft:"", dragId:null, overId:null },
+  B: { shield:false, rules:RULES.map(r=>({...r})), open:true, detail:null, draft:"", dragId:null, overId:null },
+};
+
+const condHtml = (r) => r.builtin
+  ? `<div class="cond">勾上 = 每次动手前都问</div>`
+  : r.soft
+    ? `<div class="soft">${I.warn} 只靠助手自觉,拦不住</div>`
+    : `<div class="cond">${r.cond.join(" · ")}</div>`;
+
+const rowHtml = (k, r, s) => `<div class="r ${r.on?'':'off'} ${r.builtin?'builtin':''}
+    ${s.dragId===r.id?'drag':''} ${s.overId===r.id?'over':''}"
+    data-k="${k}" data-drop="${r.id}" data-act="detail" data-id="${r.id}">
+  ${r.builtin ? '<span class="grip"></span>' : `<span class="grip" draggable="true" data-k="${k}" data-drag="${r.id}">${I.grip}</span>`}
+  <button class="cb ${r.on?'on':''}" data-k="${k}" data-act="on" data-id="${r.id}">${I.cb}</button>
+  <div class="rb">
+    <div class="rt">${r.text}${r.builtin?'<span class="tag">内置</span>':''}</div>
+    ${condHtml(r)}
+  </div>
+  <span class="chev">${I.chev}</span>
+</div>`;
+
+const detailHtml = (k, s) => {
+  const r = s.rules.find((x) => x.id === s.detail);
+  if (!r) return "";
+  return `<div class="pane detail ${s.detail?'in':''}">
+    <div class="dhead">
+      <button data-k="${k}" data-act="back">${I.back}</button>
+      <span class="t">${r.builtin ? "内置规则" : "编辑规则"}</span>
+    </div>
+    <div class="dbody">
+      <span class="lbl">规则原话</span>
+      ${r.builtin
+        ? `<div style="font-size:13px;padding:2px 0 4px">${r.text}</div>
+           <div class="hint">${r.hint}</div>`
+        : `<textarea class="big" data-k="${k}" data-act="commit" data-id="${r.id}">${r.text}</textarea>
+           <span class="lbl" style="margin-top:7px">它会在什么时候拦下来</span>
+           <div class="chips">${r.soft
+             ? `<span class="chip warn">${I.warn} 这句话编译不出条件,拦不住</span>`
+             : r.cond.map((c)=>`<span class="chip">${c}</span>`).join("")}</div>
+           ${r.soft ? `<div class="hint">它仍会写进助手的提示词,靠助手自觉遵守 —— 但没有硬拦截。换个更具体的说法试试,比如点名某个目录或某个动作。</div>` : ""}`}
+    </div>
+    ${r.builtin ? "" : `<div class="dfoot">
+      <button class="p" data-k="${k}" data-act="back">保存并重新编译</button>
+      <button class="d" data-k="${k}" data-act="del" data-id="${r.id}">删除</button>
+    </div>`}
+  </div>`;
+};
+
+const panelHtml = (k, s) => {
+  const live = s.rules.filter((r) => r.on).length;
+  const askAll = s.rules.find((r) => r.id === "all")?.on;
+  return `<div class="panel">
+    <div class="phead">
+      <span class="pico ${s.shield?'on':'off'}">${s.shield?I.shieldOn:I.shieldOff}</span>
+      <span class="ptxt">
+        <b>护盾${s.shield?"":"已关闭"}</b>
+        <span>${s.shield
+          ? (askAll ? "每一次动手前都会问你" : `按 ${live} 条规则把关`)
+          : "助手做任何事都不会问你"}</span>
+      </span>
+      <button class="sw ${s.shield?'on':''}" data-k="${k}" data-act="shield"><i></i></button>
+    </div>
+
+    ${s.shield ? `<div class="stack">
+      <div class="pane list ${s.detail?'pushed':''}">
+        <div class="lhead"><span class="t">命中任意一条就停下来问你 · 可拖动排序</span></div>
+        <div class="list">${s.rules.map((r) => rowHtml(k, r, s)).join("")}</div>
+        <div class="addrow">
+          <input data-k="${k}" data-act="draft" value="${s.draft.replace(/"/g,"&quot;")}" placeholder="什么情况下要先问过你…">
+          <button data-k="${k}" data-act="add">${I.plus}</button>
+        </div>
+      </div>
+      ${detailHtml(k, s)}
+    </div>` : `<div class="offbox"><div class="offcard">
+      <b>盾关着的时候,没有任何拦截</b>
+      <span>删文件、装东西、推代码 —— 助手都会直接做,不会再问你一句。你定的规则暂时不生效。</span>
+    </div></div>`}
+  </div>`;
+};
+
+const composer = (k, s) => `<div class="composer">
+  ${s.open ? panelHtml(k, s) : ""}
+  <div class="ta">发送消息…</div>
+  <div class="bar">
+    <span class="ic">${I.clip}</span>
+    <button class="sbtn ${s.shield?'on':'off'}" data-k="${k}" data-act="toggle">
+      ${s.shield?I.s14on:I.s14off}
+      ${s.shield ? (s.rules.find(r=>r.id==="all")?.on ? "每次都问" : `护盾 · ${s.rules.filter(r=>r.on).length}`) : "护盾已关"}
+    </button>
+    <span class="spacer"></span>
+    <span class="send">${I.send}</span>
+  </div>
+</div>`;
+
+const COLS = [
+  ["A","盾开着(默认)","盾默认就是开的。列表里点任意一条 → 详情从右边推进来,返回箭头推回去。拖手柄排序,勾选停用。"],
+  ["B","盾关着","一眼看出没有保护:图标划掉、按钮变红、面板里一张红卡直说后果。再点开关就回来。"],
+];
+
+function render() {
+  document.getElementById("board").innerHTML = COLS.map(([k,title,desc]) => `
+    <div class="col"><h2>${title}</h2><p>${desc}</p>${composer(k, S[k])}</div>`).join("");
+}
+
+document.addEventListener("click", (e) => {
+  const el = e.target.closest("[data-act]");
+  if (!el) return;
+  const { k, act, id } = el.dataset;
+  const s = S[k]; if (!s) return;
+  if (act === "shield") s.shield = !s.shield;
+  if (act === "toggle") s.open = !s.open;
+  if (act === "on") { const r = s.rules.find(x=>x.id===id); r.on = !r.on; e.stopPropagation(); render(); return; }
+  if (act === "detail") s.detail = id;
+  if (act === "back") s.detail = null;
+  if (act === "del") { s.rules = s.rules.filter(x=>x.id!==id); s.detail = null; }
+  if (act === "add") {
+    const text = s.draft.trim(); if (!text) return;
+    s.rules.push({ id:String(Date.now()), text, on:true, cond:["(编译中…)"], soft:false });
+    s.draft = "";
+  }
+  render();
+});
+
+document.addEventListener("input", (e) => {
+  const el = e.target.closest("[data-act]"); if (!el) return;
+  const { k, act, id } = el.dataset; const s = S[k]; if (!s) return;
+  if (act === "draft") s.draft = el.value;
+  if (act === "commit") { const r = s.rules.find(x=>x.id===id); if (r) r.text = el.value; }
+});
+
+document.addEventListener("keydown", (e) => {
+  const el = e.target.closest("[data-act]"); if (!el) return;
+  const { k, act } = el.dataset; const s = S[k]; if (!s) return;
+  if (e.key === "Enter" && act === "draft") {
+    const text = s.draft.trim(); if (!text) return;
+    s.rules.push({ id:String(Date.now()), text, on:true, cond:["(编译中…)"], soft:false });
+    s.draft = ""; render();
+  }
+  if (e.key === "Escape") { s.detail = null; render(); }
+});
+
+document.addEventListener("dragstart", (e) => {
+  const g = e.target.closest("[data-drag]"); if (!g) return;
+  const s = S[g.dataset.k]; if (!s) return;
+  s.dragId = g.dataset.drag;
+  e.dataTransfer.effectAllowed = "move";
+  e.dataTransfer.setData("text/plain", s.dragId);
+});
+document.addEventListener("dragover", (e) => {
+  const row = e.target.closest("[data-drop]"); if (!row) return;
+  const s = S[row.dataset.k]; if (!s || !s.dragId) return;
+  e.preventDefault();
+  if (s.overId !== row.dataset.drop) { s.overId = row.dataset.drop; render(); }
+});
+document.addEventListener("drop", (e) => {
+  const row = e.target.closest("[data-drop]"); if (!row) return;
+  const s = S[row.dataset.k]; if (!s || !s.dragId) return;
+  e.preventDefault();
+  const from = s.rules.findIndex((r) => r.id === s.dragId);
+  const to = s.rules.findIndex((r) => r.id === row.dataset.drop);
+  if (from > -1 && to > -1 && from !== to) {
+    const [moved] = s.rules.splice(from, 1);
+    s.rules.splice(to, 0, moved);
+  }
+  s.dragId = null; s.overId = null; render();
+});
+document.addEventListener("dragend", () => {
+  for (const s of Object.values(S)) { s.dragId = null; s.overId = null; }
+  render();
+});
+
+render();
+</script>

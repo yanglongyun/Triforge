@@ -6,9 +6,9 @@ import { EVENTS } from "../../server/shared/events";
 import { QuickOpen, CommandPalette, type Command } from "./components/command";
 import { PanelHost } from "./components/sidebar";
 import { WorkspaceLayout, isSettingsTab, isNodeTab, useTabGroups, webTab, type TabActions, type WorkspaceGroupId } from "./components/workspace";
-import { looksLikeUrl, normalizeUrl } from "./lib/urls";
-import { DialogHost, dialog, SystemNotices, ToastHost } from "./components/ui";
-import { FileText, Folder, FolderPlus, Bot, Globe, Search, Settings as SettingsIcon, X, PanelRight } from "lucide-react";
+import { looksLikeUrl } from "./lib/urls";
+import { DialogHost, ContextMenu, dialog, SystemNotices, ToastHost, type MenuItem } from "./components/ui";
+import { FileText, Folder, FolderPlus, Bot, Globe, LayoutGrid, Search, Settings as SettingsIcon, Terminal, X, PanelRight } from "lucide-react";
 
 export function App() {
   const socket = useSocket();
@@ -67,6 +67,8 @@ export function App() {
     tabGroups.openTerminal(cwdHint, title, { command: opts.command });
   };
   const openSettings = () => tabGroups.openSettings();
+  const openWidgets = () => tabGroups.openWidgets();
+  const openApp = (appId: string, name: string) => tabGroups.openApp(appId, name);
   const openWebTab = (url: string, title?: string) => tabGroups.openWeb(url, title);
   const openAgentById = (id: string) => api.getChat(id).then((r) => r.node && openNode(r.node)).catch(() => {});
 
@@ -201,7 +203,7 @@ export function App() {
       }
       // dev 纯浏览器里 ⌘W/⌘T 被浏览器保留,拦不住;Electron 走菜单转发,这里兜非 mac 的 Ctrl+W/T
       if (e.ctrlKey && !e.metaKey && !e.shiftKey && e.key.toLowerCase() === "w") { e.preventDefault(); closeActiveTab(); return; }
-      if (e.ctrlKey && !e.metaKey && !e.shiftKey && e.key.toLowerCase() === "t") { e.preventDefault(); tabGroups.openLauncher(); return; }
+      if (e.ctrlKey && !e.metaKey && !e.shiftKey && e.key.toLowerCase() === "t") { e.preventDefault(); openNewMenu(tabGroups.activeGroupId); return; }
     };
     const onCloseTab = () => closeActiveTab();
     window.addEventListener("keydown", onKey);
@@ -243,66 +245,39 @@ export function App() {
     window.dispatchEvent(new Event("workbench:add-workspace"));
   };
 
-  // 新标签页(方案 C):+ / ⌘T 打开;Enter 后就地转身 —— 文字变对话(文字即首条消息),
-  // 网址变网页标签(同站已开则聚焦并退场)。LauncherPanel 只发事件,裁决都在这里。
-  const createParentIdRef = useRef(currentCreateParentId);
-  createParentIdRef.current = currentCreateParentId;
+  // 方案 B:点击加号直接弹出类型菜单,不再创建「新标签页」。
+  const [newMenu, setNewMenu] = useState<{ x: number; y: number } | null>(null);
+  const openNewMenu = useCallback((groupId: WorkspaceGroupId, anchor?: HTMLElement) => {
+    const rect = anchor?.getBoundingClientRect();
+    const menuWidth = 200;
+    const menuHeight = 190;
+    const left = rect
+      ? Math.max(8, Math.min(window.innerWidth - menuWidth - 8, rect.left))
+      : Math.max(12, Math.min(window.innerWidth - menuWidth - 8, window.innerWidth / 2 - menuWidth / 2));
+    const top = rect
+      ? (rect.bottom + menuHeight + 8 <= window.innerHeight ? rect.bottom + 4 : Math.max(8, rect.top - menuHeight - 4))
+      : 56;
+    setNewMenu({ x: left, y: top });
+  }, []);
+  const newMenuItems: MenuItem[] = [
+    { label: "新建对话", icon: <Bot size={14} className="text-warning" />, onClick: () => void createAtCurrentTarget("chat") },
+    { label: "新建文件", icon: <FileText size={14} className="text-text-faint" />, onClick: () => void createAtCurrentTarget("file") },
+    { label: "打开网址…", icon: <Globe size={14} className="text-accent" />, onClick: async () => {
+      const raw = await dialog.prompt("", { title: "打开网址", placeholder: "example.com", confirmText: "打开" });
+      if (raw?.trim()) openWebTab(/^[a-z][a-z0-9+.-]*:/i.test(raw.trim()) ? raw.trim() : `https://${raw.trim()}`);
+    } },
+    { label: "新建终端", icon: <Terminal size={14} className="text-success" />, onClick: () => {
+      const node = selectedNode || activeNode;
+      if (node) openTerminal(node);
+      else void dialog.alert("先添加一个工作区,终端才有落脚的目录。");
+    } },
+  ];
+
   useEffect(() => {
-    const onNewTab = () => tabGroups.openLauncher();
-    const onLaunch = (e: Event) => {
-      const { tabId, groupId, value } = ((e as CustomEvent).detail || {}) as { tabId?: string; groupId?: WorkspaceGroupId; value?: string };
-      if (!tabId || !groupId) return;
-      const input = String(value || "").trim();
-      if (input && looksLikeUrl(input)) {
-        const url = normalizeUrl(input);
-        const existing = tabGroups.findWebTab(url);
-        if (existing) {
-          tabGroups.closeTab(groupId, tabId);
-          tabGroups.activateTab(existing.groupId, existing.tab.id);
-        } else {
-          tabGroups.replaceTab(groupId, tabId, webTab(url));
-        }
-        return;
-      }
-      void (async () => {
-        try {
-          const r = await api.createChat({ title: "", workdir: createParentIdRef.current() || undefined });
-          setSelectedNode(r.node);
-          tabGroups.replaceTab(groupId, tabId, r.node);
-          setTreeRefresh((n) => n + 1);
-          if (input) socket.send({ type: "send", chatId: r.node.id, prompt: input });
-        } catch (err: any) {
-          void dialog.alert(err?.message || "新建对话失败");
-        }
-      })();
-    };
-    const onLaunchClose = (e: Event) => {
-      const { tabId, groupId } = ((e as CustomEvent).detail || {}) as { tabId?: string; groupId?: WorkspaceGroupId };
-      if (tabId && groupId) tabGroups.closeTab(groupId, tabId);
-    };
-    const onLaunchCreate = (e: Event) => {
-      const { tabId, groupId, kind } = ((e as CustomEvent).detail || {}) as { tabId?: string; groupId?: WorkspaceGroupId; kind?: string };
-      if (tabId && groupId) tabGroups.closeTab(groupId, tabId);
-      if (kind === "file") { void createAtCurrentTarget("file"); return; }
-      if (kind === "terminal") {
-        void (async () => {
-          const pid = createParentIdRef.current() || (await api.listRoots().catch(() => ({ nodes: [] as Node[] }))).nodes[0]?.id;
-          if (!pid) { void dialog.alert("先添加一个工作区,终端才有落脚的目录。"); return; }
-          tabGroups.openTerminal(pid, `Terminal: ${pid.split("/").filter(Boolean).pop() || "workspace"}`);
-        })();
-      }
-    };
+    const onNewTab = () => openNewMenu(tabGroups.activeGroupId);
     window.addEventListener("workbench:new-tab", onNewTab);
-    window.addEventListener("workbench:launch", onLaunch);
-    window.addEventListener("workbench:launch-close", onLaunchClose);
-    window.addEventListener("workbench:launch-create", onLaunchCreate);
-    return () => {
-      window.removeEventListener("workbench:new-tab", onNewTab);
-      window.removeEventListener("workbench:launch", onLaunch);
-      window.removeEventListener("workbench:launch-close", onLaunchClose);
-      window.removeEventListener("workbench:launch-create", onLaunchCreate);
-    };
-  });
+    return () => window.removeEventListener("workbench:new-tab", onNewTab);
+  }, [openNewMenu, tabGroups.activeGroupId]);
 
   const commands: Command[] = [
     { id: "new-agent", label: "新建对话", icon: <Bot size={14} />, run: () => createAtCurrentTarget("chat") },
@@ -324,6 +299,7 @@ export function App() {
       },
     },
     { id: "settings", label: "打开设置", icon: <SettingsIcon size={14} />, run: openSettings },
+    { id: "widgets", label: "管理组件", icon: <LayoutGrid size={14} />, run: openWidgets },
     {
       id: "close-tab",
       label: "关闭当前标签",
@@ -351,7 +327,7 @@ export function App() {
     closeOthers: tabGroups.closeOthers,
     closeToRight: tabGroups.closeToRight,
     closeGroup: tabGroups.closeGroup,
-    newTab: (groupId) => tabGroups.openLauncher({ groupId }),
+    newTab: (groupId, anchor) => openNewMenu(groupId, anchor),
   };
 
   const toggleNav = () => {
@@ -370,7 +346,9 @@ export function App() {
         onSelect={openNode}
         socket={socket}
         onOpenUrl={openWebTab}
+        onOpenApp={openApp}
         onToggleNav={toggleNav}
+        onSetDesktopOpen={setDesktopNavOpen}
         onOpenSide={(n) => openNode(n, { groupId: "side" })}
         onOpenTerminal={openTerminal}
         onOpenGit={openGit}
@@ -378,6 +356,7 @@ export function App() {
         refreshKey={treeRefresh}
         settingsActive={isSettingsTab(tabGroups.activeTab)}
         onOpenSettings={openSettings}
+        onOpenWidgets={openWidgets}
         mobileOpen={mobileNavOpen}
         desktopOpen={desktopNavOpen}
         onCloseMobile={closeNav}
@@ -390,6 +369,7 @@ export function App() {
       {quickOpen && <QuickOpen onPick={(n) => openNode(n)} onClose={() => setQuickOpen(false)} />}
       {cmdOpen && <CommandPalette commands={commands} onClose={() => setCmdOpen(false)} />}
       <DialogHost />{/* 全局对话框:提示/确认/输入,全产品一套 */}
+      {newMenu && <ContextMenu x={newMenu.x} y={newMenu.y} items={newMenuItems} onClose={() => setNewMenu(null)} />}
       <SystemNotices />{/* 右下角系统气泡:更新就绪 + 官方公告 */}
       <ToastHost />{/* 轻提示(应用 ui.toast 也走这里) */}
 
@@ -404,7 +384,6 @@ export function App() {
           allGroups={tabGroups.allGroups}
           activeGroupId={tabGroups.activeGroupId}
           sideOpen={tabGroups.sideOpen}
-          navOpen={desktopNavOpen}
           onOpenNav={toggleNav}
           dirtyIds={dirtyIds}
           tabs={tabActions}

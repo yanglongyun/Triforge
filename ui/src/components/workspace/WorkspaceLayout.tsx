@@ -38,7 +38,6 @@ export function WorkspaceLayout({
   allGroups,
   activeGroupId,
   sideOpen,
-  navOpen,
   onOpenNav,
   dirtyIds,
   tabs,
@@ -50,7 +49,7 @@ export function WorkspaceLayout({
   allGroups: WorkspaceGroupState[];
   activeGroupId: WorkspaceGroupState["id"];
   sideOpen: boolean;
-  navOpen?: boolean;
+  /** 移动端:标签栏左端汉堡打开侧栏抽屉(桌面端活动栏常驻,不需要它)。 */
   onOpenNav?: () => void;
   dirtyIds: Set<string>;
   /** 标签操作包(App 装一次,贯穿到 TabBar)。 */
@@ -203,7 +202,6 @@ export function WorkspaceLayout({
               showNavButton={index === 0}
               showSideToggle={index === groups.length - 1}
               sideOpen={sideOpen}
-              navOpen={navOpen}
               onOpenNav={onOpenNav}
               tabs={tabs}
               content={content}
