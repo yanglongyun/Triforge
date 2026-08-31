@@ -32,7 +32,16 @@ export const ACTIVATE_EVENT = "workbench:web-activate";
 
 const wait = (ms: number) => new Promise((resolve) => setTimeout(resolve, ms));
 
-const exec = async ({ el, tabId }: { el: any; tabId: string }, op: string, params: any): Promise<any> => {
+/** 走 CDP(主进程)。<webview> 元素只有渲染层摸得到,debugger 只有主进程摸得到,这一跳绕不开。 */
+const viaCdp = async (wcId: number, op: string, params: unknown) => {
+  const bridge = window.workbenchDesktop;
+  if (!bridge?.cdp) throw new Error("需要在桌面应用里使用");
+  const result = await bridge.cdp(wcId, op as any, params);
+  if (!result.ok) throw new Error(result.error);
+  return result.data;
+};
+
+const exec = async ({ el, tabId, wcId }: { el: any; tabId: string; wcId: number }, op: string, params: any): Promise<any> => {
   switch (op) {
     case "navigate":
       try {
@@ -47,41 +56,36 @@ const exec = async ({ el, tabId }: { el: any; tabId: string }, op: string, param
       el.goBack();
       return "ok";
     case "read":
-      return await el.executeJavaScript(
-        `(() => { const text = document.body ? document.body.innerText : ""; return { title: document.title, url: location.href, text: text.slice(0, 60000) }; })()`,
-      );
+      // 隔离世界执行:页面 hook 不到也改不了我们的脚本(主世界里 querySelector 可能被换掉)
+      return await viaCdp(wcId, "eval",
+        { expression: `(() => { const text = document.body ? document.body.innerText : ""; return { title: document.title, url: location.href, text: text.slice(0, 60000) }; })()` });
     case "js": {
-      const raw = await el.executeJavaScript(String(params.code || ""));
+      const raw = await viaCdp(wcId, "eval", { expression: String(params.code || "") });
       if (raw === undefined) return "undefined";
       try { return JSON.stringify(raw, null, 2); } catch { return String(raw); }
     }
+    case "snapshot":
+      // 无障碍树快照:一行一个可交互元素,带 ref。模型据此点、填,而不是猜 CSS 选择器
+      return await viaCdp(wcId, "snapshot", { maxNodes: Number(params.max_nodes) || 400 });
     case "click":
-      return await el.executeJavaScript(`(() => {
-        const target = document.querySelector(${JSON.stringify(String(params.selector || ""))});
-        if (!target) return "error: 没找到元素 " + ${JSON.stringify(String(params.selector || ""))};
-        target.scrollIntoView({ block: "center" });
-        target.click();
-        const text = (target.textContent || "").trim().slice(0, 40);
-        return "已点击 " + target.tagName.toLowerCase() + (text ? ":" + text : "");
-      })()`);
-    case "type":
-      return await el.executeJavaScript(`(() => {
-        const target = document.querySelector(${JSON.stringify(String(params.selector || ""))});
-        if (!target) return "error: 没找到元素 " + ${JSON.stringify(String(params.selector || ""))};
-        target.focus();
-        const text = ${JSON.stringify(String(params.text ?? ""))};
-        if (target.isContentEditable) {
-          document.execCommand("selectAll", false);
-          document.execCommand("insertText", false, text);
-        } else {
-          const proto = target instanceof HTMLTextAreaElement ? HTMLTextAreaElement.prototype : HTMLInputElement.prototype;
-          const desc = Object.getOwnPropertyDescriptor(proto, "value");
-          if (desc && desc.set) desc.set.call(target, text); else target.value = text;
-          target.dispatchEvent(new Event("input", { bubbles: true }));
-          target.dispatchEvent(new Event("change", { bubbles: true }));
-        }
-        return "已输入到 " + target.tagName.toLowerCase();
-      })()`);
+    case "double_click":
+    case "hover":
+    case "fill":
+    case "select":
+    case "press":
+    case "scroll":
+      // **真实输入**:走 CDP 的 Input 域,事件 isTrusted=true,和用户自己动手无区别。
+      // 从前是在页面里 el.click(),那是合成事件 —— 文件选择、拖放、部分框架的手势判定都不认
+      return await viaCdp(wcId, "act", {
+        action: op === "double_click" ? "doubleClick" : op,
+        ref: params.ref,
+        pageVersion: params.page_version,
+        value: params.value ?? params.text,
+        key: params.key,
+        deltaY: params.delta_y,
+        x: params.x,
+        y: params.y,
+      });
     case "screenshot": {
       // 先把标签翻到前台等一拍再拍:display:none 的 webview 没有画面
       window.dispatchEvent(new CustomEvent(ACTIVATE_EVENT, { detail: { tabId } }));
@@ -110,7 +114,7 @@ export function useBrowserHost(socket: Socket) {
       const entry = registry.get(Number(p.wcId));
       if (!entry) return; // 不是这个窗口的标签,拥有它的窗口会应答
       try {
-        const result = await exec(entry, String(p.op || ""), p.params || {});
+        const result = await exec({ ...entry, wcId: Number(p.wcId) }, String(p.op || ""), p.params || {});
         socket.send({ type: "browser_response", id: p.id, ok: true, result });
       } catch (e: any) {
         socket.send({ type: "browser_response", id: p.id, ok: false, error: String(e?.message || e) });

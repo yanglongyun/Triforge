@@ -515,6 +515,7 @@ export function WebPanel({ tab, socket, onUpdate }: {
         src={tab.url}
         partition={WEB_PARTITION}
         allowpopups={"true" as unknown as boolean}
+        preload={window.workbenchDesktop?.webviewPreload || undefined}
         allowFullScreen
         className="flex-1 min-h-0"
         style={{ display: "flex" }}

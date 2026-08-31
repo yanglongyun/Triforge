@@ -173,6 +173,10 @@ import {
   serveAnswers, serveCertErrors, serveHttpAuth, servePermissions,
 } from "./browsing.js";
 import { serveDownloads } from "./downloads.js";
+import { targetOf, evaluate as cdpEvaluate, send as cdpSend } from "./browser/cdp.js";
+import { observe } from "./browser/snapshot.js";
+import { act } from "./browser/act.js";
+import { bindCursor } from "./browser/cursor.js";
 
 const WEB_PARTITION = "persist:web";
 const webSession = () => session.fromPartition(WEB_PARTITION);
@@ -303,6 +307,28 @@ const servePageMenu = () => {
   });
 };
 
+/**
+ * CDP 的对外面。渲染层拿着自己那个标签的 wcId 调进来 ——
+ * `<webview>` 元素只有渲染进程摸得到,而 `webContents.debugger` 只有主进程摸得到,
+ * 这一跳绕不开。谁拥有那个标签谁来调,和从前的 browser 工具一个口径。
+ */
+const serveCdp = () => {
+  ipcMain.handle("workbench:cdp", async (_event, { wcId, op, params } = {}) => {
+    try {
+      const target = targetOf(wcId);
+      switch (op) {
+        case "snapshot": return { ok: true, data: await observe(target, params || {}) };
+        case "act": return { ok: true, data: await act(target, params || {}) };
+        case "eval": return { ok: true, data: await cdpEvaluate(target, String(params?.expression || "")) };
+        case "raw": return { ok: true, data: await cdpSend(target, String(params?.method || ""), params?.params || {}) };
+        default: return { ok: false, error: `不认识的 CDP 操作:${op}` };
+      }
+    } catch (error) {
+      return { ok: false, error: String(error?.message || error) };
+    }
+  });
+};
+
 const createWindow = (port) => {
   const win = new BrowserWindow({
     width: 1440,
@@ -317,6 +343,9 @@ const createWindow = (port) => {
       nodeIntegration: false,
       preload: join(ROOT, "desktop/preload.cjs"), // 窄桥:仅暴露 installUpdate
       webviewTag: true, // 网页标签:界面里的 <webview>,真会话真登录态
+      // 网页标签自己的 preload(AI 光标)要绝对 file:// 路径,渲染层拼不出打包后的位置,
+      // 由壳算好从这里递过去
+      additionalArguments: [`--webview-preload=file://${join(ROOT, "desktop/webviewPreload.cjs")}`],
     },
   });
   hostContents = win.webContents; // 立刻认领:导航护栏靠它区分宿主与我们开的弹窗
@@ -497,6 +526,8 @@ app.whenReady().then(async () => {
     serveCertErrors(webSession(), toRenderer);
     serveDownloads(webSession(), toRenderer);
     serveAnswers();
+    bindCursor();
+    serveCdp();
     await startServer(port);
     createWindow(port);
     void setupUpdates();

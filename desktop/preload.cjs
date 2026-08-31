@@ -2,7 +2,12 @@
 // 只暴露最少的能力,每一条都对应界面上一个明确的用户动作。
 const { contextBridge, ipcRenderer } = require("electron");
 
+const webviewPreload = (process.argv.find((a) => a.startsWith("--webview-preload=")) || "").slice("--webview-preload=".length);
+
 contextBridge.exposeInMainWorld("workbenchDesktop", {
+  /** 网页标签要挂的 preload 路径(AI 光标)。壳算好,界面原样用。 */
+  webviewPreload,
+
   /** 更新已下载后调用:退出并安装新版本。 */
   installUpdate: () => ipcRenderer.invoke("workbench:install-update"),
 
@@ -17,6 +22,9 @@ contextBridge.exposeInMainWorld("workbenchDesktop", {
   trustCertHost: (host) => ipcRenderer.invoke("workbench:web-trust-cert", host),
   /** 清空已授予的网站权限与证书例外。 */
   forgetWebPermissions: () => ipcRenderer.invoke("workbench:web-forget-permissions"),
+
+  /** CDP:对某个网页标签做快照 / 原子操作 / 隔离世界执行。 */
+  cdp: (wcId, op, params) => ipcRenderer.invoke("workbench:cdp", { wcId, op, params }),
 
   /** 下载:取消进行中的、在访达中显示、打开文件。 */
   cancelDownload: (id) => ipcRenderer.invoke("workbench:download-cancel", id),

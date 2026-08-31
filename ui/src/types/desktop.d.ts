@@ -4,6 +4,12 @@ export {};
 declare global {
   interface Window {
     workbenchDesktop?: {
+      /** 网页标签要挂的 preload 绝对路径(AI 光标);壳算好递过来。 */
+      webviewPreload?: string;
+      /** CDP:快照 / 原子操作 / 隔离世界执行。 */
+      cdp: (wcId: number, op: "snapshot" | "act" | "eval" | "raw", params?: unknown) =>
+        Promise<{ ok: true; data: any } | { ok: false; error: string }>;
+
       /** 更新已下载后调用:退出并安装新版本。 */
       installUpdate: () => Promise<void>;
 
