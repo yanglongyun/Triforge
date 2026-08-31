@@ -170,7 +170,7 @@ export function SettingsPanel({ onSaved }: { onSaved?: (settings: Settings) => v
               />
             </Field>
 
-            <Field label="网页登录状态" alignTop>
+            <Field label="网页登录状态" alignTop group>
               <BrowserLogins />
             </Field>
 
@@ -190,7 +190,7 @@ export function SettingsPanel({ onSaved }: { onSaved?: (settings: Settings) => v
               </div>
             </Field>
 
-            <Field label="关于" alignTop>
+            <Field label="关于" alignTop group>
               <div className="space-y-1.5 py-1 text-[13px] text-text-dim">
                 <div>版本 {__APP_VERSION__}</div>
                 <a
@@ -314,17 +314,31 @@ function BrowserLogins() {
   );
 }
 
+/**
+ * 一行设置:左边标题,右边内容。
+ *
+ * **只装着一个控件时才用 `<label>`。** label 会把落在它任何地方的点击转发给里面的
+ * 第一个表单控件 —— 对单个输入框这是想要的(点标题就聚焦),但内容是一组行的时候
+ * 就成了灾难:点左边空白的标题栏,会触发那一组里的第一个按钮。
+ * 「点设置页的空白处,弹出了从浏览器导入」就是这么来的,不是弹窗自己的问题。
+ *
+ * 所以装一组东西的用 `group`,渲染成普通 div,点空白什么都不会发生。
+ */
 function Field({
   label,
   children,
   alignTop = false,
+  group = false,
 }: {
   label: string;
   children: ReactNode;
   alignTop?: boolean;
+  /** 内容是一组控件(多按钮/多行)而不是单个输入框 —— 用 div,别用 label。 */
+  group?: boolean;
 }) {
+  const Tag = group ? "div" : "label";
   return (
-    <label
+    <Tag
       className={[
         "grid grid-cols-[170px_minmax(0,1fr)] gap-4 py-4 max-md:grid-cols-1 max-md:gap-2",
         alignTop ? "items-start" : "items-center",
@@ -332,6 +346,6 @@ function Field({
     >
       <span className="text-[12px] font-medium uppercase tracking-wide text-text-faint">{label}</span>
       {children}
-    </label>
+    </Tag>
   );
 }
