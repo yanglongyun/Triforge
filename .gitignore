@@ -59,3 +59,7 @@ workspaces/
 # esbuild 产物(build:updater)
 desktop/updater.mjs
 electron-builder-unsigned.json
+
+# ─── 不开源:内部文档 ───
+.dev/
+CLAUDE.md
