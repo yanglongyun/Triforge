@@ -355,10 +355,15 @@ export function WebPanel({ tab, socket, onUpdate }: {
         </div>
       )}
 
+      {/* allowpopups 必须开:不开的话 window.open 与 target=_blank 连事件都不产生,
+          点 Google 搜索结果就是「没反应」。开了之后由主进程的 setWindowOpenHandler
+          决定去处 —— 带尺寸的弹窗真开窗口(OAuth 要),其余落我们自己的新标签。 */}
       <webview
         ref={(el) => { viewRef.current = el; }}
         src={tab.url}
         partition={WEB_PARTITION}
+        allowpopups={"true" as unknown as boolean}
+        allowFullScreen
         className="flex-1 min-h-0"
         style={{ display: "flex" }}
       />

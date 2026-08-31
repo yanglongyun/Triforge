@@ -157,6 +157,17 @@ export function App() {
     return off;
   }, [socket, tabGroups.openWeb]);
 
+  // 壳里的新标签请求:webview 里 target=_blank / 中键 / 右键「在新标签页打开」,
+  // 以及宿主界面被外链导航时的兜底 —— 都落到这里开一个网页标签
+  useEffect(() => {
+    const onOpenTab = (e: Event) => {
+      const url = String((e as CustomEvent).detail?.url || "");
+      if (url) openWebTab(url);
+    };
+    window.addEventListener("workbench:open-web-tab", onOpenTab);
+    return () => window.removeEventListener("workbench:open-web-tab", onOpenTab);
+  }, [tabGroups.openWeb]);
+
   // browser screenshot:截图前把目标网页标签翻到前台(隐藏的 <webview> 画不出图,capturePage 会挂起)
   useEffect(() => {
     const onActivate = (e: Event) => {

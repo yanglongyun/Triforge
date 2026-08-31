@@ -3,7 +3,7 @@
 // 为什么用系统 node 而不是 Electron 自带的 Node:node-pty 是原生模块,按系统 node
 // 的 ABI 编译;塞进 Electron 的 Node 要 electron-rebuild 整一轮。开发期直接用系统
 // node 零 ABI 纠纷;正式打包时再换成随包 node + rebuild(见 dev/ 版本文档)。
-import { app, BrowserWindow, Menu, dialog, ipcMain, nativeTheme, session, shell } from "electron";
+import { app, BrowserWindow, Menu, clipboard, dialog, ipcMain, nativeTheme, session, shell } from "electron";
 import { existsSync, renameSync, mkdirSync, readFileSync, writeFileSync } from "node:fs";
 import { spawn } from "node:child_process";
 import { createServer } from "node:net";
@@ -165,6 +165,109 @@ const startServer = async (port) => {
     }
   });
   await waitHealthy(port);
+};
+
+
+/** 给界面派一个事件。没有反向 IPC 通道,沿用 executeJavaScript 那条路。 */
+const toRenderer = (name, detail) => {
+  const target = BrowserWindow.getAllWindows()[0];
+  if (!target) return;
+  target.webContents
+    .executeJavaScript(`window.dispatchEvent(new CustomEvent(${JSON.stringify(name)},{detail:${JSON.stringify(detail)}}))`)
+    .catch(() => { /* 页面还没加载好,丢了就算 */ });
+};
+
+/**
+ * 新窗口请求分三种去处,和真浏览器一致:
+ *
+ *   ① 页面里带尺寸的 window.open(disposition = new-window)—— OAuth 登录框是这种。
+ *      **必须真开一个窗口**:页面要拿着 window 句柄导航它、收它 postMessage、最后关掉。
+ *      我们自己开标签会让 window.open 返回 null,登录库当成被拦截,再开一个 ——
+ *      症状是「点一次登录冒出两个标签,第二个还是空白」。
+ *   ② 页面里的 target=_blank / 中键 —— 开我们自己的新标签,别顶掉用户正看的那页。
+ *   ③ 宿主界面里的外链 —— 系统浏览器。那是产品自己的链接,不该占用户的标签。
+ *
+ * **宿主界面永远不许被导航走。** setWindowOpenHandler 只管 window.open 和 target=_blank;
+ * 普通的 <a href> 是原地导航,走 will-navigate —— 没人拦的话点一下就把整个应用顶掉了。
+ */
+const routeNewWindows = (port) => {
+  const hostOrigin = `http://127.0.0.1:${port}`;
+  app.on("web-contents-created", (_event, contents) => {
+    const isWebview = contents.getType() === "webview";
+
+    if (!isWebview) {
+      contents.on("will-navigate", (event, url) => {
+        if (url.startsWith(hostOrigin) || url.startsWith("http://localhost:")) return;
+        event.preventDefault();
+        if (/^https?:/.test(url)) toRenderer("workbench:open-web-tab", { url });
+        // mailto: / tel: 归系统。不处理的话它们会被 preventDefault 默默吃掉,点了没反应也不报错
+        else if (/^[a-z][a-z0-9+.-]*:/i.test(url)) shell.openExternal(url).catch(() => {});
+      });
+    }
+
+    contents.setWindowOpenHandler(({ url, disposition }) => {
+      if (!/^https?:/.test(url)) return { action: "deny" };
+      if (!isWebview) { shell.openExternal(url); return { action: "deny" }; }
+      if (disposition === "new-window") return { action: "allow" };
+      toRenderer("workbench:open-web-tab", { url });
+      return { action: "deny" };
+    });
+  });
+};
+
+/**
+ * 网页里的右键菜单。**此前完全没有** —— 复制图片、复制链接、在新标签打开、
+ * 输入框里的剪切粘贴,这些肌肉记忆全部落空。
+ *
+ * 菜单用 Electron 原生 Menu 搭:输入框里的撤销/剪切/粘贴要拿到系统级的编辑
+ * role 才真的能用,自绘的菜单做不到。
+ */
+const servePageMenu = () => {
+  app.on("web-contents-created", (_event, contents) => {
+    if (contents.getType() !== "webview") return;
+    contents.on("context-menu", (_e, params) => {
+      const win = BrowserWindow.getAllWindows()[0];
+      const items = [];
+
+      if (params.linkURL) {
+        items.push(
+          { label: "在新标签页打开链接", click: () => toRenderer("workbench:open-web-tab", { url: params.linkURL }) },
+          { label: "复制链接地址", click: () => clipboard.writeText(params.linkURL) },
+          { type: "separator" },
+        );
+      }
+      if (params.mediaType === "image" && params.srcURL) {
+        items.push(
+          { label: "复制图片", click: () => contents.copyImageAt(params.x, params.y) },
+          { label: "复制图片地址", click: () => clipboard.writeText(params.srcURL) },
+          { label: "在新标签页打开图片", click: () => toRenderer("workbench:open-web-tab", { url: params.srcURL }) },
+          { type: "separator" },
+        );
+      }
+      if (params.isEditable) {
+        items.push(
+          { role: "undo", label: "撤销" }, { role: "redo", label: "重做" }, { type: "separator" },
+          { role: "cut", label: "剪切" }, { role: "copy", label: "复制" },
+          { role: "paste", label: "粘贴" }, { role: "selectAll", label: "全选" },
+          { type: "separator" },
+        );
+      } else if (params.selectionText) {
+        items.push({ role: "copy", label: "复制" }, { type: "separator" });
+      }
+
+      items.push(
+        { label: "后退", enabled: contents.navigationHistory.canGoBack(), click: () => contents.navigationHistory.goBack() },
+        { label: "前进", enabled: contents.navigationHistory.canGoForward(), click: () => contents.navigationHistory.goForward() },
+        { label: "刷新", click: () => contents.reload() },
+        { type: "separator" },
+        { label: "复制页面地址", click: () => clipboard.writeText(contents.getURL()) },
+        { label: "用系统浏览器打开", click: () => shell.openExternal(contents.getURL()).catch(() => {}) },
+        { type: "separator" },
+        { label: "检查元素", click: () => contents.inspectElement(params.x, params.y) },
+      );
+      Menu.buildFromTemplate(items).popup({ window: win || undefined });
+    });
+  });
 };
 
 const createWindow = (port) => {
@@ -352,6 +455,10 @@ app.whenReady().then(async () => {
   try {
     buildMenu();
     const port = await pickPort();
+    // 这两条必须在建窗口之前挂上 —— 它们监听 web-contents-created,
+    // 晚一步的话第一个 webview 就漏过去了
+    routeNewWindows(port);
+    servePageMenu();
     await startServer(port);
     createWindow(port);
     void setupUpdates();
@@ -359,7 +466,7 @@ app.whenReady().then(async () => {
       if (BrowserWindow.getAllWindows().length === 0) createWindow(port);
     });
   } catch (error) {
-    dialog.showErrorBox("Workbench 启动失败", String(error?.message || error));
+    dialog.showErrorBox(`${APP_NAME} 启动失败`, String(error?.message || error));
     app.quit();
   }
 });
