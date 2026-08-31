@@ -168,6 +168,9 @@ const startServer = async (port) => {
 };
 
 
+const WEB_PARTITION = "persist:web";
+const webSession = () => session.fromPartition(WEB_PARTITION);
+
 /** 给界面派一个事件。没有反向 IPC 通道,沿用 executeJavaScript 那条路。 */
 const toRenderer = (name, detail) => {
   const target = BrowserWindow.getAllWindows()[0];
@@ -208,7 +211,17 @@ const routeNewWindows = (port) => {
     contents.setWindowOpenHandler(({ url, disposition }) => {
       if (!/^https?:/.test(url)) return { action: "deny" };
       if (!isWebview) { shell.openExternal(url); return { action: "deny" }; }
-      if (disposition === "new-window") return { action: "allow" };
+      if (disposition === "new-window") {
+        // **必须显式指定分区**:不指定的话弹窗用的是默认 session,
+        // 登录流程在弹窗里种下的 cookie 落进另一个罐子,回到主标签就全丢了 ——
+        // 表现和 Google 的 CookieMismatch 是同一类症状,而且更难查。
+        return {
+          action: "allow",
+          overrideBrowserWindowOptions: {
+            webPreferences: { partition: WEB_PARTITION, contextIsolation: true, nodeIntegration: false },
+          },
+        };
+      }
       toRenderer("workbench:open-web-tab", { url });
       return { action: "deny" };
     });
@@ -329,8 +342,6 @@ ipcMain.handle("workbench:install-update", () => { updater?.install(); });
 // ── 网页标签的 session:独立分区 ────────────────────────────────────────
 // 网页标签用 persist:web,不与应用自身(127.0.0.1)共用 cookie 罐:
 // 边界清楚,而且「退出所有网站」清得干净 —— 不会顺手清掉应用自己的东西。
-const WEB_PARTITION = "persist:web";
-const webSession = () => session.fromPartition(WEB_PARTITION);
 
 ipcMain.handle("workbench:chrome-import-available", async () => {
   try {

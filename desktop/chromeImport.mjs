@@ -65,12 +65,18 @@ export const importChromeCookies = async (targetSession, runtime, options = {}) 
   for (const cookie of result.cookies) {
     const bare = String(cookie.host || "").replace(/^\./, "");
     if (!bare || !cookie.value) { failed += 1; continue; }
+    // Chrome 的 host_key 带前导点 = 域 cookie,不带 = **仅限该主机**。
+    // 这个区别不能抹掉:一律带 domain 会把 host-only 的悄悄放宽到子域,
+    // 更要命的是 `__Host-` 前缀的 cookie 规范上就**禁止带 Domain**,带了直接被拒 ——
+    // 而 __Host-GAPS / __Host-1PLSID 正是 Google 登录流程要用的那几个,
+    // 少了它们 Google 会判定 cookie 集不一致,停在 accounts.google.com/CookieMismatch。
+    const hostOnly = !String(cookie.host || "").startsWith(".");
     try {
       await targetSession.cookies.set({
         url: `${cookie.secure ? "https" : "http"}://${bare}${cookie.path || "/"}`,
         name: cookie.name,
         value: cookie.value,
-        domain: cookie.host,
+        ...(hostOnly ? {} : { domain: cookie.host }),
         path: cookie.path || "/",
         secure: Boolean(cookie.secure),
         httpOnly: Boolean(cookie.httpOnly),
