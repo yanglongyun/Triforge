@@ -46,12 +46,22 @@ export const importFromChrome = async (choice: ImportChoice): Promise<ImportResu
   const result = await bridge.importChromeCookies(choice);
   if (!result.ok) throw new Error(result.error);
 
+  // 去重不在这儿做:服务端建站点时已经按**主机**去重(见 service/sites.ts 的 siteKey),
+  // 遇到已有的直接返回那一行、不插入。在客户端再写一套只会更弱(按 URL 比)且会和它打架。
+  //
+  // 这里只负责**数对**:返回的 id 在导入前就存在,或本次已经见过,都不算新增 ——
+  // Chrome 的书签是按页面存的,同一个站往往有好几条(实测 103 条书签只落 97 个站)。
   let bookmarks = 0;
   if (choice.bookmarks && result.bookmarks.length) {
-    const existing = new Set((await api.listSites().catch(() => [])).map((site) => site.url));
+    const before = new Set((await api.listSites().catch(() => [])).map((site) => site.id));
+    const added = new Set<string>();
     for (const bookmark of result.bookmarks) {
-      if (existing.has(bookmark.url)) continue;   // 导第二次不该出现一堆重复
-      try { await api.createSite({ title: bookmark.title, url: bookmark.url }); bookmarks += 1; } catch { /* 单条失败跳过 */ }
+      try {
+        const site = await api.createSite({ title: bookmark.title, url: bookmark.url });
+        if (!site || before.has(site.id) || added.has(site.id)) continue;
+        added.add(site.id);
+        bookmarks += 1;
+      } catch { /* 单条失败跳过,不因为一条坏书签毁掉整次导入 */ }
     }
   }
 
