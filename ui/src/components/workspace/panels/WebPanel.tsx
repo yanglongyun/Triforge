@@ -2,9 +2,9 @@
 // 纯浏览器里没有这个标签,给一块诚实的兜底(日常站点普遍禁 iframe,不装能行)。
 // 面板由 WorkspaceGroup 常驻挂载、CSS 控显隐 —— 卸载 = 断网重载,登录态全丢。
 import { useCallback, useEffect, useRef, useState } from "react";
-import { ArrowLeft, ArrowRight, ChevronDown, ChevronUp, Download as DownloadIcon, ExternalLink, Globe, KeyRound, MoreHorizontal, RotateCw, Star, X } from "lucide-react";
+import { ArrowLeft, ArrowRight, ChevronDown, ChevronUp, Download as DownloadIcon, ExternalLink, Globe, History, KeyRound, MoreHorizontal, RotateCw, Star, Trash2, X } from "lucide-react";
 import type { WebTab } from "../types";
-import { api } from "../../../api";
+import { api, type HistoryEntry } from "../../../api";
 import { IN_ELECTRON, RE_REGISTER_EVENT, registerWebview, unregisterWebview } from "../../../lib/webviewHost";
 import { displayUrl, hostKey, normalizeUrl } from "../../../lib/urls";
 import { ChromeImportDialog } from "../../ui";
@@ -39,6 +39,9 @@ export function WebPanel({ tab, socket, onUpdate }: {
   const [starred, setStarred] = useState(false);
   const [menuOpen, setMenuOpen] = useState(false);
   const [downloadsOpen, setDownloadsOpen] = useState(false);
+  const [historyOpen, setHistoryOpen] = useState(false);
+  const [historyQuery, setHistoryQuery] = useState("");
+  const [historyRows, setHistoryRows] = useState<HistoryEntry[]>([]);
   const downloads = useDownloads();
   const [zoom, setZoomState] = useState(0);
   const [finding, setFinding] = useState(false);
@@ -86,6 +89,11 @@ export function WebPanel({ tab, socket, onUpdate }: {
       onUpdate(tab.id, { url: e.url });
       if (wcIdRef.current != null) socket.send({ type: "web_tab_update", wcId: wcIdRef.current, url: e.url });
     };
+    // 记一笔浏览记录。挂在 did-navigate 上不挂 in-page:页内锚点跳转不是「去过的地方」。
+    // 标题这时可能还没到,history 那边会在下一次访问时补上。
+    const onVisit = (e: any) => {
+      if (e?.url) void api.noteVisit({ url: e.url, title: (view as any).getTitle?.() || "" });
+    };
     const onStart = () => setLoading(true);
     const onStop = () => setLoading(false);
     const onFavicon = (e: any) => {
@@ -96,6 +104,7 @@ export function WebPanel({ tab, socket, onUpdate }: {
     view.addEventListener("page-favicon-updated", onFavicon);
     view.addEventListener("page-title-updated", onTitle);
     view.addEventListener("did-navigate", onNavigate);
+    view.addEventListener("did-navigate", onVisit);
     view.addEventListener("did-navigate-in-page", onNavigate);
     view.addEventListener("did-start-loading", onStart);
     view.addEventListener("did-stop-loading", onStop);
@@ -105,6 +114,7 @@ export function WebPanel({ tab, socket, onUpdate }: {
       view.removeEventListener("page-favicon-updated", onFavicon);
       view.removeEventListener("page-title-updated", onTitle);
       view.removeEventListener("did-navigate", onNavigate);
+      view.removeEventListener("did-navigate", onVisit);
       view.removeEventListener("did-navigate-in-page", onNavigate);
       view.removeEventListener("did-start-loading", onStart);
       view.removeEventListener("did-stop-loading", onStop);
@@ -117,8 +127,8 @@ export function WebPanel({ tab, socket, onUpdate }: {
     };
   }, [onUpdate, socket, tab.id]);
 
-  const go = () => {
-    const url = address.trim() ? normalizeUrl(address) : "";
+  const go = (target?: string) => {
+    const url = target ? normalizeUrl(target) : (address.trim() ? normalizeUrl(address) : "");
     if (!url) return;
     setEditing(false);
     (viewRef.current as any)?.loadURL?.(url);
@@ -144,6 +154,16 @@ export function WebPanel({ tab, socket, onUpdate }: {
 
   // 开对话框:选哪个 Chrome 配置、导什么,由用户定 —— 这里只负责把它打开
   const runImport = useCallback(() => setImportOpen(true), []);
+
+  // 历史面板:开着才拉,关键词变了重拉 —— 没打开时没必要为它查库
+  useEffect(() => {
+    if (!historyOpen) return;
+    let gone = false;
+    const timer = setTimeout(() => {
+      void api.listHistory(historyQuery).then((rows) => { if (!gone) setHistoryRows(rows); }).catch(() => {});
+    }, historyQuery ? 180 : 0); // 输入时防抖,首次打开立刻查
+    return () => { gone = true; clearTimeout(timer); };
+  }, [historyOpen, historyQuery]);
 
   // 证书例外刚加上:只有重载才会走一遍新的验证结果
   useEffect(() => {
@@ -255,6 +275,69 @@ export function WebPanel({ tab, socket, onUpdate }: {
         >
           <Star size={13} fill={starred ? "currentColor" : "none"} />
         </button>
+
+        {/* 浏览记录:紧跟收藏。收藏是「我要再来」,记录是「我来过」—— 同一类动作,该挨着 */}
+        <div className="relative">
+          <button
+            className={historyOpen ? `${navBtn} text-text bg-bg-hover` : navBtn}
+            title="浏览记录"
+            onClick={(e) => { e.stopPropagation(); setHistoryOpen((open) => !open); setHistoryQuery(""); }}
+          >
+            <History size={13} />
+          </button>
+          {historyOpen && (
+            <>
+              <div className="fixed inset-0 z-40" onClick={() => setHistoryOpen(false)} />
+              <div className="absolute top-full right-0 mt-1 z-50 w-[360px] rounded-lg border border-border bg-bg-raised shadow-lg overflow-hidden">
+                <div className="flex items-center gap-2 px-2.5 py-2 border-b border-border">
+                  <input
+                    autoFocus
+                    value={historyQuery}
+                    onChange={(e) => setHistoryQuery(e.target.value)}
+                    placeholder="搜索浏览记录…"
+                    className="flex-1 min-w-0 h-7 px-2 rounded-md border border-border bg-bg text-[12.5px] text-text placeholder:text-text-faint outline-none focus:border-accent"
+                  />
+                  {historyRows.length > 0 && (
+                    <button
+                      className="shrink-0 text-[11.5px] text-text-faint hover:text-danger transition-colors"
+                      onClick={() => { void api.forgetHistory({ all: true }).then(() => setHistoryRows([])); }}
+                    >
+                      清空
+                    </button>
+                  )}
+                </div>
+                <div className="max-h-[320px] overflow-y-auto py-1">
+                  {historyRows.map((row) => (
+                    <div key={row.url} className="group flex items-center gap-2 px-2.5 py-1.5 hover:bg-bg-hover transition-colors">
+                      <button
+                        className="min-w-0 flex-1 text-left"
+                        onClick={() => { setHistoryOpen(false); go(row.url); }}
+                      >
+                        <div className="truncate text-[12.5px] text-text">{row.title || row.url}</div>
+                        <div className="truncate text-[11px] text-text-faint">{displayUrl(row.url)}</div>
+                      </button>
+                      <button
+                        title="从记录中删除"
+                        className="shrink-0 w-5 h-5 rounded flex items-center justify-center text-text-faint opacity-0 group-hover:opacity-100 hover:text-danger transition-all"
+                        onClick={() => {
+                          void api.forgetHistory({ url: row.url })
+                            .then(() => setHistoryRows((rows) => rows.filter((r) => r.url !== row.url)));
+                        }}
+                      >
+                        <Trash2 size={11} />
+                      </button>
+                    </div>
+                  ))}
+                  {!historyRows.length && (
+                    <div className="px-3 py-6 text-center text-[12px] text-text-faint">
+                      {historyQuery ? "没有匹配的记录" : "还没有浏览记录"}
+                    </div>
+                  )}
+                </div>
+              </div>
+            </>
+          )}
+        </div>
         {/* 下载胶囊:有下载才出现。文件已经落到磁盘上了,不给个入口用户找不到 */}
         {downloads.length > 0 && (
           <div className="relative">

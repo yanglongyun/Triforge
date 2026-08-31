@@ -84,16 +84,47 @@ const initDb = () => {
       created_at TEXT NOT NULL DEFAULT (datetime('now'))
     );
 
+    -- 网站收藏:一棵浅树。kind='folder' 的行没有 url,别的行 parent_id 指向它。
+    -- position 决定同级次序(拖拽排序),不靠 created_at —— 用户排的顺序和创建顺序无关。
     CREATE TABLE IF NOT EXISTS sites (
       id         TEXT PRIMARY KEY,
       title      TEXT NOT NULL,
       url        TEXT NOT NULL,
+      kind       TEXT NOT NULL DEFAULT 'site',   -- site | folder
+      parent_id  TEXT,                            -- NULL = 根层
+      position   INTEGER NOT NULL DEFAULT 0,
       created_at TEXT NOT NULL DEFAULT (datetime('now'))
     );
+
+    -- 浏览记录。一个 url 一行,重复访问只更新时间与次数 ——
+    -- 逐次追加会让「最近」被同一个站刷屏,而用户想看的是「去过哪些地方」。
+    CREATE TABLE IF NOT EXISTS history (
+      url        TEXT PRIMARY KEY,
+      title      TEXT NOT NULL DEFAULT '',
+      visits     INTEGER NOT NULL DEFAULT 1,
+      visited_at TEXT NOT NULL DEFAULT (datetime('now'))
+    );
+
+    CREATE INDEX IF NOT EXISTS idx_history_time ON history(visited_at DESC);
 
     CREATE INDEX IF NOT EXISTS idx_messages_chat    ON messages(chat_id, id);
     CREATE INDEX IF NOT EXISTS idx_compactions_chat ON compactions(chat_id, id);
   `);
+
+  // 老库补列:CREATE TABLE IF NOT EXISTS 不会给已存在的表加字段,
+  // 而 ALTER TABLE ADD COLUMN 重复执行会报错 —— 所以先问一遍 PRAGMA。
+  const columns = new Set(
+    (db.prepare("PRAGMA table_info(sites)").all() as { name: string }[]).map((c) => c.name),
+  );
+  if (!columns.has("kind")) db.exec("ALTER TABLE sites ADD COLUMN kind TEXT NOT NULL DEFAULT 'site'");
+  if (!columns.has("parent_id")) db.exec("ALTER TABLE sites ADD COLUMN parent_id TEXT");
+  if (!columns.has("position")) {
+    db.exec("ALTER TABLE sites ADD COLUMN position INTEGER NOT NULL DEFAULT 0");
+    // 老数据没有次序,按创建时间铺一遍,别让它们全挤在 position=0
+    const rows = db.prepare("SELECT id FROM sites ORDER BY created_at, rowid").all() as { id: string }[];
+    const write = db.prepare("UPDATE sites SET position = ? WHERE id = ?");
+    rows.forEach((row, index) => write.run(index, row.id));
+  }
 
   return db;
 };

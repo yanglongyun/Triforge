@@ -6,6 +6,7 @@ import { execFile } from "child_process";
 import * as tree from "../service/tree.js";
 import * as chats from "../service/chats.js";
 import * as sites from "../service/sites.js";
+import * as history from "../service/history.js";
 import { handleWidgetRoutes } from "./widget.js";
 import { handleAppRoutes } from "./app.js";
 import { handlePermissionRoutes } from "./permission.js";
@@ -141,6 +142,37 @@ const handleApi = async (req, res) => {
       if (method === "DELETE") {
         return json(res, 200, { ok: true, deleted: sites.remove(url.searchParams.get("id")) });
       }
+    }
+
+    // 新建文件夹;整层顺序重排(拖拽后一次发全量,顺序与归属一起改)
+    if (path === "/api/sites/folder" && method === "POST") {
+      const body = await parseBody(req);
+      try { return json(res, 201, { ok: true, item: sites.createFolder(body) }); }
+      catch (error) { return json(res, 400, { ok: false, error: error.message }); }
+    }
+    if (path === "/api/sites/order" && method === "POST") {
+      const body = await parseBody(req);
+      return json(res, 200, { ok: true, sites: sites.reorder(body) });
+    }
+
+    // ---- history(浏览记录)----
+    if (path === "/api/history") {
+      if (method === "GET") {
+        return json(res, 200, {
+          ok: true,
+          history: history.list({ q: url.searchParams.get("q"), limit: Number(url.searchParams.get("limit")) }),
+        });
+      }
+      if (method === "DELETE") {
+        return json(res, 200, {
+          ok: true,
+          forgot: history.forget({ url: url.searchParams.get("url"), all: url.searchParams.get("all") === "1" }),
+        });
+      }
+    }
+    if (path === "/api/history/visit" && method === "POST") {
+      const body = await parseBody(req);
+      return json(res, 200, { ok: true, noted: history.visit(body) });
     }
 
     // ---- tree(纯文件树:文件夹 / 文件)----

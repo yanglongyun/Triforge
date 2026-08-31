@@ -43,7 +43,19 @@ export type AppInfo = {
   port: number;
 };
 
-export type Site = { id: string; title: string; url: string; created_at: string };
+/** 网站收藏:一棵浅树。kind='folder' 的没有 url,别的行 parent_id 指向它。 */
+export type Site = {
+  id: string;
+  title: string;
+  url: string;
+  kind: "site" | "folder";
+  parent_id: string | null;
+  position: number;
+  created_at: string;
+};
+
+/** 浏览记录:一个 url 一行,重复访问只抬时间与次数。 */
+export type HistoryEntry = { url: string; title: string; visits: number; visited_at: string };
 
 /** 组件:目录即安装,manifest = 权限清单(见 WIDGET.md)。 */
 export type WidgetInfo = {
@@ -231,7 +243,25 @@ export const api = {
 
   // ── 网站收藏(原生「网站」面板)──
   listSites: () => request<{ sites: Site[] }>("/api/sites").then((r) => r.sites || []),
-  createSite: (body: { title?: string; url: string }) =>
+  createSiteFolder: (body: { title?: string; parentId?: string | null }) =>
+    request<{ item: Site }>("/api/sites/folder", { method: "POST", ...jsonBody(body) }).then((r) => r.item),
+  /** 拖拽后把某一层的完整顺序发过去 —— 顺序与归属一起改。 */
+  reorderSites: (body: { parentId: string | null; ids: string[] }) =>
+    request<{ sites: Site[] }>("/api/sites/order", { method: "POST", ...jsonBody(body) }).then((r) => r.sites || []),
+
+  // ── 浏览记录 ──
+  listHistory: (q = "") =>
+    request<{ history: HistoryEntry[] }>(`/api/history${q ? `?q=${encodeURIComponent(q)}` : ""}`)
+      .then((r) => r.history || []),
+  noteVisit: (body: { url: string; title?: string }) =>
+    request<{ noted: boolean }>("/api/history/visit", { method: "POST", ...jsonBody(body) }).catch(() => null),
+  forgetHistory: (target: { url?: string; all?: boolean }) =>
+    request<{ forgot: boolean }>(
+      `/api/history?${target.all ? "all=1" : `url=${encodeURIComponent(target.url || "")}`}`,
+      { method: "DELETE" },
+    ),
+
+  createSite: (body: { title?: string; url: string; parentId?: string | null }) =>
     request<{ item: Site }>("/api/sites", { method: "POST", ...jsonBody(body) }).then((r) => r.item),
   updateSite: (id: string, body: { title?: string; url?: string }) =>
     request<{ item: Site }>(`/api/sites?id=${encodeURIComponent(id)}`, { method: "PATCH", ...jsonBody(body) }).then((r) => r.item),
