@@ -1,7 +1,9 @@
 {
   "name": "密码生成",
   "icon": "🔐",
-  "description": "本地生成强密码,不联网、不落盘",
-  "permissions": [],
+  "description": "本地生成强密码,生成过的记在这里,点击复制",
+  "permissions": [
+    "sql"
+  ],
   "position": 11
 }

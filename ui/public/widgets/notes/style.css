@@ -29,20 +29,18 @@ textarea { resize: none; }
 ::-webkit-scrollbar-thumb { background: var(--border); border-radius: 4px; }
 ::-webkit-scrollbar-track { background: transparent; }
 
+
 .composer { padding: 8px; display: flex; flex-direction: column; gap: 8px; }
 .composer textarea { border: 0; background: transparent; padding: 3px 4px; }
 .composer textarea:focus { box-shadow: none; }
-.composer-foot { display: flex; justify-content: space-between; align-items: center; gap: 8px; }
+.composer-foot { display: flex; justify-content: flex-end; }
 .composer-foot .btn { padding: 5px 12px; font-size: 12.5px; }
-.aiout { padding: 10px 12px; }
-.aiout-head { display: flex; justify-content: space-between; align-items: center; margin-bottom: 4px; }
-#outbody { white-space: pre-wrap; font-size: 13px; }
 #list { list-style: none; display: flex; flex-direction: column; gap: 8px; }
 #list li { position: relative; background: var(--bg-raised); border: 1px solid var(--border);
   border-radius: 10px; padding: 9px 30px 7px 12px; }
+#list li.empty { background: none; border: 0; padding: 22px 0; }
 #list li p { white-space: pre-wrap; overflow-wrap: anywhere; }
 #list li em { display: block; font-style: normal; font-size: 11px; color: var(--text-dim); margin-top: 3px; }
 #list li button { position: absolute; top: 6px; right: 6px; opacity: 0; }
 #list li:hover button { opacity: 1; }
 #list li button:hover { color: var(--danger); }
-#list li.empty { background: none; border: 0; padding: 22px 0; }

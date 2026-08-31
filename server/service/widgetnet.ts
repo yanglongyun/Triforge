@@ -10,7 +10,9 @@ export const fetchForWidget = async (hosts: string[], rawUrl: string) => {
   let url: URL;
   try { url = new URL(String(rawUrl || "")); } catch { throw new Error("url 不合法"); }
   if (url.protocol !== "https:" && url.protocol !== "http:") throw new Error("只支持 http(s)");
-  if (!hosts.includes(url.hostname.toLowerCase())) {
+  // "*" = 任意域名。RSS 阅读器这类组件的目标由用户自己填,写死白名单没有意义;
+  // 但它必须明晃晃写在 manifest 里,用户装的时候看得见。
+  if (!hosts.includes("*") && !hosts.includes(url.hostname.toLowerCase())) {
     throw new Error(`域名未声明:${url.hostname}(在 widget.json 的 hosts 里加上它)`);
   }
   const res = await fetch(url, {

@@ -30,13 +30,17 @@ textarea { resize: none; }
 ::-webkit-scrollbar-track { background: transparent; }
 
 
-.panel { padding: 12px; display: flex; flex-direction: column; gap: 4px; }
-.side { display: flex; align-items: center; gap: 10px; }
-.side select { width: 108px; flex: none; font-weight: 600; }
-.side input { text-align: right; font-size: 16px; font-variant-numeric: tabular-nums; }
-#swap { align-self: center; font-size: 15px; }
-.result { flex: 1; text-align: right; font-size: 20px; font-weight: 700; font-variant-numeric: tabular-nums;
-  padding: 4px 2px; overflow-wrap: anywhere; }
+.pair { display: flex; align-items: center; gap: 6px; }
+.pair select { flex: 1; min-width: 0; font-weight: 600; }
+.pair .iconbtn { flex: none; font-size: 15px; }
+.panel { padding: 12px; display: flex; flex-direction: column; gap: 2px; }
+.panel input { text-align: right; font-size: 17px; font-variant-numeric: tabular-nums; border: 0;
+  background: transparent; padding: 2px 2px; }
+.panel input:focus { box-shadow: none; }
+.arrow { text-align: right; color: var(--text-dim); font-size: 13px; line-height: 1; padding-right: 4px; }
+.result { text-align: right; font-size: 22px; font-weight: 700; font-variant-numeric: tabular-nums;
+  overflow-wrap: anywhere; padding: 2px; }
+.result small { font-size: 13px; font-weight: 500; color: var(--text-dim); margin-left: 4px; }
 .meta { display: flex; justify-content: space-between; padding: 0 2px; min-height: 16px; }
 .grid { display: grid; grid-template-columns: 1fr 1fr; gap: 6px; }
 .cell { background: var(--bg-raised); border: 1px solid var(--border); border-radius: 8px;

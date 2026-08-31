@@ -1,7 +1,7 @@
 {
   "name": "翻译",
   "icon": "🌐",
-  "description": "中英日互译,贴进来就译,一键复制",
+  "description": "多语种互译,左右选语言,中间交换",
   "permissions": [
     "ai"
   ],

@@ -1,9 +1,14 @@
 {
   "name": "日历",
   "icon": "📅",
-  "description": "月历,点一天记事;有事的日子有标记",
+  "description": "月历带中国节假日(休/班),点一天记事",
   "permissions": [
-    "sql"
+    "sql",
+    "net"
+  ],
+  "hosts": [
+    "cdn.jsdelivr.net",
+    "fastly.jsdelivr.net"
   ],
   "position": 3
 }

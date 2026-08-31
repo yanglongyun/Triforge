@@ -1,14 +1,13 @@
 {
-  "name": "新闻",
+  "name": "RSS",
   "icon": "📰",
-  "description": "少数派 / 爱范儿 / Solidot 的信息流,干活间隙扫一眼",
+  "description": "RSS 阅读器:自带几个源,想看什么自己加订阅",
   "permissions": [
-    "net"
+    "net",
+    "sql"
   ],
   "hosts": [
-    "sspai.com",
-    "www.ifanr.com",
-    "www.solidot.org"
+    "*"
   ],
   "position": 7
 }

@@ -8,13 +8,15 @@ const CCY = [
 ];
 const from_ = document.getElementById("from");
 const to_ = document.getElementById("to");
-const amount_el = document.getElementById("amount");
+const amountEl = document.getElementById("amount");
 for (const sel of [from_, to_])
   sel.innerHTML = CCY.map(([c, n]) => `<option value="${c}">${c} ${n}</option>`).join("");
 
 let pair = { from: "USD", to: "CNY" };
 try { pair = JSON.parse(localStorage.getItem("pair")) || pair; } catch { /* 用缺省 */ }
 from_.value = pair.from; to_.value = pair.to;
+if (!from_.value) from_.value = "USD";
+if (!to_.value) to_.value = "CNY";
 
 const cache = new Map(); // base → { at, rates, date }
 const TTL = 60 * 60 * 1000;
@@ -38,12 +40,12 @@ const render = async () => {
   localStorage.setItem("pair", JSON.stringify({ from: base, to: target }));
   try {
     const { rates, date: day } = await getRates(base);
-    const amount = Number(amount_el.value) || 0;
-    result.textContent = fmt(amount * rates[target]) + " " + target;
+    const amount = Number(amountEl.value) || 0;
+    result.innerHTML = `${fmt(amount * rates[target])}<small>${target}</small>`;
     rate.textContent = `1 ${base} = ${fmt(rates[target])} ${target}`;
     date.textContent = day;
     grid.innerHTML = CCY.filter(([c]) => c !== base).map(([c, n]) =>
-      `<div class="cell"><span>${n}</span><b>${fmt(rates[c])}</b></div>`).join("");
+      `<div class="cell"><span>${n} ${c}</span><b>${fmt(rates[c])}</b></div>`).join("");
   } catch (e) {
     result.textContent = "—";
     rate.textContent = ""; date.textContent = "";
@@ -53,7 +55,7 @@ const render = async () => {
 
 from_.onchange = render;
 to_.onchange = render;
-amount_el.oninput = render;
+amountEl.oninput = render;
 swap.onclick = () => { const t = from_.value; from_.value = to_.value; to_.value = t; render(); };
 
 render();

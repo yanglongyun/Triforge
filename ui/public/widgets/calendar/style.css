@@ -46,6 +46,12 @@ textarea { resize: none; }
 .day .dot { position: absolute; bottom: 4px; left: 50%; transform: translateX(-50%);
   width: 4px; height: 4px; border-radius: 50%; background: var(--accent); }
 .day.sel .dot { background: #fff; }
+.day .hb { position: absolute; top: 2px; right: 3px; font-size: 8.5px; line-height: 1;
+  font-weight: 600; padding: 1px 2px; border-radius: 3px; }
+.day .hb.off { color: #1ba158; }
+.day .hb.work { color: #e08a3a; }
+.day.sel .hb { color: #fff; opacity: .9; }
+.holiname { color: var(--text-dim); }
 .daypane { border-top: 1px solid var(--border); padding-top: 9px; display: flex; flex-direction: column; gap: 8px; }
 #events { list-style: none; display: flex; flex-direction: column; gap: 4px; }
 #events li { display: flex; align-items: flex-start; gap: 7px; background: var(--bg-raised);

@@ -1,11 +1,18 @@
 <!doctype html>
 <meta charset="utf-8">
-<title>新闻</title>
+<title>RSS</title>
 <link rel="stylesheet" href="./style.css">
 <div class="wrap">
   <div class="head">
-    <div class="seg" id="seg"></div>
+    <select id="feedsel"></select>
     <button id="refresh" class="iconbtn" title="刷新">↻</button>
+    <button id="manage" class="iconbtn" title="管理订阅">⚙</button>
+  </div>
+  <div id="panel" class="card panel" hidden>
+    <ul id="feedlist"></ul>
+    <form id="addform">
+      <input id="feedurl" type="text" placeholder="贴 RSS/Atom 地址,回车添加" autocomplete="off" spellcheck="false">
+    </form>
   </div>
   <div id="list"><div class="empty">加载中…</div></div>
 </div>

@@ -35,20 +35,4 @@ list.onclick = async (e) => {
   render();
 };
 
-close.onclick = () => { out.hidden = true; };
-
-// ai 权限:每次调用 summary 必填,会打进宿主控制台
-sum.onclick = async () => {
-  const { rows } = await sql("SELECT text FROM notes ORDER BY id DESC LIMIT 50");
-  if (!rows.length) return;
-  out.hidden = false;
-  outbody.textContent = "整理中…";
-  const r = await post("/_wb/ai", {
-    summary: "把便签整理成要点",
-    system: "你是一个中文助理。把用户零散的便签归纳成 3-6 条要点,每条一行,直接输出要点,不要开场白。",
-    prompt: rows.map((n, i) => `${i + 1}. ${n.text}`).join("\n"),
-  });
-  outbody.textContent = r.ok ? r.text : `出错了:${r.error}`;
-};
-
 render();

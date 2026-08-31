@@ -5,10 +5,7 @@
 <div class="wrap">
   <div class="card pwbox">
     <div id="pw" class="pw"></div>
-    <div class="pwbtns">
-      <button id="regen" class="iconbtn" title="换一个">↻</button>
-      <button id="copy" class="btn small">复制</button>
-    </div>
+    <button id="copy" class="ghost btn small">复制</button>
   </div>
   <div id="meter" class="meter"><i></i></div>
   <div class="card opts">
@@ -19,5 +16,8 @@
     <label class="opt"><input type="checkbox" id="symbol" checked><span>符号 !@#$…</span></label>
     <label class="opt"><input type="checkbox" id="plain"><span>排除易混淆的 0O1lI</span></label>
   </div>
+  <button id="gen" class="btn">生成</button>
+  <div class="histhead"><span class="dim small">生成记录</span><button id="clearhist" class="ghost btn small" hidden>清空</button></div>
+  <ul id="hist"></ul>
 </div>
 <script type="module" src="./main.js"></script>

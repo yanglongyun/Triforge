@@ -1,19 +1,54 @@
 const post = (path, body) =>
   fetch(path, { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify(body) })
     .then((r) => r.json());
+const sql = (q, params = []) => post("/_wb/sql", { sql: q, params });
 const esc = (s) => String(s).replace(/[<>&"]/g, (c) => ({ "<": "&lt;", ">": "&gt;", "&": "&amp;", '"': "&quot;" }[c]));
 
-const SOURCES = [
-  { key: "sspai", name: "少数派", url: "https://sspai.com/feed" },
-  { key: "ifanr", name: "爱范儿", url: "https://www.ifanr.com/feed" },
-  { key: "solidot", name: "Solidot", url: "https://www.solidot.org/index.rss" },
-];
-let current = localStorage.getItem("source") || "sspai";
-const cache = new Map(); // key → { at, items }
+await sql("CREATE TABLE IF NOT EXISTS feeds (id INTEGER PRIMARY KEY AUTOINCREMENT, name TEXT NOT NULL, url TEXT NOT NULL UNIQUE)");
+const seeded = await sql("SELECT COUNT(*) AS n FROM feeds");
+if (!seeded.rows[0].n) {
+  for (const [name, url] of [
+    ["少数派", "https://sspai.com/feed"],
+    ["爱范儿", "https://www.ifanr.com/feed"],
+    ["Solidot", "https://www.solidot.org/index.rss"],
+    ["阮一峰的网络日志", "https://www.ruanyifeng.com/blog/atom.xml"],
+  ]) await sql("INSERT INTO feeds (name, url) VALUES (?, ?)", [name, url]);
+}
+
+let feeds = [];
+let current = Number(localStorage.getItem("feed")) || 0;
+const cache = new Map(); // feedId → { at, items }
 const TTL = 10 * 60 * 1000;
 
-seg.innerHTML = SOURCES.map((s) => `<button data-key="${s.key}">${s.name}</button>`).join("");
-const paint = () => { for (const b of seg.children) b.classList.toggle("on", b.dataset.key === current); };
+const loadFeeds = async () => {
+  feeds = (await sql("SELECT * FROM feeds ORDER BY id")).rows;
+  if (!feeds.some((f) => f.id === current)) current = feeds[0]?.id || 0;
+  feedsel.innerHTML = feeds.map((f) => `<option value="${f.id}">${esc(f.name)}</option>`).join("");
+  feedsel.value = String(current);
+  feedlist.innerHTML = feeds.map((f) => `
+    <li><span class="n">${esc(f.name)}</span><span class="u">${esc(f.url)}</span>
+    <button class="iconbtn" data-del="${f.id}" title="退订">×</button></li>`).join("")
+    || '<li class="empty">一个订阅都没有</li>';
+};
+
+// RSS 2.0 与 Atom 都认
+const parseFeed = (xml) => {
+  const doc = new DOMParser().parseFromString(xml, "text/xml");
+  if (doc.querySelector("parsererror")) throw new Error("不是合法的 RSS/Atom");
+  const feedTitle = doc.querySelector("channel > title, feed > title")?.textContent?.trim() || "";
+  const items = [...doc.querySelectorAll("item, entry")].slice(0, 30).map((it) => {
+    const linkEl = it.querySelector("link");
+    const link = (linkEl?.getAttribute("href") || linkEl?.textContent || "").trim();
+    const when = it.querySelector("pubDate, published, updated")?.textContent || "";
+    return {
+      title: it.querySelector("title")?.textContent?.trim() || "(无标题)",
+      link,
+      at: new Date(when),
+    };
+  });
+  if (!items.length) throw new Error("feed 是空的");
+  return { feedTitle, items };
+};
 
 const ago = (date) => {
   const ms = Date.now() - date.getTime();
@@ -24,45 +59,66 @@ const ago = (date) => {
   return `${Math.round(h / 24)} 天前`;
 };
 
-const load = async (force = false) => {
-  paint();
-  const source = SOURCES.find((s) => s.key === current);
-  const hit = cache.get(current);
-  if (!force && hit && Date.now() - hit.at < TTL) return show(hit.items, source);
-  list.innerHTML = '<div class="empty">加载中…</div>';
-  try {
-    const r = await post("/_wb/http", { url: source.url });
-    if (!r.ok) throw new Error(r.error);
-    const doc = new DOMParser().parseFromString(r.text, "text/xml");
-    if (doc.querySelector("parsererror")) throw new Error("feed 解析失败");
-    const items = [...doc.querySelectorAll("item")].slice(0, 20).map((it) => ({
-      title: it.querySelector("title")?.textContent?.trim() || "(无标题)",
-      link: it.querySelector("link")?.textContent?.trim() || "",
-      at: new Date(it.querySelector("pubDate")?.textContent || ""),
-    }));
-    if (!items.length) throw new Error("feed 是空的");
-    cache.set(current, { at: Date.now(), items });
-    show(items, source);
-  } catch (e) {
-    list.innerHTML = `<div class="err">拿不到 ${source.name}:${esc(e.message)}</div>`;
-  }
-};
-
-const show = (items, source) => {
+const show = (items, name) => {
   list.innerHTML = items.map((it) => `
     <a class="item" href="${esc(it.link)}" target="_blank" rel="noreferrer">
       <div class="t">${esc(it.title)}</div>
-      <div class="m">${source.name}${ago(it.at) ? " · " + ago(it.at) : ""}</div>
+      <div class="m">${esc(name)}${ago(it.at) ? " · " + ago(it.at) : ""}</div>
     </a>`).join("");
 };
 
-seg.onclick = (e) => {
-  const key = e.target.dataset?.key;
-  if (!key) return;
-  current = key;
-  localStorage.setItem("source", key);
+const load = async (force = false) => {
+  const feed = feeds.find((f) => f.id === current);
+  if (!feed) { list.innerHTML = '<div class="empty">加一个订阅吧</div>'; return; }
+  const hit = cache.get(feed.id);
+  if (!force && hit && Date.now() - hit.at < TTL) return show(hit.items, feed.name);
+  list.innerHTML = '<div class="empty">加载中…</div>';
+  try {
+    const r = await post("/_wb/http", { url: feed.url });
+    if (!r.ok) throw new Error(r.error);
+    const { items } = parseFeed(r.text);
+    cache.set(feed.id, { at: Date.now(), items });
+    show(items, feed.name);
+  } catch (e) {
+    list.innerHTML = `<div class="err">拿不到 ${esc(feed.name)}:${esc(e.message)}</div>`;
+  }
+};
+
+feedsel.onchange = () => { current = Number(feedsel.value); localStorage.setItem("feed", current); load(); };
+refresh.onclick = () => load(true);
+manage.onclick = () => { panel.hidden = !panel.hidden; if (!panel.hidden) feedurl.focus(); };
+
+addform.onsubmit = async (e) => {
+  e.preventDefault();
+  const url = feedurl.value.trim();
+  if (!url) return;
+  feedurl.disabled = true;
+  try {
+    const r = await post("/_wb/http", { url });
+    if (!r.ok) throw new Error(r.error);
+    const { feedTitle } = parseFeed(r.text);
+    const name = feedTitle || new URL(url).hostname;
+    const ins = await sql("INSERT INTO feeds (name, url) VALUES (?, ?)", [name, url]);
+    if (!ins.ok) throw new Error(ins.error?.includes("UNIQUE") ? "已经订过了" : ins.error);
+    feedurl.value = "";
+    current = ins.lastInsertRowid;
+    localStorage.setItem("feed", current);
+    await loadFeeds();
+    load();
+  } catch (err) {
+    feedurl.setCustomValidity(String(err.message));
+    feedurl.reportValidity();
+    setTimeout(() => feedurl.setCustomValidity(""), 1600);
+  } finally { feedurl.disabled = false; feedurl.focus(); }
+};
+
+feedlist.onclick = async (e) => {
+  const id = e.target.closest("[data-del]")?.dataset.del;
+  if (!id) return;
+  await sql("DELETE FROM feeds WHERE id = ?", [id]);
+  await loadFeeds();
   load();
 };
-refresh.onclick = () => load(true);
 
+await loadFeeds();
 load();

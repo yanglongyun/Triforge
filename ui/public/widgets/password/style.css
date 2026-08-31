@@ -35,7 +35,6 @@ textarea { resize: none; }
   overflow-wrap: anywhere; user-select: all; }
 .pw .d { color: var(--accent); }
 .pw .s { color: var(--danger); }
-.pwbtns { display: flex; align-items: center; gap: 4px; flex: none; }
 .btn.small { padding: 4px 11px; font-size: 12.5px; }
 .meter { height: 4px; border-radius: 2px; background: var(--bg-hover); overflow: hidden; }
 .meter i { display: block; height: 100%; border-radius: 2px; transition: all .25s; }
@@ -49,3 +48,16 @@ textarea { resize: none; }
   border-bottom: 1px solid var(--border); font-size: 13px; }
 .opt:last-child { border-bottom: 0; }
 .opt input { width: 15px; height: 15px; accent-color: var(--accent); }
+.histhead { display: flex; justify-content: space-between; align-items: center; margin-top: 2px; }
+#hist { list-style: none; display: flex; flex-direction: column; }
+#hist li { display: flex; align-items: center; gap: 8px; padding: 6px 2px; border-bottom: 1px solid var(--border);
+  cursor: pointer; }
+#hist li:last-child { border-bottom: 0; }
+#hist li:hover { background: var(--bg-hover); }
+#hist li code { flex: 1; min-width: 0; font: 12px ui-monospace, "SF Mono", Menlo, monospace;
+  overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+#hist li em { flex: none; font-style: normal; font-size: 10.5px; color: var(--text-dim); }
+#hist li .iconbtn { width: 20px; height: 20px; opacity: 0; flex: none; }
+#hist li:hover .iconbtn { opacity: 1; }
+#hist li .iconbtn:hover { color: var(--danger); }
+#hist li.copied code { color: var(--accent); }
