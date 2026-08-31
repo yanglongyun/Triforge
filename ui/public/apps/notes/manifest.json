@@ -1,0 +1,13 @@
+{
+    "id": "notes",
+    "name": "笔记",
+    "version": "0.1.0",
+    "description": "本地笔记：无限层级页面树，正文是 ProseMirror + Yjs，多端实时同步。用户说「记一下」「笔记理一理」「建个知识库」时用它。",
+    "run": {
+        "command": "node",
+        "args": ["bin/notes.mjs", "start", "--foreground"],
+        "health": "/health",
+        "mode": "on-demand"
+    },
+    "permissions": []
+}

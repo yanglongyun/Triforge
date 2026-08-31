@@ -1,0 +1,262 @@
+/* 导图应用自己的样式。配色一律用 base.css 的变量(入口按顺序 import 了它),
+   夜间模式才不会突兀。
+   分三段:列表 / 画布外壳 / 画布内由 engine.js 生成的 DOM(节点·折叠钮·连线)。 */
+
+/* ── 主页 ────────────────────────────────────────────── */
+
+.home-head { display: flex; align-items: flex-start; gap: 16px; margin: 4px 2px 22px; }
+.home-head h1 { margin: 0; font-size: 22px; font-weight: 650; letter-spacing: -.015em; }
+.home-head p { margin: 6px 0 0; font-size: 12.5px; color: var(--ink-3); }
+
+/* 网格而不是一行行的列表:导图是"一张张"的东西,列表只会让它们看起来像待办条目 */
+.map-grid {
+    display: grid; gap: 12px;
+    grid-template-columns: repeat(auto-fill, minmax(196px, 1fr));
+}
+
+.map-card {
+    position: relative; display: flex; flex-direction: column; align-items: flex-start; gap: 3px;
+    padding: 18px 16px 14px; text-align: left; color: inherit; cursor: pointer;
+    background: var(--panel); border: 1px solid var(--line-soft); border-radius: var(--r-l);
+    transition: border-color .16s var(--ease), box-shadow .2s var(--ease), transform .16s var(--ease);
+}
+.map-card:hover { border-color: var(--line); box-shadow: var(--shadow-m); transform: translateY(-2px); }
+.map-name { max-width: 100%; margin-top: 12px; font-size: 13.5px; font-weight: 620; }
+.map-meta { font-size: 11.5px; color: var(--ink-4); }
+
+/* 缩略图。线细、点实,和画布上真正的导图同一套观感 */
+.glyph { width: 42px; height: 42px; overflow: visible; }
+.glyph line { stroke: var(--line-hi); stroke-width: 1.4; stroke-linecap: round; }
+.glyph circle { fill: var(--line-hi); }
+.glyph .core { fill: var(--candy); }
+.map-card:hover .glyph line { stroke: var(--candy-ring); }
+.map-card:hover .glyph circle { fill: var(--candy); opacity: .55; }
+.map-card:hover .glyph .core { opacity: 1; }
+
+.map-del {
+    position: absolute; right: 8px; top: 8px;
+    display: grid; place-items: center; width: 26px; height: 26px;
+    border-radius: 8px; color: var(--ink-4);
+    opacity: 0; transition: opacity .15s var(--ease), background .15s, color .15s;
+}
+.map-card:hover .map-del { opacity: 1; }
+.map-del:hover { background: var(--bad-soft); color: var(--bad); }
+.map-del svg { width: 15px; height: 15px; fill: none; stroke: currentColor; stroke-width: 1.7; stroke-linecap: round; stroke-linejoin: round; }
+
+.empty { padding: 72px 20px; text-align: center; }
+.empty .glyph { width: 56px; height: 56px; margin: 0 auto 16px; opacity: .55; }
+.empty-title { font-size: 15px; font-weight: 600; }
+.empty p { margin: 7px 0 18px; font-size: 12.5px; color: var(--ink-3); }
+
+/* ── 画布外壳 ────────────────────────────────────────── */
+.board { flex: 1; min-height: 0; display: flex; flex-direction: column; }
+.board-bar {
+    flex-shrink: 0; display: flex; align-items: center; gap: 8px;
+    padding: 8px 12px;
+    border-bottom: 1px solid var(--line-soft);
+    background: var(--sky-low);
+}
+.board-bar .icon-btn { font-size: 20px; line-height: 1; }
+.board-title {
+    min-width: 0; flex: 0 1 380px;
+    border: 1px solid transparent; border-radius: 8px;
+    padding: 5px 8px; background: transparent;
+    font-size: 14px; font-weight: 600; color: var(--ink); font-family: inherit;
+}
+.board-title:hover { border-color: var(--line-soft); }
+.board-title:focus { border-color: var(--candy); background: var(--panel); outline: none; }
+
+.view-switch {
+    display: flex; align-items: center; padding: 2px;
+    border: 1px solid var(--line-soft); border-radius: 9px;
+    background: var(--well);
+}
+.view-switch button {
+    height: 27px; padding: 0 10px; border-radius: 7px;
+    color: var(--ink-3); background: transparent; font-size: 11.5px;
+    transition: color .14s, background .14s, box-shadow .14s;
+}
+.view-switch button:hover { color: var(--ink); }
+.view-switch button.active {
+    color: var(--ink); background: var(--panel); box-shadow: var(--shadow-s);
+}
+
+.mind-grid {
+    position: relative; flex: 1; min-height: 0; width: 100%;
+    overflow: hidden; outline: none; touch-action: none;
+    background-color: var(--well);
+    background-image: radial-gradient(circle, var(--line) 1px, transparent 1.2px);
+}
+.mind-grid.view-hidden { position: absolute; visibility: hidden; pointer-events: none; }
+
+/* 大纲与画布共用同一份主题数据。列表只负责另一种阅读和编辑方式。 */
+.outline-view {
+    flex: 1; min-height: 0; overflow: auto; padding: 28px clamp(18px, 5vw, 72px) 56px;
+    background: var(--well);
+}
+.outline-sheet {
+    width: min(820px, 100%); min-height: 100%; margin: 0 auto; padding: 28px 30px;
+    border: 1px solid var(--surface-border); border-radius: 16px;
+    background: var(--panel); box-shadow: var(--shadow-s);
+}
+.outline-actions { display: flex; justify-content: flex-end; min-height: 30px; margin-bottom: 4px; }
+.outline-actions button {
+    display: flex; height: 30px; align-items: center; gap: 6px; padding: 0 10px;
+    border: 1px solid var(--line-soft); border-radius: 8px;
+    color: var(--ink-3); background: var(--sky-low); font-size: 11.5px;
+    transition: color .14s, border-color .14s, background .14s;
+}
+.outline-actions button:hover { color: var(--candy); border-color: var(--candy-ring); background: var(--candy-soft); }
+.outline-actions button.copied { color: var(--ok); border-color: color-mix(in srgb, var(--ok) 35%, var(--line-soft)); }
+.outline-actions button.error { color: var(--bad); border-color: color-mix(in srgb, var(--bad) 35%, var(--line-soft)); }
+.outline-actions svg { width: 14px; height: 14px; fill: none; stroke: currentColor; stroke-width: 1.5; }
+.outline-tree, .outline-tree ul { margin: 0; padding: 0; list-style: none; }
+.outline-tree ul { position: relative; margin-left: 13px; padding-left: 25px; }
+.outline-tree ul::before {
+    content: ''; position: absolute; left: 8px; top: 0; bottom: 13px;
+    width: 1px; background: var(--line-soft);
+}
+.outline-item { position: relative; }
+.outline-row { display: flex; align-items: center; min-height: 38px; gap: 7px; }
+.outline-row.root { min-height: 45px; margin-bottom: 5px; }
+.outline-toggle, .outline-leaf {
+    flex: 0 0 20px; width: 20px; height: 20px;
+}
+.outline-toggle {
+    display: grid; place-items: center; padding: 0; border-radius: 6px;
+    color: var(--ink-4); background: transparent;
+}
+.outline-toggle:hover { color: var(--candy); background: var(--candy-soft); }
+.outline-toggle svg { width: 13px; height: 13px; fill: none; stroke: currentColor; stroke-width: 1.8; transition: transform .14s; }
+.outline-toggle[title="收起"] svg { transform: rotate(90deg); }
+.outline-dot {
+    flex: 0 0 7px; width: 7px; height: 7px; border-radius: 50%;
+    background: var(--line-hi);
+}
+.outline-row.root .outline-dot { width: 9px; height: 9px; flex-basis: 9px; background: var(--candy); }
+.outline-row input {
+    min-width: 0; flex: 1; padding: 6px 8px; border: 1px solid transparent; border-radius: 7px;
+    color: var(--ink); background: transparent; font: 13px/1.5 var(--sans);
+}
+.outline-row.root input { font-size: 15px; font-weight: 650; }
+.outline-row input:hover { border-color: var(--line-soft); }
+.outline-row input:focus { outline: none; border-color: var(--candy); background: var(--sky-low); }
+
+@media (max-width: 640px) {
+    .board-bar .meta { display: none; }
+    .view-switch button { padding: 0 8px; }
+    .outline-view { padding: 14px 10px 32px; }
+    .outline-sheet { padding: 20px 14px; border-radius: 12px; }
+}
+
+/* 悬浮工具条 */
+.toolbar {
+    position: absolute; bottom: 22px; left: 50%; transform: translateX(-50%);
+    z-index: 10; display: flex; align-items: center; gap: 2px;
+    max-width: calc(100% - 28px); padding: 5px;
+    border: 1px solid var(--surface-border); border-radius: 14px;
+    background: var(--panel);
+    box-shadow: var(--shadow-l);
+}
+.toolbar button {
+    display: flex; height: 35px; min-width: 35px; align-items: center; justify-content: center;
+    gap: 6px; padding: 0 9px; border-radius: 9px;
+    color: var(--ink2); font-size: 11px; background: transparent;
+    transition: background .13s, color .13s;
+}
+.toolbar button:hover:not(:disabled) { color: var(--candy); background: var(--candy-soft); }
+.toolbar button:disabled { cursor: default; opacity: .35; }
+.toolbar svg { width: 17px; height: 17px; fill: none; stroke: currentColor; stroke-width: 1.8; stroke-linecap: round; stroke-linejoin: round; }
+.toolbar i { width: 1px; height: 22px; margin: 0 3px; background: var(--line-soft); }
+.toolbar .zoom-label { min-width: 52px; padding: 0 4px; font-variant-numeric: tabular-nums; }
+
+.toast {
+    position: absolute; bottom: 78px; left: 50%; transform: translateX(-50%);
+    z-index: 20; padding: 9px 15px; border-radius: 10px;
+    background: var(--ink); color: var(--sky-low);
+    font-size: 12px; box-shadow: var(--shadow-l);
+}
+
+@media (max-width: 520px) {
+    .toolbar { bottom: 14px; }
+    .toolbar span { display: none; }
+    .toolbar button { padding: 0 7px; }
+}
+
+/* ── 画布内:engine.js 生成的 DOM ────────────────────── */
+.mind-world { position: absolute; left: 0; top: 0; transform-origin: 0 0; }
+.mind-world > svg {
+    position: absolute; left: 0; top: 0; width: 2px; height: 2px;
+    overflow: visible; pointer-events: none;
+}
+
+.mind-world .node {
+    position: absolute; left: 0; top: 0; width: max-content; max-width: 230px;
+    padding: 8px 14px; text-align: center; font-size: 13px; line-height: 1.4;
+    color: var(--ink);
+    background: var(--panel);
+    border: 1px solid var(--surface-border); border-radius: 11px;
+    box-shadow: var(--shadow-s);
+    cursor: grab; user-select: none;
+    transition: border-color .15s, box-shadow .2s;
+}
+.mind-world .node.root { cursor: default; } /* 根主题没有父节点可换,拖不动 */
+.mind-world .node.depth1 {
+    font-weight: 500; font-size: 13.5px; padding: 9px 16px; border-radius: 12px;
+    background: color-mix(in srgb, var(--c) 9%, var(--panel));
+    border-color: color-mix(in srgb, var(--c) 32%, var(--panel));
+}
+.mind-world .node.root {
+    padding: 12px 24px; font-size: 15px; font-weight: 600;
+    color: var(--on-accent); border: none; border-radius: 14px;
+    background: linear-gradient(135deg, var(--c), color-mix(in srgb, var(--c) 62%, #fff));
+    box-shadow: var(--shadow-m);
+}
+.mind-world .node.sel {
+    border-color: var(--c);
+    box-shadow: 0 0 0 3px color-mix(in srgb, var(--c) 25%, transparent), var(--shadow-m);
+}
+.mind-world .node.root.sel { box-shadow: 0 0 0 4px color-mix(in srgb, var(--c) 30%, transparent), var(--shadow-l); }
+.mind-world .node.exit { pointer-events: none; }
+/* 拖拽换父:被拖的卡片浮起来,接住它的那张亮一圈 */
+.mind-world .node.dragging { z-index: 4; cursor: grabbing; opacity: .9; box-shadow: var(--shadow-l); }
+.mind-world .node.drop {
+    border-color: var(--c);
+    box-shadow: 0 0 0 3px color-mix(in srgb, var(--c) 45%, transparent), var(--shadow-m);
+}
+
+.mind-world .txt {
+    display: block; word-break: break-word;
+    max-height: calc(1.4em * 5); /* 最多 5 行,超出内部滚动 */
+    overflow-y: auto; overscroll-behavior: contain;
+    touch-action: pan-y; /* viewport 是 touch-action:none,长文字的内部滚动要单独放行 */
+}
+.mind-world .txt::-webkit-scrollbar { width: 4px; }
+.mind-world .txt::-webkit-scrollbar-thumb { background: var(--line-hi); border-radius: 99px; }
+.mind-world .node.root .txt::-webkit-scrollbar-thumb { background: rgba(255, 255, 255, .4); }
+
+.mind-world .node input {
+    width: 100%; padding: 0; border: 0; outline: 0;
+    background: transparent; font: inherit; color: inherit; text-align: center;
+}
+
+/* 展开 / 收起 */
+.mind-world .tg {
+    position: absolute; top: 50%; z-index: 3; width: 22px; height: 22px;
+    display: grid; place-items: center; padding: 0; border-radius: 50%; cursor: pointer;
+    transform: translateY(-50%);
+    background: color-mix(in srgb, var(--c) 12%, var(--panel));
+    border: 1.5px solid color-mix(in srgb, var(--c) 55%, var(--panel));
+    color: var(--c);
+    box-shadow: var(--shadow-s);
+    font: 700 11px/1 inherit; font-variant-numeric: tabular-nums;
+    transition: transform .16s, box-shadow .16s, background .16s;
+}
+.mind-world .tg svg { width: 12px; height: 12px; fill: none; stroke: currentColor; stroke-width: 2.5; stroke-linecap: round; }
+.mind-world .tg:hover { transform: translateY(-50%) scale(1.2); box-shadow: var(--shadow-m); }
+.mind-world .tg.on {
+    width: 24px; height: 24px;
+    background: var(--c); border-color: var(--c); color: var(--on-accent);
+}
+.mind-world .side-right > .tg { right: -33px; }
+.mind-world .side-left > .tg { left: -33px; }

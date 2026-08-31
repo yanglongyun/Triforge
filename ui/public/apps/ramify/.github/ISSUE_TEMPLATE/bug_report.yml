@@ -1,0 +1,40 @@
+name: Bug 报告
+description: 报告可以稳定复现的问题
+title: "[Bug] "
+labels: [bug]
+body:
+  - type: markdown
+    attributes:
+      value: 安全漏洞请使用 Security Advisory 私密报告，不要填写此表单。
+  - type: input
+    id: version
+    attributes:
+      label: Ramify 与 Node.js 版本
+      placeholder: Ramify 0.2.0 / Node.js 22.x
+    validations:
+      required: true
+  - type: dropdown
+    id: os
+    attributes:
+      label: 操作系统
+      options: [macOS, Windows, Linux, 其他]
+    validations:
+      required: true
+  - type: textarea
+    id: steps
+    attributes:
+      label: 复现步骤
+      description: 请提供最小、可重复执行的步骤，并移除密钥和私人内容。
+    validations:
+      required: true
+  - type: textarea
+    id: expected
+    attributes:
+      label: 预期与实际结果
+    validations:
+      required: true
+  - type: textarea
+    id: diagnostics
+    attributes:
+      label: 诊断信息
+      description: 可粘贴 `node scripts/ramify.mjs doctor` 输出和相关日志；请先检查隐私信息。

@@ -1,0 +1,17 @@
+{
+    "id": "board",
+    "name": "看板",
+    "version": "0.1.0",
+    "description": "本地项目看板:项目并排成卡片,卡片里是条目,点开看详情。用户想追踪多个项目/工作流的状态和待办、记录调查结论和下一步,或提到「看板」「kanban」「Trello」时用它。",
+    "run": {
+        "command": "node",
+        "args": [
+            "bin/board.mjs",
+            "start",
+            "--foreground"
+        ],
+        "health": "/health",
+        "mode": "on-demand"
+    },
+    "permissions": []
+}

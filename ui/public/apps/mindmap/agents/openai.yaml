@@ -1,0 +1,4 @@
+interface:
+  display_name: "Mindmap"
+  short_description: "Create and edit local interactive mind maps"
+  default_prompt: "Use $mindmap to turn this topic into an interactive mind map."

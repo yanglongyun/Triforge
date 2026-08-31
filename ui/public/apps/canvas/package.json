@@ -1,0 +1,34 @@
+{
+  "name": "canvas",
+  "version": "0.1.0",
+  "description": "A local-first infinite canvas — Excalidraw scenes stored on your own machine, live across every open device.",
+  "license": "MIT",
+  "type": "module",
+  "bin": {
+    "canvas": "./bin/canvas.mjs"
+  },
+  "engines": {
+    "node": ">=22.5"
+  },
+  "scripts": {
+    "setup": "npm install && npm run build",
+    "build": "vite build --config ui/vite.config.ts",
+    "dev": "vite --config ui/vite.config.ts",
+    "start": "node bin/canvas.mjs start --foreground",
+    "test": "node --no-warnings=ExperimentalWarning --test \"test/*.test.mjs\"",
+    "typecheck": "tsc --noEmit -p ui/tsconfig.json",
+    "check": "npm run typecheck && npm test"
+  },
+  "devDependencies": {
+    "@excalidraw/excalidraw": "^0.18.1",
+    "@types/node": "^22.0.0",
+    "@types/react": "^19.2.0",
+    "@types/react-dom": "^19.2.0",
+    "@vitejs/plugin-react": "^5.0.0",
+    "jsdom": "^30.0.1",
+    "react": "^19.2.0",
+    "react-dom": "^19.2.0",
+    "typescript": "^5.9.0",
+    "vite": "^7.0.0"
+  }
+}

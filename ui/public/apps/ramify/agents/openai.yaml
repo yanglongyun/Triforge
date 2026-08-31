@@ -1,0 +1,7 @@
+interface:
+  display_name: "Ramify"
+  short_description: "让本地 Agent 在树状画布中发散并创作多个版本"
+  default_prompt: "Use $ramify to explore three distinct creative directions for this idea."
+
+policy:
+  allow_implicit_invocation: true

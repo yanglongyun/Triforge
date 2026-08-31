@@ -1,0 +1,119 @@
+/* 画布本体的样式归 Excalidraw；这里只管它外面那一圈 chrome。 */
+@import '@excalidraw/excalidraw/index.css';
+
+:root {
+  --bg: #ffffff;
+  --panel: #ffffff;
+  --hover: #f2f3f5;
+  --line: #e6e8ec;
+  --ink: #1b1d21;
+  --ink-mid: #5b6069;
+  --ink-low: #8b9099;
+  --shadow-l: 0 18px 46px -12px rgb(15 20 30 / .24);
+}
+@media (prefers-color-scheme: dark) {
+  :root {
+    --bg: #121212; --panel: #1b1c1f; --hover: #26282d; --line: #2b2d33;
+    --ink: #e7e9ee; --ink-mid: #9aa0aa; --ink-low: #6b717b;
+    --shadow-l: 0 18px 46px -12px rgb(0 0 0 / .7);
+  }
+}
+
+* { box-sizing: border-box; }
+html, body, #root { height: 100%; }
+/* 文档本身永不滚动:画布自己吃掉所有手势,页面跟着滚就全乱了 */
+body { overflow: hidden; overscroll-behavior: none; }
+body {
+  margin: 0; background: var(--bg); color: var(--ink);
+  font: 15px/1.55 ui-sans-serif, -apple-system, "SF Pro Text", "PingFang SC",
+        "Hiragino Sans GB", system-ui, sans-serif;
+  -webkit-font-smoothing: antialiased;
+  overscroll-behavior: none;
+}
+button { cursor: pointer; background: none; border: 0; padding: 0; font: inherit; color: inherit; }
+:where(button):focus-visible { outline: 2px solid hsl(224 70% 58%); outline-offset: 2px; border-radius: 6px; }
+
+.app { display: flex; flex-direction: column; height: 100%; height: 100dvh; }
+.grow { flex: 1; }
+
+.bar {
+  flex: none; display: flex; align-items: center; gap: 10px;
+  height: 46px; padding: 0 max(12px, env(safe-area-inset-right)) 0 max(12px, env(safe-area-inset-left));
+  padding-top: env(safe-area-inset-top);
+  border-bottom: 1px solid var(--line); background: var(--panel);
+  z-index: 10;
+}
+
+.picker {
+  display: flex; align-items: center; gap: 6px; min-width: 0;
+  height: 30px; padding: 0 9px; border-radius: 7px;
+  transition: background .14s;
+}
+.picker:hover { background: var(--hover); }
+.picker-name {
+  font-size: 14px; font-weight: 600; letter-spacing: -.01em;
+  white-space: nowrap; overflow: hidden; text-overflow: ellipsis; max-width: 46vw;
+}
+.picker-caret { color: var(--ink-low); font-size: 11px; transition: transform .16s; }
+.picker-caret[data-open="true"] { transform: rotate(180deg); }
+
+.save-state { font-size: 11.5px; color: var(--ink-low); font-variant-numeric: tabular-nums; }
+.save-state.bad { color: hsl(4 70% 56%); }
+.wire i { display: block; width: 6px; height: 6px; border-radius: 50%; background: var(--ink-low); transition: background .3s; }
+.wire[data-state="live"] i { background: hsl(152 55% 45%); }
+
+/* Excalidraw 要一个有确定高度的容器 */
+.board {
+  flex: 1; min-width: 0; min-height: 0; position: relative;
+  /* 横屏刘海留白。注:右侧那个工具岛贴着边缘是 Excalidraw 自己的移动端布局,
+     不是容器裁掉的 —— 试过给容器留白,岛的位置不受影响。 */
+  padding-right: env(safe-area-inset-right);
+  padding-left: env(safe-area-inset-left);
+}
+.board-wait { flex: 1; display: grid; place-items: center; color: var(--ink-low); font-size: 13px; }
+
+.scrim { position: fixed; inset: 0; z-index: 40; background: rgb(0 0 0 / .34); }
+.sheet {
+  position: fixed; z-index: 41; top: calc(46px + env(safe-area-inset-top)); left: max(10px, env(safe-area-inset-left));
+  width: min(320px, calc(100vw - 20px)); max-height: min(70vh, 520px);
+  display: flex; flex-direction: column;
+  background: var(--panel); border: 1px solid var(--line);
+  border-radius: 12px; box-shadow: var(--shadow-l); overflow: hidden;
+}
+.sheet ul { list-style: none; margin: 0; padding: 5px; overflow-y: auto; flex: 1; min-height: 0; }
+.sheet li { display: flex; align-items: center; gap: 2px; }
+.sheet li > button:first-child {
+  flex: 1; min-width: 0; display: flex; align-items: baseline; gap: 8px;
+  padding: 9px 10px; border-radius: 8px; text-align: left; transition: background .12s;
+}
+.sheet li > button:first-child:hover { background: var(--hover); }
+.sheet li > button[data-active="true"] { background: var(--hover); font-weight: 600; }
+.sheet-name { flex: 1; min-width: 0; font-size: 13.5px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.sheet-meta { flex: none; font-size: 11px; color: var(--ink-low); font-variant-numeric: tabular-nums; }
+.sheet-tool {
+  flex: none; width: 30px; height: 30px; border-radius: 7px; color: var(--ink-low);
+  display: grid; place-items: center; font-size: 12px; transition: background .12s, color .12s;
+}
+.sheet-tool:hover { background: var(--hover); color: var(--ink); }
+.sheet-new {
+  flex: none; height: 40px; border-top: 1px solid var(--line);
+  color: var(--ink-mid); font-size: 13px; transition: background .12s, color .12s;
+}
+.sheet-new:hover { background: var(--hover); color: var(--ink); }
+
+.blank { margin: auto; text-align: center; color: var(--ink-low); max-width: 30ch; padding: 24px; }
+.blank h2 { margin: 0 0 8px; font-size: 16px; font-weight: 600; color: var(--ink-mid); }
+.blank code { font: 500 12.5px ui-monospace, Menlo, monospace; background: var(--hover);
+  border: 1px solid var(--line); padding: .15em .45em; border-radius: 5px; }
+.btn {
+  margin-top: 14px; height: 34px; padding: 0 16px; border-radius: 9px;
+  background: hsl(224 62% 56%); color: #fff; font-size: 13px; font-weight: 550;
+}
+
+@media (max-width: 720px) {
+  .picker-name { max-width: 40vw; }
+  .sheet { left: 8px; right: 8px; width: auto; }
+}
+@media (prefers-reduced-motion: reduce) {
+  *, *::before, *::after { animation-duration: .01ms !important; transition-duration: .01ms !important; }
+}

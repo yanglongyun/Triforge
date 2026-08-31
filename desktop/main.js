@@ -7,6 +7,7 @@ import { app, BrowserWindow, Menu, clipboard, dialog, ipcMain, nativeTheme, sess
 import { mkdirSync, readFileSync, writeFileSync } from "node:fs";
 import { spawn } from "node:child_process";
 import { createServer } from "node:net";
+import { homedir } from "node:os";
 import { dirname, join } from "node:path";
 import { fileURLToPath } from "node:url";
 
@@ -21,9 +22,9 @@ const APP_NAME = "Mainbench";
 // userData 显式钉死:Electron 默认按 productName 取路径,改显示名会让数据"凭空消失"。
 app.setPath("userData", join(app.getPath("appData"), SLUG));
 
-/** 工作区目录跟显示名走 —— 用户要在 Finder 里天天看见它。 */
+/** 工作区:~/.mainbench/workspaces。不进安装目录,也不埋进 Library。 */
 const workspacesDir = () => {
-  const target = join(app.getPath("documents"), APP_NAME);
+  const target = join(homedir(), ".mainbench", "workspaces");
   mkdirSync(target, { recursive: true });
   return target;
 };
@@ -51,8 +52,6 @@ const layout = () => {
       WORKBENCH_PACKAGED: "1",                 // 遥测只在打包应用里发,开发态不打点
       WORKBENCH_VERSION: app.getVersion(),
       WORKBENCH_HOME: app.getPath("userData"), // database/ 落在这里(macOS 惯例:应用数据进 Application Support)
-      // 工作区是用户要在 Finder 里摸的真实文件树 —— 按「用户文档」惯例放 Documents,
-      // 不埋进 Library(对照 Obsidian vault / Logseq graph 的默认位置)
       WORKBENCH_WORKSPACES: workspacesDir(),
       WORKBENCH_UI_DIST: join(res, "core/ui"),
       // 组件契约正典:system prompt 把这个路径给智能体,让它动手前先 read

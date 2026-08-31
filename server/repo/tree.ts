@@ -9,6 +9,7 @@
 
 import { createHash } from "crypto";
 import fs from "fs";
+import os from "os";
 import path from "path";
 import { fileURLToPath } from "url";
 import { getDb } from "../db.js";
@@ -16,7 +17,7 @@ import { getDb } from "../db.js";
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 // WORKBENCH_HOME:桌面壳/打包产物用它锚定仓库根 —— 打包后 __dirname 不再是 server/repo/
 const HOME = process.env.WORKBENCH_HOME || path.join(__dirname, "../..");
-const ROOT = path.resolve(process.env.WORKBENCH_WORKSPACES || path.join(HOME, "workspaces"));
+const ROOT = path.resolve(process.env.WORKBENCH_WORKSPACES || path.join(os.homedir(), ".mainbench", "workspaces"));
 const SEP = path.sep;
 
 const ensureRoot = () => { fs.mkdirSync(ROOT, { recursive: true }); return ROOT; };

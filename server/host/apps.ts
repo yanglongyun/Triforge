@@ -12,7 +12,7 @@
 //
 // 每次问都重扫:十几个小 JSON 的开销可忽略,换来 AI 刚写完一个 app、
 // 刷新就出现在列表里,不必重启宿主。
-import { existsSync, readdirSync, readFileSync, statSync, watch } from "node:fs";
+import { cpSync, existsSync, mkdirSync, readdirSync, readFileSync, statSync, watch } from "node:fs";
 import path from "node:path";
 import { emit } from "../bus.js";
 import { ensureRoot } from "../repo/tree.js";
@@ -49,6 +49,30 @@ const asString = (value: unknown, fallback = "") =>
 
 /** 应用的家:产品自己的默认工作区根 / apps(与 widgets 并列)。 */
 export const appsHome = () => path.join(ensureRoot(), "apps");
+
+/** 随包的出厂应用(和预装组件同一套路:UI_DIST 旁边)。 */
+const presetDir = () =>
+  path.join(process.env.WORKBENCH_UI_DIST || path.join(process.env.WORKBENCH_HOME || process.cwd(), "ui/dist"), "apps");
+
+/** 出厂应用落地:复制进应用的家,之后就是用户自己的 app(可改可删)。
+ *  目录已存在就整个跳过 —— 绝不覆盖用户改过的代码,更不覆盖它的数据。 */
+export const seedPresetApps = () => {
+  const home = appsHome();
+  let entries;
+  try { entries = readdirSync(presetDir(), { withFileTypes: true }); } catch { return; }
+  mkdirSync(home, { recursive: true });
+  for (const entry of entries) {
+    if (!entry.isDirectory()) continue;
+    const target = path.join(home, entry.name);
+    if (existsSync(target)) continue;
+    try {
+      cpSync(path.join(presetDir(), entry.name), target, { recursive: true });
+      console.log(`[apps] 出厂应用已落地:apps/${entry.name}`);
+    } catch (e: any) {
+      console.error(`[apps] 落地失败 ${entry.name}:`, e?.message);
+    }
+  }
+};
 
 /** 应用数据:宿主建好目录交给 app,app 只管往里写(APP_DATA_DIR)。 */
 export const appDataHome = () => path.join(appsHome(), ".data");
