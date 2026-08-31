@@ -45,6 +45,10 @@
         "to": "core/server.mjs"
       },
       {
+        "from": "desktop/chromeExtract.mjs",
+        "to": "core/chromeExtract.mjs"
+      },
+      {
         "from": "ui/dist",
         "to": "core/ui"
       },

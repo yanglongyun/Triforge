@@ -238,10 +238,18 @@ ipcMain.handle("workbench:chrome-import-available", async () => {
 
 // 导入 Chrome 登录态。只由界面上的明确点击触发 —— 取密钥时系统会弹钥匙串授权,
 // 那是这个功能的安全闸门;用户拒绝则整次中止。
+/**
+ * 提取器跑在 Node 22 上 —— Electron 内置的 Node 20 没有 node:sqlite。
+ * 脚本必须放在 asar 外面(extraResources):子进程是普通 Node,不认 asar。
+ */
+const extractorRuntime = () => (app.isPackaged
+  ? { nodeBin: join(process.resourcesPath, "core/bin/node"), script: join(process.resourcesPath, "core/chromeExtract.mjs") }
+  : { nodeBin: "node", script: join(ROOT, "desktop/chromeExtract.mjs") });
+
 ipcMain.handle("workbench:import-chrome-cookies", async () => {
   try {
     const { importChromeCookies } = await import("./chromeImport.mjs");
-    return { ok: true, ...(await importChromeCookies(webSession())) };
+    return { ok: true, ...(await importChromeCookies(webSession(), extractorRuntime())) };
   } catch (e) {
     return { ok: false, error: e?.message || String(e) };
   }
