@@ -4,6 +4,7 @@
 // 从哪个 Chrome 配置导、导什么、以及知不知道后果。一行放不下,
 // 而放不下的结果就是替用户默认(从前是自动挑最近用过的那个配置,多 Profile 的人没得选)。
 import { useEffect, useState } from "react";
+import { createPortal } from "react-dom";
 import { AlertTriangle, Check, ChevronDown, Cookie, Loader2, Star, X } from "lucide-react";
 import { Switch } from "./Switch";
 import {
@@ -52,10 +53,19 @@ export function ChromeImportDialog({ onClose, onDone }: {
       .catch((e) => { setError(e?.message || "导入失败"); setBusy(false); });
   };
 
-  return (
-    <div className="fixed inset-0 z-[100] flex items-center justify-center bg-black/25 px-4"
-      onMouseDown={(e) => { if (e.target === e.currentTarget && !busy) onClose(); }}>
-      <div className="w-full max-w-[440px] rounded-2xl border border-border bg-surface shadow-2xl">
+  // **必须 portal 到 body**:对话框原本渲染在设置面板的 DOM 里,祖先的 transform 会让
+  // position:fixed 改锚到祖先、祖先的 stacking context 会把它压下去 —— 表现就是
+  // 按钮点不动、点面板反而关掉。产品自己的 DialogHost 挂在 App 根上,天然没这个问题。
+  return createPortal(
+    <div
+      className="fixed inset-0 z-[100] flex items-center justify-center bg-black/25 px-4"
+      onMouseDown={() => { if (!busy) onClose(); }}
+    >
+      {/* 遮罩收所有 mousedown,面板自己把事件截住 —— 与 Dialog.tsx 同一套路 */}
+      <div
+        className="w-full max-w-[440px] rounded-2xl border border-border bg-surface shadow-2xl"
+        onMouseDown={(e) => e.stopPropagation()}
+      >
         <div className="flex items-start gap-3 px-6 pt-6 pb-4">
           <div className="flex-1 min-w-0">
             <h2 className="text-[19px] font-semibold text-text">从浏览器导入</h2>
@@ -138,7 +148,8 @@ export function ChromeImportDialog({ onClose, onDone }: {
           </button>
         </div>
       </div>
-    </div>
+    </div>,
+    document.body,
   );
 }
 
@@ -158,15 +169,13 @@ function Row({ icon, label, hint, on, onChange, disabled }: {
   );
 }
 
-/** Chrome 的四色圆标 —— 用户是靠这个图标认出「这是我的浏览器」的。 */
+/** Chrome 徽标:三段 120° 扇形(红上、绿右下、黄左下)+ 白环 + 蓝心。 */
 const ChromeMark = () => (
-  <svg width="18" height="18" viewBox="0 0 48 48" className="shrink-0">
+  <svg width="18" height="18" viewBox="0 0 48 48" className="shrink-0" aria-hidden>
+    <path fill="#EA4335" d="M6.68 14A20 20 0 0 1 41.32 14L24 24Z" />
+    <path fill="#34A853" d="M41.32 14A20 20 0 0 1 24 44L24 24Z" />
+    <path fill="#FBBC05" d="M24 44A20 20 0 0 1 6.68 14L24 24Z" />
     <circle cx="24" cy="24" r="10" fill="#fff" />
-    <path fill="#4285f4" d="M24 14h18.4A22 22 0 0 0 24 2a22 22 0 0 0-19 11l9.2 16A10 10 0 0 1 24 14Z" transform="translate(0,0)" />
-    <path fill="#ea4335" d="M24 14H42.4A22 22 0 0 0 24 2 22 22 0 0 0 5 13l9.2 16A10 10 0 0 1 24 14Z" opacity="0" />
-    <path fill="#34a853" d="M31.6 30 22.4 46A22 22 0 0 0 43 30.6L33.8 14.6A10 10 0 0 1 31.6 30Z" />
-    <path fill="#fbbc05" d="M14.2 30 5 14A22 22 0 0 0 22.4 46l9.2-16a10 10 0 0 1-17.4 0Z" />
-    <circle cx="24" cy="24" r="8.4" fill="#4285f4" />
-    <circle cx="24" cy="24" r="4.6" fill="#fff" />
+    <circle cx="24" cy="24" r="8.2" fill="#4285F4" />
   </svg>
 );
