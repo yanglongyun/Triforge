@@ -236,7 +236,13 @@ const routeNewWindows = (port) => {
           },
         };
       }
-      toRenderer("workbench:open-web-tab", { url });
+      // 带上来源和前/后台:Chrome 里 target=_blank 直接切过去,
+      // 中键 / ⌘点击 是后台开、留在当前页。disposition 已经把这个区别告诉我们了。
+      toRenderer("workbench:open-web-tab", {
+        url,
+        openerWcId: contents.id,
+        background: disposition === "background-tab",
+      });
       return { action: "deny" };
     });
   });
@@ -258,7 +264,7 @@ const servePageMenu = () => {
 
       if (params.linkURL) {
         items.push(
-          { label: "在新标签页打开链接", click: () => toRenderer("workbench:open-web-tab", { url: params.linkURL }) },
+          { label: "在新标签页打开链接", click: () => toRenderer("workbench:open-web-tab", { url: params.linkURL, openerWcId: contents.id, background: true }) },
           { label: "复制链接地址", click: () => clipboard.writeText(params.linkURL) },
           { type: "separator" },
         );
@@ -267,7 +273,7 @@ const servePageMenu = () => {
         items.push(
           { label: "复制图片", click: () => contents.copyImageAt(params.x, params.y) },
           { label: "复制图片地址", click: () => clipboard.writeText(params.srcURL) },
-          { label: "在新标签页打开图片", click: () => toRenderer("workbench:open-web-tab", { url: params.srcURL }) },
+          { label: "在新标签页打开图片", click: () => toRenderer("workbench:open-web-tab", { url: params.srcURL, openerWcId: contents.id, background: true }) },
           { type: "separator" },
         );
       }

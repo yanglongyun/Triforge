@@ -22,17 +22,47 @@ const otherGroup = (id: WorkspaceGroupId): WorkspaceGroupId => (id === "main" ? 
 const activeTabOf = (group: WorkspaceGroupState) =>
   group.tabs.find((tab) => tab.id === group.activeId) || null;
 
-const upsertTab = (group: WorkspaceGroupState, tab: WorkspaceTab, preview = false): WorkspaceGroupState => {
+/**
+ * 新标签插在哪 —— **照 Chrome 的规矩**。
+ *
+ * 从某个标签点出来的(有 openerId),插在**来源标签之后、以及它已经开出来的
+ * 那几个之后**;连开三个链接,它们会按点击顺序排在来源右边,而不是散在末尾。
+ * 没有来源的(加号 / ⌘T / AI 开的)才排末尾。
+ *
+ * 为什么不图省事一律追加:在一个标签里点开链接,新页却跑到十个标签之外 ——
+ * 用户得横跨整条标签栏去找刚点开的那一页,而且关掉它之后焦点也回不到原处。
+ */
+const insertAt = (tabs: WorkspaceTab[], tab: WorkspaceTab): number => {
+  const openerId = isWebTab(tab) ? tab.openerId : undefined;
+  if (!openerId) return tabs.length;
+  const from = tabs.findIndex((t) => t.id === openerId);
+  if (from === -1) return tabs.length; // 来源已经关了,退回末尾
+  let at = from + 1;
+  while (at < tabs.length && isWebTab(tabs[at]) && (tabs[at] as WebTab).openerId === openerId) at += 1;
+  return at;
+};
+
+const upsertTab = (
+  group: WorkspaceGroupState,
+  tab: WorkspaceTab,
+  preview = false,
+  background = false,
+): WorkspaceGroupState => {
   const existing = group.tabs.some((t) => t.id === tab.id);
-  const tabs = existing
-    ? group.tabs.map((t) => (t.id === tab.id ? tab : t))
-    : preview
-      ? [...group.tabs.filter((t) => t.id !== group.previewId), tab]
-      : [...group.tabs, tab];
+  let tabs: WorkspaceTab[];
+  if (existing) {
+    tabs = group.tabs.map((t) => (t.id === tab.id ? tab : t));
+  } else if (preview) {
+    tabs = [...group.tabs.filter((t) => t.id !== group.previewId), tab];
+  } else {
+    tabs = [...group.tabs];
+    tabs.splice(insertAt(tabs, tab), 0, tab);
+  }
   return {
     ...group,
     tabs,
-    activeId: tab.id,
+    // 后台打开(中键 / ⌘点击 / 右键「在新标签页打开」)不抢焦点,和 Chrome 一致
+    activeId: background && !existing ? group.activeId : tab.id,
     previewId: preview ? tab.id : group.previewId === tab.id ? null : group.previewId,
   };
 };
@@ -81,15 +111,20 @@ export function useTabGroups({ canCloseTab = () => true, onTabClosed = () => {} 
 
   const openTab = useCallback((
     tab: WorkspaceTab,
-    opts: { groupId?: WorkspaceGroupId; side?: boolean; preview?: boolean } = {},
+    opts: { groupId?: WorkspaceGroupId; side?: boolean; preview?: boolean; background?: boolean } = {},
   ) => {
     const targetId = opts.side ? otherGroup(activeGroupRef.current) : opts.groupId || activeGroupRef.current;
     if (targetId === "side") setSideOpen(true);
     setGroups((prev) => ({
       ...prev,
-      [targetId]: upsertTab(prev[targetId], tab, !!opts.preview && isNodeTab(tab) && tab.kind === "file"),
+      [targetId]: upsertTab(
+        prev[targetId],
+        tab,
+        !!opts.preview && isNodeTab(tab) && tab.kind === "file",
+        !!opts.background,
+      ),
     }));
-    setActiveGroupId(targetId);
+    if (!opts.background) setActiveGroupId(targetId);
   }, []);
 
   const openNode = useCallback((node: Node | null, opts: { groupId?: WorkspaceGroupId; side?: boolean; preview?: boolean } = {}) => {
@@ -199,7 +234,11 @@ export function useTabGroups({ canCloseTab = () => true, onTabClosed = () => {} 
     });
   }, []);
 
-  const openWeb = useCallback((url: string, title?: string, opts: { groupId?: WorkspaceGroupId; side?: boolean; token?: string } = {}): WebTab | null => {
+  const openWeb = useCallback((
+    url: string,
+    title?: string,
+    opts: { groupId?: WorkspaceGroupId; side?: boolean; token?: string; openerId?: string; background?: boolean } = {},
+  ): WebTab | null => {
     const exact = exactKey(url);
     const host = hostKey(url);
     for (const groupId of groupOrder) {
@@ -212,7 +251,7 @@ export function useTabGroups({ canCloseTab = () => true, onTabClosed = () => {} 
         return existing;
       }
     }
-    openTab(webTab(url, title, opts.token), opts);
+    openTab(webTab(url, title, opts.token, opts.openerId), opts);
     return null;
   }, [openTab, activateTab]);
 

@@ -16,6 +16,9 @@ const registry = new Map<number, { el: any; tabId: string }>();
 
 export const registerWebview = (wcId: number, el: any, tabId: string) => { registry.set(wcId, { el, tabId }); };
 export const unregisterWebview = (wcId: number) => { registry.delete(wcId); };
+/** 按 wcId 查它属于哪个工作区标签(壳只知道 webContents,插标签位置要知道来源标签)。 */
+export const tabForWcId = (wcId: number): string | null => registry.get(wcId)?.tabId || null;
+
 /** 按工作区标签 id 反查 wcId(browser open 命中已开标签时,拿它带 token 重注册兑现)。 */
 export const wcIdForTab = (tabId: string): number | null => {
   for (const [wcId, entry] of registry) if (entry.tabId === tabId) return wcId;

@@ -76,6 +76,12 @@ export type WebTab = {
   token?: string;
   /** 页面上报的真实 favicon 地址(page-favicon-updated),标签栏优先用它。 */
   favicon?: string;
+  /**
+   * 从哪个标签点出来的。**Chrome 的规则**:从某个标签打开的新标签插在它后面
+   * (以及它已经开出来的那些之后),不是丢到末尾 —— 丢到末尾会让你点开一个链接
+   * 之后得横跨整条标签栏去找它。加号/⌘T 开的没有来源,才排末尾。
+   */
+  openerId?: string;
 };
 
 export type WorkspaceTab = Node | TerminalTab | GitTab | GitDiffTab | SettingsTab | WidgetsTab | AppTab | WebTab | LauncherTab;
@@ -153,12 +159,13 @@ export const launcherTab = (): LauncherTab => ({
   title: "新标签页",
 });
 
-export const webTab = (url: string, title?: string, token?: string): WebTab => ({
+export const webTab = (url: string, title?: string, token?: string, openerId?: string): WebTab => ({
   id: `${WEB_TAB_PREFIX}:${Date.now()}:${Math.random().toString(36).slice(2, 8)}`,
   kind: "web",
   title: title || url.replace(/^https?:\/\//, "").replace(/\/$/, ""),
   url,
   token,
+  openerId,
 });
 
 export const isTerminalTab = (tab: WorkspaceTab | null | undefined): tab is TerminalTab =>

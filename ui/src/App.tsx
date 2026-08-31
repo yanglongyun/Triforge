@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import { useSocket } from "./ws";
-import { useBrowserHost, wcIdForTab } from "./lib/webviewHost";
+import { tabForWcId, useBrowserHost, wcIdForTab } from "./lib/webviewHost";
 import { api, type GitRepositoryStatus, type Node } from "./api";
 import { EVENTS } from "../../server/shared/events";
 import { QuickOpen, CommandPalette, type Command } from "./components/command";
@@ -161,8 +161,15 @@ export function App() {
   // 以及宿主界面被外链导航时的兜底 —— 都落到这里开一个网页标签
   useEffect(() => {
     const onOpenTab = (e: Event) => {
-      const url = String((e as CustomEvent).detail?.url || "");
-      if (url) openWebTab(url);
+      const detail = (e as CustomEvent).detail || {};
+      const url = String(detail.url || "");
+      if (!url) return;
+      // 壳只认得 webContents,这里翻成标签 id —— 新标签要插在来源标签之后
+      const openerId = typeof detail.openerWcId === "number" ? tabForWcId(detail.openerWcId) : null;
+      tabGroups.openWeb(url, undefined, {
+        openerId: openerId || undefined,
+        background: !!detail.background,
+      });
     };
     window.addEventListener("workbench:open-web-tab", onOpenTab);
     return () => window.removeEventListener("workbench:open-web-tab", onOpenTab);
