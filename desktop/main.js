@@ -246,10 +246,19 @@ const extractorRuntime = () => (app.isPackaged
   ? { nodeBin: join(process.resourcesPath, "core/bin/node"), script: join(process.resourcesPath, "core/chromeExtract.mjs") }
   : { nodeBin: "node", script: join(ROOT, "desktop/chromeExtract.mjs") });
 
-ipcMain.handle("workbench:import-chrome-cookies", async () => {
+ipcMain.handle("workbench:chrome-profiles", async () => {
+  try {
+    const { listChromeProfiles } = await import("./chromeImport.mjs");
+    return { ok: true, profiles: await listChromeProfiles(extractorRuntime()) };
+  } catch (e) {
+    return { ok: false, error: e?.message || String(e) };
+  }
+});
+
+ipcMain.handle("workbench:import-chrome-cookies", async (_event, options) => {
   try {
     const { importChromeCookies } = await import("./chromeImport.mjs");
-    return { ok: true, ...(await importChromeCookies(webSession(), extractorRuntime())) };
+    return { ok: true, ...(await importChromeCookies(webSession(), extractorRuntime(), options || {})) };
   } catch (e) {
     return { ok: false, error: e?.message || String(e) };
   }

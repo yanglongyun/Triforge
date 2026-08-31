@@ -9,9 +9,15 @@ declare global {
 
       /** 这台机器能不能导入 Chrome 登录态(macOS + 装了 Chrome)。 */
       chromeImportAvailable: () => Promise<boolean>;
-      /** 导入 Chrome 登录态。系统会弹钥匙串授权,拒绝则 ok:false。 */
-      importChromeCookies: () => Promise<
-        { ok: true; profile: string; total: number; imported: number; failed: number }
+      /** 可选的 Chrome 配置,带用户看得懂的名字。 */
+      chromeProfiles: () => Promise<
+        { ok: true; profiles: { dir: string; name: string; email: string }[] }
+        | { ok: false; error: string }
+      >;
+      /** 导入。选 cookies 时系统会弹钥匙串授权,拒绝则 ok:false。 */
+      importChromeCookies: (options?: { profile?: string; cookies?: boolean; bookmarks?: boolean }) => Promise<
+        { ok: true; profile: string; total: number; imported: number; failed: number;
+          bookmarks: { title: string; url: string }[] }
         | { ok: false; error: string }
       >;
       /** 退出所有网站:清网页分区的 cookie 与站点数据。 */

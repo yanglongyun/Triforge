@@ -9,7 +9,8 @@ contextBridge.exposeInMainWorld("workbenchDesktop", {
   /** 这台机器能不能导入 Chrome 登录态(macOS + 装了 Chrome)。 */
   chromeImportAvailable: () => ipcRenderer.invoke("workbench:chrome-import-available"),
   /** 导入 Chrome 登录态 —— 必须由界面上的明确点击触发,系统会弹钥匙串授权。 */
-  importChromeCookies: () => ipcRenderer.invoke("workbench:import-chrome-cookies"),
+  chromeProfiles: () => ipcRenderer.invoke("workbench:chrome-profiles"),
+  importChromeCookies: (options) => ipcRenderer.invoke("workbench:import-chrome-cookies", options),
   /** 退出所有网站:清网页分区的 cookie 与站点数据。 */
   clearWebLogins: () => ipcRenderer.invoke("workbench:clear-web-logins"),
   /** 清缓存:腾磁盘,不影响登录态。 */

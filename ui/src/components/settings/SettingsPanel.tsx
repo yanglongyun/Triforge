@@ -2,8 +2,9 @@ import { useEffect, useState, type ReactNode } from "react";
 import type { Settings } from "../../api";
 import { api } from "../../api";
 import { getThemePref, setThemePref, type ThemePref } from "../../lib/theme";
-import { chromeImportAvailable, importChromeCookies } from "../../lib/chromeImport";
+import { chromeImportAvailable } from "../../lib/chromeImport";
 import { Check, Settings2 } from "lucide-react";
+import { ChromeImportDialog } from "../ui";
 
 const emptySettings: Settings = {
   driver: "responses",
@@ -212,6 +213,7 @@ export function SettingsPanel({ onSaved }: { onSaved?: (settings: Settings) => v
 /** 网页标签的登录态:导入、退出、清缓存。三个动作分开 —— 别让用户一按就退登。 */
 function BrowserLogins() {
   const [available, setAvailable] = useState(false);
+  const [importOpen, setImportOpen] = useState(false);
   const [busy, setBusy] = useState("");
   const [note, setNote] = useState("");
 
@@ -230,24 +232,27 @@ function BrowserLogins() {
 
   return (
     <div className="space-y-3 py-1">
+      {importOpen && (
+        <ChromeImportDialog
+          onClose={() => setImportOpen(false)}
+          onDone={(r) => setNote(
+            `已从 ${r.profile} 导入 ${r.imported} 条登录信息` +
+            `${r.failed ? `,跳过 ${r.failed} 条` : ""}` +
+            `${r.bookmarks ? `,新增 ${r.bookmarks} 个网站` : ""}。刷新页面后生效。`,
+          )}
+        />
+      )}
       <div className="flex items-start gap-3">
         <div className="min-w-0 flex-1">
           <div className="text-[13px] text-text">从 Chrome 导入登录状态</div>
           <div className="mt-0.5 text-[12px] text-text-faint leading-relaxed">
             {available
-              ? <>导入范围为<b>全部站点</b>的登录信息,需通过系统钥匙串授权。导入后 AI 可在这些已登录的页面上执行操作。</>
+              ? "选择配置与要导入的数据。导入登录信息需通过系统钥匙串授权。"
               : "需要 macOS 上装有 Chrome"}
           </div>
         </div>
-        <button
-          className={rowBtn}
-          disabled={!available || !!busy}
-          onClick={() => run("import", async () => {
-            const r = await importChromeCookies();
-            return `已从 ${r.profile} 导入 ${r.imported} 条${r.failed ? `,跳过 ${r.failed} 条` : ""}。刷新页面后生效。`;
-          })}
-        >
-          {busy === "import" ? "导入中…" : "导入"}
+        <button className={rowBtn} disabled={!available || !!busy} onClick={() => setImportOpen(true)}>
+          导入…
         </button>
       </div>
 

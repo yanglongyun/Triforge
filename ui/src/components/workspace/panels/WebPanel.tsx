@@ -7,10 +7,10 @@ import type { WebTab } from "../types";
 import { api } from "../../../api";
 import { IN_ELECTRON, RE_REGISTER_EVENT, registerWebview, unregisterWebview } from "../../../lib/webviewHost";
 import { displayUrl, hostKey, normalizeUrl } from "../../../lib/urls";
+import { ChromeImportDialog } from "../../ui";
 import {
   chromeImportAvailable,
   dismissImportPrompt,
-  importChromeCookies,
   shouldPromptImport,
 } from "../../../lib/chromeImport";
 
@@ -43,8 +43,8 @@ export function WebPanel({ tab, socket, onUpdate }: {
   const findRef = useRef<HTMLInputElement | null>(null);
   // 登录态引导:只在「能导 + 没导过/没关过」时出现,导完或关掉就不再来
   const [promptImport, setPromptImport] = useState(false);
-  const [importing, setImporting] = useState(false);
   const [importNote, setImportNote] = useState("");
+  const [importOpen, setImportOpen] = useState(false);
 
   // webview 事件:标题/地址跟着页面走,标签栏与地址栏同步;
   // 同时把自己登记为 browser 可操作的标签(本地注册表 + server 注册表)
@@ -139,17 +139,8 @@ export function WebPanel({ tab, socket, onUpdate }: {
     void chromeImportAvailable().then((ok) => setPromptImport(ok));
   }, []);
 
-  const runImport = useCallback(() => {
-    setImporting(true);
-    setImportNote("");
-    void importChromeCookies()
-      .then((r) => {
-        setImportNote(`已从 ${r.profile} 导入 ${r.imported} 条登录信息${r.failed ? `,跳过 ${r.failed} 条` : ""}。刷新页面后生效。`);
-        setPromptImport(false);
-      })
-      .catch((e) => setImportNote(e?.message || "导入失败"))
-      .finally(() => setImporting(false));
-  }, []);
+  // 开对话框:选哪个 Chrome 配置、导什么,由用户定 —— 这里只负责把它打开
+  const runImport = useCallback(() => setImportOpen(true), []);
 
   // ⌘F 打开页内查找。挂在面板上而不是全局:多个网页标签常驻挂载,
   // 全局监听会让每个标签都抢一次快捷键 —— 只有可见的那个才响应。
@@ -297,6 +288,20 @@ export function WebPanel({ tab, socket, onUpdate }: {
         </div>
       </div>
 
+      {importOpen && (
+        <ChromeImportDialog
+          onClose={() => setImportOpen(false)}
+          onDone={(r) => {
+            setPromptImport(false);
+            setImportNote(
+              `已从 ${r.profile} 导入 ${r.imported} 条登录信息` +
+              `${r.failed ? `,跳过 ${r.failed} 条` : ""}` +
+              `${r.bookmarks ? `,新增 ${r.bookmarks} 个网站` : ""}。刷新页面后生效。`,
+            );
+          }}
+        />
+      )}
+
       {/* 登录态引导:痛点就在这块面板里 —— 打开的站没登录,提示就该长在这儿,
           而不是等用户自己翻到设置页去找 */}
       {promptImport && (
@@ -305,16 +310,14 @@ export function WebPanel({ tab, socket, onUpdate }: {
           <div className="min-w-0 flex-1">
             <div className="text-[12.5px] text-text">导入 Chrome 登录状态</div>
             <div className="mt-0.5 text-[11.5px] text-text-faint leading-relaxed">
-              导入范围为<b>全部站点</b>的登录信息,需通过系统钥匙串授权。
-              导入后 AI 可在这些已登录的页面上执行操作。
+              导入登录状态与书签,可选择 Chrome 配置。导入登录信息需通过系统钥匙串授权。
             </div>
           </div>
           <button
             onClick={runImport}
-            disabled={importing}
             className="shrink-0 px-2.5 py-1 rounded-md bg-accent text-white text-[12px] hover:opacity-90 disabled:opacity-50 transition-opacity"
           >
-            {importing ? "导入中…" : "导入"}
+            导入…
           </button>
           <button
             onClick={() => { dismissImportPrompt(); setPromptImport(false); }}

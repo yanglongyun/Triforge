@@ -10,7 +10,7 @@
 import { execFileSync } from "node:child_process";
 import { createDecipheriv, createHash, pbkdf2Sync } from "node:crypto";
 import { homedir, tmpdir } from "node:os";
-import { copyFileSync, existsSync, mkdtempSync, readdirSync, rmSync, statSync } from "node:fs";
+import { copyFileSync, existsSync, mkdtempSync, readFileSync, readdirSync, rmSync, statSync } from "node:fs";
 import { join } from "node:path";
 import { DatabaseSync } from "node:sqlite";
 
@@ -102,26 +102,77 @@ const readCookies = (source) => {
 };
 
 
-// 入口:提取 → 解密 → JSON 到 stdout。主进程只负责注入。
+/** Chrome 自己记的 profile 显示名与账号,在 Local State 里。 */
+const profileLabels = () => {
+  try {
+    const state = JSON.parse(readFileSync(join(CHROME_DIR, "Local State"), "utf8"));
+    return state?.profile?.info_cache || {};
+  } catch { return {}; }
+};
+
+/** 可选的 profile:目录名 + 用户看得懂的名字。 */
+const listProfiles = () => {
+  const labels = profileLabels();
+  return chromeProfiles().map((profile) => ({
+    dir: profile.name,
+    name: labels[profile.name]?.name || profile.name,
+    email: labels[profile.name]?.user_name || "",
+    usedAt: profile.usedAt,
+  }));
+};
+
+/** 书签:纯 JSON,不加密。拍平成 { title, url }。 */
+const readBookmarks = (dir) => {
+  const file = join(CHROME_DIR, dir, "Bookmarks");
+  if (!existsSync(file)) return [];
+  let roots;
+  try { roots = JSON.parse(readFileSync(file, "utf8"))?.roots || {}; } catch { return []; }
+  const out = [];
+  const walk = (node) => {
+    if (!node) return;
+    if (node.type === "url" && node.url) out.push({ title: String(node.name || ""), url: String(node.url) });
+    for (const child of node.children || []) walk(child);
+  };
+  for (const root of Object.values(roots)) walk(root);
+  // 只要 http(s):chrome:// 与 javascript: 这类进了「网站」面板也打不开
+  return out.filter((b) => /^https?:\/\//i.test(b.url));
+};
+
+const arg = (name) => process.argv.find((a) => a.startsWith(`--${name}=`))?.split("=").slice(1).join("=") || "";
+
 try {
   if (process.platform !== "darwin") throw new Error("目前只支持从 macOS 版 Chrome 导入");
-  const profile = chromeProfiles()[0];
-  if (!profile) throw new Error("没有找到 Chrome 的 Cookie 数据库");
-  const key = storageKey();
-  const cookies = readCookies(profile.cookies).map((row) => {
-    const host = String(row.host_key || "");
-    let value = "";
-    try {
-      value = row.encrypted_value?.length ? decryptCookie(row.encrypted_value, key, host) : String(row.value || "");
-    } catch { value = ""; }
-    return {
-      host, name: String(row.name || ""), value, path: String(row.path || "/"),
-      secure: Boolean(row.is_secure), httpOnly: Boolean(row.is_httponly),
-      sameSite: SAME_SITE[String(row.samesite)] || "unspecified",
-      persistent: Boolean(row.is_persistent), expires: toUnixSeconds(row.expires_seconds),
-    };
-  });
-  process.stdout.write(JSON.stringify({ ok: true, profile: profile.name, cookies }));
+
+  if (process.argv.includes("--list")) {
+    process.stdout.write(JSON.stringify({ ok: true, profiles: listProfiles() }));
+  } else {
+    const want = (arg("what") || "cookies").split(",").filter(Boolean);
+    const dir = arg("profile") || chromeProfiles()[0]?.name;
+    if (!dir) throw new Error("没有找到 Chrome 的 Cookie 数据库");
+
+    const result = { ok: true, profile: dir, cookies: [], bookmarks: [] };
+
+    if (want.includes("cookies")) {
+      const key = storageKey();  // 钥匙串授权在这一步弹;只导书签时不会打扰用户
+      result.cookies = readCookies(join(CHROME_DIR, dir, "Cookies")).map((row) => {
+        const host = String(row.host_key || "");
+        let value = "";
+        try {
+          value = row.encrypted_value?.length ? decryptCookie(row.encrypted_value, key, host) : String(row.value || "");
+        } catch { value = ""; }
+        return {
+          host, name: String(row.name || ""), value, path: String(row.path || "/"),
+          secure: Boolean(row.is_secure), httpOnly: Boolean(row.is_httponly),
+          sameSite: SAME_SITE[String(row.samesite)] || "unspecified",
+          persistent: Boolean(row.is_persistent), expires: toUnixSeconds(row.expires_seconds),
+        };
+      });
+    }
+
+    if (want.includes("bookmarks")) result.bookmarks = readBookmarks(dir);
+
+    process.stdout.write(JSON.stringify(result));
+  }
 } catch (error) {
   process.stdout.write(JSON.stringify({ ok: false, error: String(error?.message || error) }));
 }

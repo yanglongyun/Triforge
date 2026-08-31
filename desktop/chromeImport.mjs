@@ -26,25 +26,38 @@ export const chromeImportAvailable = () =>
   process.platform === "darwin" && chromeProfiles().length > 0;
 
 /** 跑提取器。**必须用 Node 22**,不能用 Electron 自己的 node。 */
-const extract = (nodeBin, script) => new Promise((resolve, reject) => {
+const extract = (runtime, args) => new Promise((resolve, reject) => {
   // 钥匙串授权框会在这一步弹出来,用户可能要想一会儿,给足时间
-  execFile(nodeBin, [script], { timeout: 120_000, maxBuffer: 64 * 1024 * 1024 }, (error, stdout) => {
+  execFile(runtime.nodeBin, [runtime.script, ...args], { timeout: 120_000, maxBuffer: 64 * 1024 * 1024 }, (error, stdout) => {
     if (error && !stdout) { reject(new Error(error.message)); return; }
     try { resolve(JSON.parse(stdout)); }
     catch { reject(new Error("提取器没有返回可解析的结果")); }
   });
 });
 
+/** 可选的 Chrome 配置,带用户看得懂的名字(Chrome 自己记在 Local State 里)。 */
+export const listChromeProfiles = async (runtime) => {
+  const result = await extract(runtime, ["--list"]);
+  if (!result.ok) throw new Error(result.error || "读不到 Chrome 配置");
+  return result.profiles;
+};
+
 /**
- * 导入到指定 session。
+ * 导入。
  * @param targetSession Electron session(网页标签用的 persist:web)
  * @param runtime { nodeBin, script } 由 main.js 按开发/打包两种布局给出
+ * @param options { profile, cookies, bookmarks } 用户在对话框里选的
  */
-export const importChromeCookies = async (targetSession, runtime) => {
+export const importChromeCookies = async (targetSession, runtime, options = {}) => {
   if (process.platform !== "darwin") throw new Error("目前只支持从 macOS 版 Chrome 导入");
   if (!chromeProfiles().length) throw new Error("没有找到 Chrome 的 Cookie 数据库");
 
-  const result = await extract(runtime.nodeBin, runtime.script);
+  const want = [options.cookies !== false && "cookies", options.bookmarks && "bookmarks"].filter(Boolean);
+  if (!want.length) throw new Error("没有选择要导入的数据");
+
+  const args = [`--what=${want.join(",")}`];
+  if (options.profile) args.push(`--profile=${options.profile}`);
+  const result = await extract(runtime, args);
   if (!result.ok) throw new Error(result.error || "读取 Chrome 数据失败");
 
   let imported = 0;
@@ -70,5 +83,12 @@ export const importChromeCookies = async (targetSession, runtime) => {
       failed += 1;
     }
   }
-  return { profile: result.profile, total: result.cookies.length, imported, failed };
+  // 书签交给界面去写「网站」面板 —— 主进程不认识产品的 HTTP API
+  return {
+    profile: result.profile,
+    total: result.cookies.length,
+    imported,
+    failed,
+    bookmarks: result.bookmarks || [],
+  };
 };
