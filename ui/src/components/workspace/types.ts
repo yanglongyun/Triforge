@@ -55,6 +55,15 @@ export type AppTab = {
   appId: string;
 };
 
+export const LAUNCHER_TAB_PREFIX = "__launcher__";
+
+/** 新标签页:一个全能输入框 —— 输入文字开对话,输入网址开网站;就地转身成目标标签。 */
+export type LauncherTab = {
+  id: string;
+  kind: "launcher";
+  title: string;
+};
+
 export const WEB_TAB_PREFIX = "__web__";
 
 /** 网页标签:Electron 壳里的 <webview>,常驻挂载(卸载 = 断网重载,登录态全丢)。 */
@@ -69,7 +78,7 @@ export type WebTab = {
   favicon?: string;
 };
 
-export type WorkspaceTab = Node | TerminalTab | GitTab | GitDiffTab | SettingsTab | WidgetsTab | AppTab | WebTab;
+export type WorkspaceTab = Node | TerminalTab | GitTab | GitDiffTab | SettingsTab | WidgetsTab | AppTab | WebTab | LauncherTab;
 export type WorkspaceGroupId = "main" | "side";
 
 export type WorkspaceGroupState = {
@@ -138,6 +147,12 @@ export const appTab = (appId: string, title: string): AppTab => ({
   appId,
 });
 
+export const launcherTab = (): LauncherTab => ({
+  id: `${LAUNCHER_TAB_PREFIX}:${Date.now()}:${Math.random().toString(36).slice(2, 8)}`,
+  kind: "launcher",
+  title: "新标签页",
+});
+
 export const webTab = (url: string, title?: string, token?: string): WebTab => ({
   id: `${WEB_TAB_PREFIX}:${Date.now()}:${Math.random().toString(36).slice(2, 8)}`,
   kind: "web",
@@ -164,12 +179,15 @@ export const isWidgetsTab = (tab: WorkspaceTab | null | undefined): tab is Widge
 export const isAppTab = (tab: WorkspaceTab | null | undefined): tab is AppTab =>
   tab?.kind === "app";
 
+export const isLauncherTab = (tab: WorkspaceTab | null | undefined): tab is LauncherTab =>
+  tab?.kind === "launcher";
+
 export const isWebTab = (tab: WorkspaceTab | null | undefined): tab is WebTab =>
   tab?.kind === "web";
 
 export const isNodeTab = (tab: WorkspaceTab | null | undefined): tab is Node =>
   !!tab && tab.kind !== "terminal" && tab.kind !== "git" && tab.kind !== "git-diff" && tab.kind !== "settings"
-  && tab.kind !== "widgets" && tab.kind !== "app" && tab.kind !== "web";
+  && tab.kind !== "widgets" && tab.kind !== "app" && tab.kind !== "web" && tab.kind !== "launcher";
 
 export const isOpenableSpace = (node: Node | null | undefined): node is Node =>
   !!node && node.kind !== "space";

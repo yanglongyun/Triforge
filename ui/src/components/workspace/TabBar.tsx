@@ -12,7 +12,8 @@ const tabIconFor = (tab: WorkspaceTab) =>
   tab.kind === "widgets" ? LayoutGrid :
   tab.kind === "terminal" ? Terminal :
   tab.kind === "app" ? AppWindow :
-  tab.kind === "web" ? Globe : iconFor(tab.kind, tab.title);
+  tab.kind === "web" ? Globe :
+  tab.kind === "launcher" ? Plus : iconFor(tab.kind, tab.title);
 
 const tabColorFor = (tab: WorkspaceTab) =>
   tab.kind === "git-diff" ? "text-accent" :
@@ -21,7 +22,8 @@ const tabColorFor = (tab: WorkspaceTab) =>
   tab.kind === "widgets" ? "text-accent" :
   tab.kind === "terminal" ? "text-success" :
   tab.kind === "app" ? "text-accent" :
-  tab.kind === "web" ? "text-accent" : colorFor(tab.kind);
+  tab.kind === "web" ? "text-accent" :
+  tab.kind === "launcher" ? "text-text-faint" : colorFor(tab.kind);
 
 type DropGuide = {
   marker: { x: number; y: number; height: number };

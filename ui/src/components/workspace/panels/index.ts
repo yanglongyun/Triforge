@@ -1,3 +1,4 @@
+export { LauncherPanel } from "./LauncherPanel";
 export { AppPanel } from "./AppPanel";
 export { EmptyPanel } from "./EmptyPanel";
 export { TerminalPanel } from "./TerminalPanel";

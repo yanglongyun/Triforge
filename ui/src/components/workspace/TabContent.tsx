@@ -3,8 +3,8 @@ import { ChatPanel } from "../chat";
 import { FilePanel } from "../files";
 import { SettingsPanel } from "../settings";
 import { WidgetsManager } from "../widgets/WidgetsManager";
-import { AppPanel, EmptyPanel, GitDiffPanel, GitView } from "./panels";
-import { isAppTab, isGitDiffTab, isGitTab, isSettingsTab, isWidgetsTab, isNodeTab, type WorkspaceGroupId, type WorkspaceTab } from "./types";
+import { AppPanel, EmptyPanel, GitDiffPanel, GitView, LauncherPanel } from "./panels";
+import { isAppTab, isGitDiffTab, isGitTab, isLauncherTab, isSettingsTab, isWidgetsTab, isNodeTab, type WorkspaceGroupId, type WorkspaceTab } from "./types";
 
 type Socket = {
   send: (m: any) => void;
@@ -64,6 +64,10 @@ export function TabContent({
 
   if (isGitDiffTab(tab)) {
     return <GitDiffPanel tab={tab} refreshKey={gitRefreshKey} onChanged={onGitChanged} />;
+  }
+
+  if (isLauncherTab(tab)) {
+    return <LauncherPanel tab={tab} groupId={groupId} />;
   }
 
   if (isSettingsTab(tab)) {

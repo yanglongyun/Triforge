@@ -1,7 +1,7 @@
 import { useCallback, useMemo, useRef, useState } from "react";
 import { exactKey, hostKey } from "../../lib/urls";
 import type { Node } from "../../api";
-import { isOpenableSpace, isNodeTab, gitTab, gitDiffTab, settingsTab, widgetsTab, appTab, terminalTab, webTab, isWebTab, type WebTab, type WorkspaceGroupId, type WorkspaceGroupState, type WorkspaceTab } from "./types";
+import { isOpenableSpace, isNodeTab, gitTab, gitDiffTab, settingsTab, widgetsTab, appTab, terminalTab, webTab, launcherTab, isWebTab, type WebTab, type WorkspaceGroupId, type WorkspaceGroupState, type WorkspaceTab } from "./types";
 
 type UseTabGroupsOptions = {
   canCloseTab?: (tab: WorkspaceTab) => boolean | Promise<boolean>;
@@ -183,6 +183,22 @@ export function useTabGroups({ canCloseTab = () => true, onTabClosed = () => {} 
    * 先精确键(主机+路径+query,忽略协议/www/尾斜杠),再站点键(主机)兜底。
    * 返回被聚焦的已有标签(null = 新开了一个)—— AI 发起的 open 靠它兑现 token。
    */
+  const openLauncher = useCallback((opts: { groupId?: WorkspaceGroupId; side?: boolean } = {}) => {
+    openTab(launcherTab(), opts);
+  }, [openTab]);
+
+  /** 就地换身:同位置把 oldId 换成新标签 —— 新标签页 Enter 后变成对话/网站,位置不跳。 */
+  const replaceTab = useCallback((groupId: WorkspaceGroupId, oldId: string, tab: WorkspaceTab) => {
+    setGroups((prev) => {
+      const group = prev[groupId];
+      const idx = group.tabs.findIndex((t) => t.id === oldId);
+      if (idx === -1) return prev;
+      const tabs = [...group.tabs];
+      tabs[idx] = tab;
+      return { ...prev, [groupId]: { ...group, tabs, activeId: tab.id } };
+    });
+  }, []);
+
   const openWeb = useCallback((url: string, title?: string, opts: { groupId?: WorkspaceGroupId; side?: boolean; token?: string } = {}): WebTab | null => {
     const exact = exactKey(url);
     const host = hostKey(url);
@@ -366,6 +382,8 @@ export function useTabGroups({ canCloseTab = () => true, onTabClosed = () => {} 
     openWidgets,
     openApp,
     findWebTab,
+    openLauncher,
+    replaceTab,
     openWeb,
     updateWebTab,
     activateTab,
