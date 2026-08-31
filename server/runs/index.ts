@@ -10,7 +10,7 @@ import { complete, runAgent as runAi } from "../ai/index.js";
 import { EVENTS } from "../shared/events.js";
 import { homedir } from "node:os";
 import { buildExecutors, tools } from "../tools/index.js";
-import { gate } from "../permission/gate.js";
+import { gate, gateTools } from "../permission/gate.js";
 import { listRules } from "../repo/rules.js";
 import type { Mode } from "../permission/rules.js";
 import { buildSystem } from "./system.js";
@@ -150,6 +150,9 @@ const runChat = async (chatId) => {
       }
     };
 
+    // 护盾状态:决定工具表里有没有 confirm,以及执行器套不套门
+    const mode = (settings.permissionMode || "rules") as Mode;
+
     const result = await runAi({
       runId: crypto.randomUUID(),
       driver: settings.driver, // 'responses' | 'chat',协议差异全在 ai/drivers/ 内消化
@@ -158,11 +161,11 @@ const runChat = async (chatId) => {
       model: settings.model,
       instructions: buildSystem(chat, settings),
       input,
-      tools,
+      tools: gateTools(tools, mode),
       // 审批门包在执行器外面:ai/ 依然不感知权限,它只知道「执行器返回了一个结果」——
       // 被拒绝也是一种结果(回给模型的是一句人话,不是抛错中断整轮)
       executors: gate(buildExecutors(ctx), {
-        mode: (settings.permissionMode || "rules") as Mode,
+        mode,
         rules: listRules(),
         context: { home: homedir(), cwd },
         chatId: chat.id,

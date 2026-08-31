@@ -133,6 +133,6 @@ export const injection = (rules: Rule[] = [], mode: Mode = "rules") => {
     lines.push("## 用户的规则", "用户对你提了这些要求,优先于你自己的判断:");
     for (const rule of live) lines.push(`- ${rule.prompt}`);
   }
-  if (mode === "skip") lines.push("", "当前护盾已关:没有任何拦截,你要自己为后果负责。");
+  if (mode === "skip") lines.push("", "当前护盾已关:没有任何拦截,也没有 confirm 可用,你要自己为后果负责。");
   return lines.join("\n");
 };

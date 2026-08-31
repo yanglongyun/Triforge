@@ -22,6 +22,15 @@ export type GateOptions = {
   headless?: boolean;
 };
 
+/**
+ * 发给模型的工具定义表,按护盾状态裁剪。
+ *
+ * 必须和 gate() 裁掉的执行器一致 —— 定义表里留着一个没有执行器的工具,
+ * 模型会去调它然后撞空。
+ */
+export const gateTools = <T extends { name: string }>(defs: T[], mode: Mode) =>
+  mode === "skip" ? defs.filter((def) => def.name !== "confirm") : defs;
+
 /** 给一张执行器表套上审批门,返回同样形状的一张表。 */
 export const gate = (
   executors: Map<string, (args: any, ctx: any) => Promise<any>>,
@@ -31,9 +40,12 @@ export const gate = (
   const wrapped = new Map<string, (args: any, ctx: any) => Promise<any>>();
 
   for (const [name, execute] of executors) {
-    // confirm 本身就是「停下来问」这件事,再包一层门就会问两次 ——
-    // 而且它永远不该被 skip 档跳过:助手主动提醒是它自己的判断,不受用户档位左右
-    if (name === "confirm") { wrapped.set(name, execute); continue; }
+    // confirm 是护盾的一部分,不是独立能力:盾关就没有它。
+    // 盾开时它不套门 —— 它本身就是「停下来问」,再包一层会问两次。
+    if (name === "confirm") {
+      if (mode !== "skip") wrapped.set(name, execute);
+      continue;
+    }
 
     wrapped.set(name, async (args, runContext) => {
       const request = describe(name, args);

@@ -64,6 +64,18 @@ export const buildSystem = (
       ctx.skills.map((skill) => `- **${skill.name}** — ${skill.description}  [read: ${skill.rel}]`).join("\n")
     : "";
 
+  // 护盾关掉时 confirm 工具不存在(见 permission/gate.ts),提示词里也不能提它 ——
+  // 描述一个调不到的工具,模型只会去调然后撞空。
+  const shielded = (settings?.permissionMode || "rules") !== "skip";
+  const confirmDoc = shielded
+    ? `- confirm(summary, detail, risk) — **动手前先提醒用户并等确认**。用在你自己觉得该问一句的时候:
+  操作不可逆、影响面比你被交代的更大、要动没被明确授权的东西,或者你发现用户的处境
+  可能和你的默认假设不一样。得到允许前不要执行;用户不同意就换做法或如实说明,不要绕过。
+  它和用户的规则是两回事:规则是用户定的闸(命中必停),confirm 是你自己的判断 ——
+  规则没说到的地方,该问还是要问。
+`
+    : "";
+
   return `${base}
 
 # 你是谁
@@ -73,7 +85,7 @@ export const buildSystem = (
 - 你的工作目录(shell 在这里执行,东西都建在这里):
   ${cwd}${docsBlock}${skillsBlock}
 
-# 工具(一共六个)
+# 工具(一共${shielded ? "六" : "五"}个)
 - bash(command, background?)  — 在工作目录里跑命令。会结束的命令直接跑并返回输出;
   dev server/watch 等长驻进程必须 background:true —— 立即返回进程 id/pid/日志文件路径,
   之后用 read 读日志文件、用 bash 的 kill <pid> 停止。
@@ -83,12 +95,7 @@ export const buildSystem = (
   read 读到图片(png/jpg/gif/webp)时会把图像直接交给你查看
 - browser(action, ...)        — 操作工作区里的网页标签(内置真浏览器,带用户登录态;open 会在分屏侧边打开,用户看得见你在操作):
   list 列标签 / open 开网址 / navigate·back 导航 / read 读正文 / js 执行脚本 / click·type 点击输入 / screenshot 截图(图像会交给你查看,同时存成工作目录里的文件)
-- confirm(summary, detail, risk) — **动手前先提醒用户并等确认**。用在你自己觉得该问一句的时候:
-  操作不可逆、影响面比你被交代的更大、要动没被明确授权的东西,或者你发现用户的处境
-  可能和你的默认假设不一样。得到允许前不要执行;用户不同意就换做法或如实说明,不要绕过。
-  它和用户的规则是两回事:规则是用户定的闸(命中必停),confirm 是你自己的判断 ——
-  规则没说到的地方,该问还是要问。
-
+${confirmDoc}
 每个工具都必须带 summary:一句话说明这次调用的目的,用户会在界面上看到它。
 文件类工具的相对路径都相对你上面那个工作目录。
 
