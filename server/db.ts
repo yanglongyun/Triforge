@@ -1,3 +1,4 @@
+import { randomUUID } from "crypto";
 import fs from "fs";
 import path from "path";
 import { fileURLToPath } from "url";
@@ -13,6 +14,7 @@ let db: DatabaseSync | undefined;
 const initDb = () => {
   if (db) return db;
   fs.mkdirSync(path.dirname(DB_PATH), { recursive: true });
+  const fresh = !fs.existsSync(DB_PATH); // 只有新库才种规则,之后这张表归用户
   db = new DatabaseSync(DB_PATH);
   db.exec("PRAGMA journal_mode = WAL");
   db.exec("PRAGMA foreign_keys = ON");
@@ -111,7 +113,26 @@ const initDb = () => {
     CREATE INDEX IF NOT EXISTS idx_compactions_chat ON compactions(chat_id, id);
   `);
 
+  if (fresh) seedRules(db);
   return db;
+};
+
+/**
+ * 开箱自带的两条规则。**都没有硬闸** —— 它们要覆盖的正是闸看不见的地方:
+ * browser 不在闸的作用域里,脚本内部干了什么闸也看不见,动作词汇表更是闭集。
+ * 这两条走提示词,让助手自己调 confirm 停下来问。
+ *
+ * 只在建库那一刻种一次。种下去就是用户的,可改可删可排序,程序再也不碰。
+ */
+const seedRules = (db: DatabaseSync) => {
+  const seeds = [
+    "超出我交代范围的动作先问我:不可逆的、花钱的、对外发送的,以及在网页上提交或删除。",
+    "发现我的前提有问题,先告诉我,不要自己换方案。",
+  ];
+  const write = db.prepare(
+    "INSERT INTO rules (id, text, prompt, match_json, enabled, origin, position) VALUES (?, ?, ?, '{\"tools\":[],\"actions\":[],\"paths\":[],\"gate\":false}', 1, 'user', ?)",
+  );
+  seeds.forEach((text, index) => write.run(randomUUID(), text, text, index));
 };
 
 const getDb = () => initDb();
