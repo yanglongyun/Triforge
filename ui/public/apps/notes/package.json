@@ -12,12 +12,13 @@
   },
   "scripts": {
     "setup": "npm install && npm run build",
-    "build": "vite build --config ui/vite.config.ts",
+    "build": "vite build --config ui/vite.config.ts && npm run build:server",
     "dev": "vite --config ui/vite.config.ts",
     "start": "node bin/notes.mjs start --foreground",
     "test": "node --no-warnings=ExperimentalWarning --test --test-force-exit --test-timeout=30000 \"test/*.test.mjs\"",
     "typecheck": "tsc --noEmit -p ui/tsconfig.json",
-    "check": "npm run typecheck && npm test"
+    "check": "npm run typecheck && npm test",
+    "build:server": "esbuild bin/notes.mjs --bundle --platform=node --format=esm --outfile=dist/notes.mjs --banner:js='import{createRequire as __cr}from\"node:module\";const require=__cr(import.meta.url);'"
   },
   "dependencies": {
     "lib0": "^0.2.117",
@@ -39,6 +40,7 @@
     "@types/react": "^19.2.0",
     "@types/react-dom": "^19.2.0",
     "@vitejs/plugin-react": "^5.0.0",
+    "esbuild": "^0.25.0",
     "jsdom": "^30.0.1",
     "react": "^19.2.0",
     "react-dom": "^19.2.0",
