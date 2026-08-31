@@ -2,12 +2,13 @@
 // 纯浏览器里没有这个标签,给一块诚实的兜底(日常站点普遍禁 iframe,不装能行)。
 // 面板由 WorkspaceGroup 常驻挂载、CSS 控显隐 —— 卸载 = 断网重载,登录态全丢。
 import { useCallback, useEffect, useRef, useState } from "react";
-import { ArrowLeft, ArrowRight, ChevronDown, ChevronUp, ExternalLink, Globe, KeyRound, MoreHorizontal, RotateCw, Star, X } from "lucide-react";
+import { ArrowLeft, ArrowRight, ChevronDown, ChevronUp, Download as DownloadIcon, ExternalLink, Globe, KeyRound, MoreHorizontal, RotateCw, Star, X } from "lucide-react";
 import type { WebTab } from "../types";
 import { api } from "../../../api";
 import { IN_ELECTRON, RE_REGISTER_EVENT, registerWebview, unregisterWebview } from "../../../lib/webviewHost";
 import { displayUrl, hostKey, normalizeUrl } from "../../../lib/urls";
 import { ChromeImportDialog } from "../../ui";
+import { clearFinishedDownloads, progressText, useDownloads } from "../../../lib/downloads";
 import {
   chromeImportAvailable,
   dismissImportPrompt,
@@ -37,6 +38,8 @@ export function WebPanel({ tab, socket, onUpdate }: {
   const [loading, setLoading] = useState(false);
   const [starred, setStarred] = useState(false);
   const [menuOpen, setMenuOpen] = useState(false);
+  const [downloadsOpen, setDownloadsOpen] = useState(false);
+  const downloads = useDownloads();
   const [zoom, setZoomState] = useState(0);
   const [finding, setFinding] = useState(false);
   const [needle, setNeedle] = useState("");
@@ -252,6 +255,61 @@ export function WebPanel({ tab, socket, onUpdate }: {
         >
           <Star size={13} fill={starred ? "currentColor" : "none"} />
         </button>
+        {/* 下载胶囊:有下载才出现。文件已经落到磁盘上了,不给个入口用户找不到 */}
+        {downloads.length > 0 && (
+          <div className="relative">
+            <button
+              className={[
+                "shrink-0 inline-flex items-center gap-1.5 h-7 px-2 rounded-md text-[12px] transition-colors",
+                downloads[0].state === "progressing" ? "text-accent bg-accent/10 hover:bg-accent/[0.16]"
+                  : downloads[0].state === "completed" ? "text-success bg-success/10 hover:bg-success/[0.16]"
+                    : "text-danger bg-danger/10 hover:bg-danger/[0.16]",
+              ].join(" ")}
+              title="下载内容"
+              onClick={(e) => { e.stopPropagation(); setDownloadsOpen((open) => !open); }}
+            >
+              <DownloadIcon size={13} />
+              <span className="tabular-nums">{progressText(downloads[0])}</span>
+            </button>
+            {downloadsOpen && (
+              <>
+                <div className="fixed inset-0 z-40" onClick={() => setDownloadsOpen(false)} />
+                <div className="absolute top-full right-0 mt-1 z-50 w-72 py-1 rounded-lg border border-border bg-bg-raised shadow-lg">
+                  <div className="flex items-center justify-between px-3 py-1.5 text-[11px] text-text-faint">
+                    <span>下载内容</span>
+                    {downloads.some((d) => d.state !== "progressing") && (
+                      <button className="hover:text-text transition-colors" onClick={clearFinishedDownloads}>清空</button>
+                    )}
+                  </div>
+                  {downloads.map((item) => (
+                    <div key={item.id} className="group flex items-center gap-2 px-3 py-1.5 hover:bg-bg-hover transition-colors">
+                      <div className="min-w-0 flex-1">
+                        <div className="truncate text-[12.5px] text-text">{item.name}</div>
+                        <div className="text-[11px] text-text-faint tabular-nums">{progressText(item)}</div>
+                      </div>
+                      {item.state === "progressing" ? (
+                        <button
+                          className="shrink-0 text-[11.5px] text-text-faint hover:text-danger transition-colors"
+                          onClick={() => void window.workbenchDesktop?.cancelDownload(item.id)}
+                        >
+                          取消
+                        </button>
+                      ) : item.state === "completed" && (
+                        <span className="shrink-0 flex items-center gap-2 text-[11.5px] text-text-faint">
+                          <button className="hover:text-text transition-colors"
+                            onClick={() => void window.workbenchDesktop?.openDownload(item.path)}>打开</button>
+                          <button className="hover:text-text transition-colors"
+                            onClick={() => void window.workbenchDesktop?.revealDownload(item.path)}>显示</button>
+                        </span>
+                      )}
+                    </div>
+                  ))}
+                </div>
+              </>
+            )}
+          </div>
+        )}
+
         {/* 菜单挂在**触发它的这一行**里(relative 容器 + top-full):
             挂到外面就要拿行高硬算坐标,行高一改就错位 */}
         <div className="relative">

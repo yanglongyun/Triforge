@@ -26,6 +26,10 @@ declare global {
       trustCertHost: (host: string) => Promise<boolean>;
       /** 清空已授予的网站权限与证书例外。 */
       forgetWebPermissions: () => Promise<boolean>;
+      /** 下载:取消进行中的、在访达中显示、打开文件。 */
+      cancelDownload: (id: string) => Promise<boolean>;
+      revealDownload: (path: string) => Promise<boolean>;
+      openDownload: (path: string) => Promise<boolean>;
       /** 退出所有网站:清网页分区的 cookie 与站点数据。 */
       clearWebLogins: () => Promise<{ ok: boolean; error?: string }>;
       /** 清缓存:腾磁盘,不影响登录态。 */

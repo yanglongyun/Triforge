@@ -18,6 +18,11 @@ contextBridge.exposeInMainWorld("workbenchDesktop", {
   /** 清空已授予的网站权限与证书例外。 */
   forgetWebPermissions: () => ipcRenderer.invoke("workbench:web-forget-permissions"),
 
+  /** 下载:取消进行中的、在访达中显示、打开文件。 */
+  cancelDownload: (id) => ipcRenderer.invoke("workbench:download-cancel", id),
+  revealDownload: (path) => ipcRenderer.invoke("workbench:download-reveal", path),
+  openDownload: (path) => ipcRenderer.invoke("workbench:download-open", path),
+
   /** 退出所有网站:清网页分区的 cookie 与站点数据。 */
   clearWebLogins: () => ipcRenderer.invoke("workbench:clear-web-logins"),
   /** 清缓存:腾磁盘,不影响登录态。 */

@@ -171,6 +171,7 @@ const startServer = async (port) => {
 import {
   serveAnswers, serveCertErrors, serveHttpAuth, servePermissions,
 } from "./browsing.js";
+import { serveDownloads } from "./downloads.js";
 
 const WEB_PARTITION = "persist:web";
 const webSession = () => session.fromPartition(WEB_PARTITION);
@@ -479,6 +480,7 @@ app.whenReady().then(async () => {
     servePermissions(webSession(), toRenderer);
     serveHttpAuth(toRenderer);
     serveCertErrors(webSession(), toRenderer);
+    serveDownloads(webSession(), toRenderer);
     serveAnswers();
     await startServer(port);
     createWindow(port);
