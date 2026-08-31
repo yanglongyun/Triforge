@@ -112,7 +112,7 @@ const runChat = async (chatId) => {
 
     const ctx = {
       selfChatId: chatId,
-      chatId,        // consult 要用它把提醒卡投到这段对话里
+      chatId,        // confirm 要用它把提醒卡投到这段对话里
       cwd,
       emit,
       toolResultMaxChars: Number(settings.toolResultMaxChars) || 30000,

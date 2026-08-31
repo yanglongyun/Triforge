@@ -31,9 +31,9 @@ export const gate = (
   const wrapped = new Map<string, (args: any, ctx: any) => Promise<any>>();
 
   for (const [name, execute] of executors) {
-    // consult 本身就是「停下来问」这件事,再包一层门就会问两次 ——
+    // confirm 本身就是「停下来问」这件事,再包一层门就会问两次 ——
     // 而且它永远不该被 skip 档跳过:助手主动提醒是它自己的判断,不受用户档位左右
-    if (name === "consult") { wrapped.set(name, execute); continue; }
+    if (name === "confirm") { wrapped.set(name, execute); continue; }
 
     wrapped.set(name, async (args, runContext) => {
       const request = describe(name, args);

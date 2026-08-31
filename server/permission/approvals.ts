@@ -12,9 +12,9 @@ const TIMEOUT_MS = 300_000;
 export type ApprovalCard = {
   id: string;
   chatId: string;
-  /** rule = 你定的闸到了;consult = 助手自己觉得该问一句(是判断,不是保证)。 */
-  source: "rule" | "consult";
-  /** consult 专属:助手说的风险在哪。 */
+  /** rule = 你定的闸到了;confirm = 助手自己觉得该问一句(是判断,不是保证)。 */
+  source: "rule" | "confirm";
+  /** confirm 专属:助手说的风险在哪。 */
   risk?: string;
   tool: string;
   summary: string;
@@ -60,14 +60,14 @@ export const respondApproval = (id: string, answer: string) =>
   settle(String(id), answer === "allow" ? "allow" : "deny");
 
 /** 助手主动提醒:走同一条问询通道,只是卡长得不一样。 */
-export const requestConsult = (
+export const requestConfirm = (
   { chatId, summary, detail, risk, signal }:
   { chatId: string; summary: string; detail: string; risk: string; signal?: AbortSignal },
 ): Promise<Answer> => {
   const id = randomUUID();
   const card: ApprovalCard = {
-    id, chatId, source: "consult",
-    tool: "consult",
+    id, chatId, source: "confirm",
+    tool: "confirm",
     summary,
     command: detail,
     paths: [], actions: [], actionLabels: [], preview: [],

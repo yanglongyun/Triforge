@@ -13,8 +13,8 @@ export function ApprovalCard({ card, onDone }: { card: Card; onDone: (id: string
   const [busy, setBusy] = useState(false);
   // 提醒和规则命中刻意长得不一样:前者是助手自己的判断(会漏),后者是你定的闸(必到)。
   // 界面绝不能让人以为「危险操作它一定会问」。
-  const consulting = card.source === "consult";
-  const tone = consulting
+  const confirming = card.source === "confirm";
+  const tone = confirming
     ? { border: "border-accent/40", bg: "bg-accent/[0.04]", rule: "border-accent/20 bg-accent/[0.03]", text: "text-accent" }
     : { border: "border-warning/40", bg: "bg-warning/[0.04]", rule: "border-warning/20 bg-warning/[0.03]", text: "text-warning" };
 
@@ -28,11 +28,11 @@ export function ApprovalCard({ card, onDone }: { card: Card; onDone: (id: string
   return (
     <div className={`w-full max-w-2xl rounded-xl border ${tone.border} ${tone.bg} overflow-hidden`}>
       <div className="flex items-start gap-2.5 px-4 pt-3.5 pb-2">
-        {consulting
+        {confirming
           ? <MessageCircleQuestion size={16} className={`shrink-0 mt-0.5 ${tone.text}`} />
           : <ShieldAlert size={16} className={`shrink-0 mt-0.5 ${tone.text}`} />}
         <div className="min-w-0 flex-1">
-          {consulting && (
+          {confirming && (
             <div className={`mb-1 text-[11px] font-medium ${tone.text}`}>助手提醒</div>
           )}
           <div className="text-[14px] text-text leading-snug">
@@ -86,7 +86,7 @@ export function ApprovalCard({ card, onDone }: { card: Card; onDone: (id: string
         <div className="px-4 pb-2.5 flex items-start gap-1.5 text-[12px] text-text-faint">
           <AlertTriangle size={11} className="shrink-0 mt-[3px]" />
           <span className="min-w-0">
-            {consulting
+            {confirming
               ? card.risk
               : card.rule
                 ? <>命中规则:<span className="text-text-dim">{card.rule.text}</span></>

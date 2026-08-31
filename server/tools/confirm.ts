@@ -7,11 +7,11 @@
 //   1. 它只能**增加**摩擦,不能减少。没有任何路径能让助手靠调用它来跳过规则 ——
 //      它走的是同一条问询通道,加在规则之外,不替换规则。
 //   2. 它是助手的判断,**不是保证**。界面不许让人以为「危险操作它一定会问」。
-import { requestConsult } from "../permission/approvals.js";
+import { requestConfirm } from "../permission/approvals.js";
 
-export const consultDef = {
+export const confirmDef = {
   type: "function",
-  name: "consult",
+  name: "confirm",
   description: [
     "在动手之前先提醒用户并等确认。用在你自己觉得该问一句的时候:",
     "操作不可逆、影响面比你被交代的更大、要动你没被明确授权的东西、",
@@ -30,8 +30,8 @@ export const consultDef = {
   },
 };
 
-export const consult = async (args: any = {}, ctx: any = {}) => {
-  const answer = await requestConsult({
+export const confirm = async (args: any = {}, ctx: any = {}) => {
+  const answer = await requestConfirm({
     chatId: String(ctx.chatId || ""),
     summary: String(args?.summary || "").slice(0, 300),
     detail: String(args?.detail || "").slice(0, 4000),

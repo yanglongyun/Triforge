@@ -6,11 +6,11 @@
 //   bash(background?)  — 命令与后台进程(读日志用 read 日志文件,停止用 kill)
 //   read / edit / write — 文件三件套
 //   browser            — 操作网页标签(Electron <webview>,真登录态,分屏可见)
-//   consult            — 主动提醒(助手自己的判断;规则是用户定的闸,两者互补)
+//   confirm            — 主动提醒(助手自己的判断;规则是用户定的闸,两者互补)
 import { bash, bashDef } from "./bash.js";
 import { edit, editDef, read, readDef, write, writeDef } from "./files.js";
 import { browser, browserDef } from "./browser.js";
-import { consult, consultDef } from "./consult.js";
+import { confirm, confirmDef } from "./confirm.js";
 
 export const tools = [
   bashDef,
@@ -18,7 +18,7 @@ export const tools = [
   editDef,
   writeDef,
   browserDef,
-  consultDef,
+  confirmDef,
 ];
 
 const IMPLS = {
@@ -27,7 +27,7 @@ const IMPLS = {
   edit,
   write,
   browser,
-  consult,
+  confirm,
 };
 
 /**

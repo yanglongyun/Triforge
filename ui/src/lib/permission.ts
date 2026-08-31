@@ -8,9 +8,9 @@ import { useEffect, useState } from "react";
 export type ApprovalCard = {
   id: string;
   chatId: string;
-  /** rule = 你定的闸到了;consult = 助手自己觉得该问一句(是判断,不是保证)。 */
-  source: "rule" | "consult";
-  /** consult 专属:助手说的风险在哪。 */
+  /** rule = 你定的闸到了;confirm = 助手自己觉得该问一句(是判断,不是保证)。 */
+  source: "rule" | "confirm";
+  /** confirm 专属:助手说的风险在哪。 */
   risk?: string;
   tool: string;
   summary: string;
