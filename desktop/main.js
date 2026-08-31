@@ -44,6 +44,7 @@ const workspacesDir = () => {
 
 let child = null;
 let quitting = false;
+let hostContents = null; // 宿主界面那层 webContents,导航护栏只认它
 
 /** 开发态:仓库就是家。打包态:代码在只读资源区,数据在 userData。 */
 const layout = () => {
@@ -202,21 +203,27 @@ const toRenderer = (name, detail) => {
 const routeNewWindows = (port) => {
   const hostOrigin = `http://127.0.0.1:${port}`;
   app.on("web-contents-created", (_event, contents) => {
-    const isWebview = contents.getType() === "webview";
+    // 三类身份,行为完全不同:
+    //   宿主界面 —— 只能待在自己的地址上,外链一律甩出去
+    //   webview  —— 它就是浏览器,该到处导航
+    //   我们开的弹窗(OAuth 那种)—— **也是浏览器**,登录流程要在里面连着跳好几次
+    const isHost = () => contents === hostContents;
 
-    if (!isWebview) {
-      contents.on("will-navigate", (event, url) => {
-        if (url.startsWith(hostOrigin) || url.startsWith("http://localhost:")) return;
-        event.preventDefault();
-        if (/^https?:/.test(url)) toRenderer("workbench:open-web-tab", { url });
-        // mailto: / tel: 归系统。不处理的话它们会被 preventDefault 默默吃掉,点了没反应也不报错
-        else if (/^[a-z][a-z0-9+.-]*:/i.test(url)) shell.openExternal(url).catch(() => {});
-      });
-    }
+    // **护栏只管宿主界面。** 从前按「非 webview」判断,把我们自己开的 OAuth 弹窗
+    // 一并拦了 —— 登录流程第一次重定向就被 preventDefault,弹窗停在一片空白,
+    // 目标地址还被当成外链甩去开了个新标签。
+    contents.on("will-navigate", (event, url) => {
+      if (!isHost()) return;
+      if (url.startsWith(hostOrigin) || url.startsWith("http://localhost:")) return;
+      event.preventDefault();
+      if (/^https?:/.test(url)) toRenderer("workbench:open-web-tab", { url });
+      // mailto: / tel: 归系统。不处理的话它们会被 preventDefault 默默吃掉,点了没反应也不报错
+      else if (/^[a-z][a-z0-9+.-]*:/i.test(url)) shell.openExternal(url).catch(() => {});
+    });
 
     contents.setWindowOpenHandler(({ url, disposition }) => {
       if (!/^https?:/.test(url)) return { action: "deny" };
-      if (!isWebview) { shell.openExternal(url); return { action: "deny" }; }
+      if (isHost()) { shell.openExternal(url); return { action: "deny" }; }
       if (disposition === "new-window") {
         // **必须显式指定分区**:不指定的话弹窗用的是默认 session,
         // 登录流程在弹窗里种下的 cookie 落进另一个罐子,回到主标签就全丢了 ——
@@ -224,6 +231,7 @@ const routeNewWindows = (port) => {
         return {
           action: "allow",
           overrideBrowserWindowOptions: {
+            title: APP_NAME, // 不给的话标题退回 package.json 的 name(内部 slug),用户看到一个陌生的词
             webPreferences: { partition: WEB_PARTITION, contextIsolation: true, nodeIntegration: false },
           },
         };
@@ -305,6 +313,7 @@ const createWindow = (port) => {
       webviewTag: true, // 网页标签:界面里的 <webview>,真会话真登录态
     },
   });
+  hostContents = win.webContents; // 立刻认领:导航护栏靠它区分宿主与我们开的弹窗
   // 更新在窗口加载前就绪(或刷新)时,补发一次「已就绪」给界面
   win.webContents.on("did-finish-load", () => {
     if (updateReadyVersion) broadcastUpdateReady(updateReadyVersion);
