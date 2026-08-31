@@ -305,7 +305,7 @@ export function RulesControl({ mode, onModeChange }: { mode: Mode; onModeChange:
                 <div className="text-[12.5px] font-medium text-danger">护盾已关闭</div>
                 <div className="mt-0.5 text-[11.5px] text-text-dim leading-relaxed">
                   规则全部不生效,删除、安装、推送等操作不再拦截。
-                  助手仍会在自己认为必要时请示。
+                  助手仍会在自己认为必要时提醒你。
                 </div>
               </div>
             </div>

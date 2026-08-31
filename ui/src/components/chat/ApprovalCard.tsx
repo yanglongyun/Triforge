@@ -11,7 +11,7 @@ import { highlightCommand, permissionApi, type ApprovalCard as Card } from "../.
 
 export function ApprovalCard({ card, onDone }: { card: Card; onDone: (id: string) => void }) {
   const [busy, setBusy] = useState(false);
-  // 请示和规则命中刻意长得不一样:前者是助手自己的判断(会漏),后者是你定的闸(必到)。
+  // 提醒和规则命中刻意长得不一样:前者是助手自己的判断(会漏),后者是你定的闸(必到)。
   // 界面绝不能让人以为「危险操作它一定会问」。
   const consulting = card.source === "consult";
   const tone = consulting
@@ -33,7 +33,7 @@ export function ApprovalCard({ card, onDone }: { card: Card; onDone: (id: string
           : <ShieldAlert size={16} className={`shrink-0 mt-0.5 ${tone.text}`} />}
         <div className="min-w-0 flex-1">
           {consulting && (
-            <div className={`mb-1 text-[11px] font-medium ${tone.text}`}>助手请示</div>
+            <div className={`mb-1 text-[11px] font-medium ${tone.text}`}>助手提醒</div>
           )}
           <div className="text-[14px] text-text leading-snug">
             {card.summary || `助手要调用 ${card.tool}`}

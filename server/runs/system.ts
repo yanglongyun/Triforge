@@ -83,7 +83,7 @@ export const buildSystem = (
   read 读到图片(png/jpg/gif/webp)时会把图像直接交给你查看
 - browser(action, ...)        — 操作工作区里的网页标签(内置真浏览器,带用户登录态;open 会在分屏侧边打开,用户看得见你在操作):
   list 列标签 / open 开网址 / navigate·back 导航 / read 读正文 / js 执行脚本 / click·type 点击输入 / screenshot 截图(图像会交给你查看,同时存成工作目录里的文件)
-- consult(summary, detail, risk) — **动手前先请示用户**。用在你自己觉得该问一句的时候:
+- consult(summary, detail, risk) — **动手前先提醒用户并等确认**。用在你自己觉得该问一句的时候:
   操作不可逆、影响面比你被交代的更大、要动没被明确授权的东西,或者你发现用户的处境
   可能和你的默认假设不一样。得到允许前不要执行;用户不同意就换做法或如实说明,不要绕过。
   它和用户的规则是两回事:规则是用户定的闸(命中必停),consult 是你自己的判断 ——

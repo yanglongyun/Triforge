@@ -32,7 +32,7 @@ export const gate = (
 
   for (const [name, execute] of executors) {
     // consult 本身就是「停下来问」这件事,再包一层门就会问两次 ——
-    // 而且它永远不该被 skip 档跳过:助手主动请示是它自己的判断,不受用户档位左右
+    // 而且它永远不该被 skip 档跳过:助手主动提醒是它自己的判断,不受用户档位左右
     if (name === "consult") { wrapped.set(name, execute); continue; }
 
     wrapped.set(name, async (args, runContext) => {

@@ -59,7 +59,7 @@ export const listApprovals = (chatId: string) =>
 export const respondApproval = (id: string, answer: string) =>
   settle(String(id), answer === "allow" ? "allow" : "deny");
 
-/** 助手主动请示:走同一条问询通道,只是卡长得不一样。 */
+/** 助手主动提醒:走同一条问询通道,只是卡长得不一样。 */
 export const requestConsult = (
   { chatId, summary, detail, risk, signal }:
   { chatId: string; summary: string; detail: string; risk: string; signal?: AbortSignal },
