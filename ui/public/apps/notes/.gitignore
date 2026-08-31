@@ -3,4 +3,3 @@ ui/dist/
 *.log
 .DS_Store
 .env
-dist/

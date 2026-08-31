@@ -1,9 +1,8 @@
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import { api } from './lib/api';
-import { findPage, trailTo, useTree } from './lib/useTree';
-import { Tree } from './components/Tree';
+import { findPage, flatten, trailTo, useTree } from './lib/useTree';
 import { Editor } from './components/Editor';
-import { Close, Menu, Plus, Search, Trash } from './components/icons';
+import { Close, Plus, Search, Trash } from './components/icons';
 import { EmojiPicker } from './components/EmojiPicker';
 import { Cover, CoverPicker, coverStyle } from './components/Cover';
 import type { Hit, PageNode } from './types';
@@ -11,7 +10,7 @@ import type { Hit, PageNode } from './types';
 const LAST_PAGE = 'notes:last-page';
 
 export function App() {
-  const { tree, connection, error, refresh, dismissError } = useTree();
+  const { tree, error, refresh, dismissError } = useTree();
   const [activeId, setActiveId] = useState<number | null>(() => {
     const saved = Number(localStorage.getItem(LAST_PAGE));
     return Number.isInteger(saved) && saved > 0 ? saved : null;
@@ -80,83 +79,85 @@ export function App() {
   }, []);
 
   return (
-    <div className="app" data-drawer={drawer}>
-      <aside className="side">
-        <div className="side-head">
-          <span className="brand">Notes</span>
-          <span className="wire" data-state={connection} title={
-            connection === 'live' ? '实时同步中' : connection === 'offline' ? '离线（改动会存在本机，联上自动合并）' : '连接中'
-          }><i /></span>
-          <button type="button" className="icon-btn only-narrow" aria-label="关闭侧栏" onClick={() => setDrawer(false)}><Close /></button>
-        </div>
+    <div className="app">
+      {/* 单列。页面自己就是索引 —— 子页列在正文下面,不常驻一棵树占掉半屏宽度。 */}
+      <header className="topbar">
+        <span className="brand">笔记</span>
+        <span className="grow" />
+        <button type="button" className="icon-btn" aria-label="搜索" onClick={() => setDrawer(true)}><Search /></button>
+      </header>
 
-        <label className="find">
-          <Search />
-          <input value={query} placeholder="搜索标题和正文  ⌘K" onChange={(e) => setQuery(e.target.value)} />
-          {query && <button type="button" aria-label="清除" onClick={() => setQuery('')}><Close /></button>}
-        </label>
-
-        <div className="side-body">
-          {hits ? (
-            hits.length ? (
-              <ul className="hits">
-                {hits.map((hit) => (
-                  <li key={hit.id}>
-                    <button type="button" onClick={() => open(hit.id)}>
-                      <span className="hit-title">{hit.icon && `${hit.icon} `}{hit.title}</span>
-                      {hit.snippet && <span className="hit-snippet">{hit.snippet}</span>}
-                    </button>
-                  </li>
-                ))}
-              </ul>
-            ) : <p className="hint">没有命中</p>
-          ) : tree ? (
-            tree.length ? <Tree nodes={tree} activeId={activeId} handlers={handlers} />
-                        : <p className="hint">还没有页面。</p>
-          ) : <p className="hint">加载中…</p>}
-        </div>
-
-        <button type="button" className="side-foot"
-                onClick={() => void act(async () => { const p = await api.create({}); open(p.id); })}>
-          <Plus /> 新建页面
-        </button>
-      </aside>
-
-      <main className="main">
-        <header className="bar">
-          <button type="button" className="icon-btn only-narrow" aria-label="页面列表" onClick={() => setDrawer(true)}><Menu /></button>
-          <nav className="trail" aria-label="路径">
-            {trail.map((node, i) => (
-              <span key={node.id}>
-                {i > 0 && <span className="sep">/</span>}
-                <button type="button" onClick={() => open(node.id)} aria-current={i === trail.length - 1}>
-                  {node.icon && `${node.icon} `}{node.title}
-                </button>
-              </span>
-            ))}
-          </nav>
-          <span className="grow" />
-          {active && (
-            <button type="button" className="icon-btn" aria-label="删除此页"
-                    onClick={() => {
-                      const kids = active.children.length;
-                      if (confirm(`删除「${active.title}」${kids ? `及其 ${kids} 个子页` : ''}？`)) handlers.onDelete(active);
-                    }}><Trash /></button>
-          )}
-        </header>
-
+      <main className="page">
         {active ? (
-          <Editor key={active.id} pageId={active.id}
-                  title={<TitleField page={active} onRename={handlers.onRename} onPatch={handlers.onPatch} />} />
-        ) : (
+          <Editor
+            key={active.id}
+            pageId={active.id}
+            title={
+              <>
+                <Crumbs trail={trail} onOpen={open} />
+                <TitleField page={active} onRename={handlers.onRename} onPatch={handlers.onPatch}
+                            onDelete={() => handlers.onDelete(active)} />
+              </>
+            }
+            footer={
+              <Children
+                nodes={active.children}
+                onOpen={open}
+                onAdd={() => void act(async () => { const p = await api.create({ parentId: active.id }); open(p.id); })}
+              />
+            }
+          />
+        ) : tree ? (
           <div className="blank">
             <h2>还没有页面</h2>
-            <p>左下角新建一页，或者用命令行：<code>notes page add "标题"</code></p>
+            <button type="button" className="add-row"
+                    onClick={() => void act(async () => { const p = await api.create({}); open(p.id); })}>
+              <Plus /> 新建页面
+            </button>
           </div>
-        )}
+        ) : <p className="hint">加载中…</p>}
       </main>
 
-      {drawer && <div className="scrim only-narrow" onClick={() => setDrawer(false)} />}
+      {drawer && (
+        <div className="finder" role="dialog" aria-label="搜索">
+          <div className="scrim" onClick={() => setDrawer(false)} />
+          <div className="finder-panel">
+            <label className="find">
+              <Search />
+              <input autoFocus value={query} placeholder="搜索标题和正文"
+                     onChange={(e) => setQuery(e.target.value)} />
+              {query && <button type="button" aria-label="清除" onClick={() => setQuery('')}><Close /></button>}
+            </label>
+            <div className="finder-body">
+              {hits ? (
+                hits.length ? (
+                  <ul className="hits">
+                    {hits.map((hit) => (
+                      <li key={hit.id}>
+                        <button type="button" onClick={() => { open(hit.id); setDrawer(false); }}>
+                          <span className="hit-title">{hit.icon && `${hit.icon} `}{hit.title}</span>
+                          {hit.snippet && <span className="hit-snippet">{hit.snippet}</span>}
+                        </button>
+                      </li>
+                    ))}
+                  </ul>
+                ) : <p className="hint">没有命中</p>
+              ) : tree ? (
+                <ul className="hits">
+                  {flatten(tree).map(({ node, depth }) => (
+                    <li key={node.id}>
+                      <button type="button" style={{ paddingLeft: `${8 + depth * 14}px` }}
+                              onClick={() => { open(node.id); setDrawer(false); }}>
+                        <span className="hit-title">{node.icon && `${node.icon} `}{node.title}</span>
+                      </button>
+                    </li>
+                  ))}
+                </ul>
+              ) : <p className="hint">加载中…</p>}
+            </div>
+          </div>
+        </div>
+      )}
 
       {error && (
         <div className="toast" role="alert">
@@ -168,13 +169,48 @@ export function App() {
   );
 }
 
-/** 页面标题：正文的第一行，改完即存。 */
+/** 面包屑。单列布局里它是唯一的向上通路,所以在标题正上方,不在顶栏。 */
+function Crumbs({ trail, onOpen }: { trail: PageNode[]; onOpen: (id: number) => void }) {
+  if (trail.length < 2) return null;
+  return (
+    <nav className="crumbs" aria-label="路径">
+      {trail.slice(0, -1).map((node) => (
+        <span key={node.id}>
+          <button type="button" onClick={() => onOpen(node.id)}>
+            {node.icon && `${node.icon} `}{node.title}
+          </button>
+          <span className="sep">/</span>
+        </span>
+      ))}
+    </nav>
+  );
+}
+
+/** 子页列表。跟在正文后面 —— 一页既是内容也是它那一层的目录。 */
+function Children({
+  nodes, onOpen, onAdd,
+}: { nodes: PageNode[]; onOpen: (id: number) => void; onAdd: () => void }) {
+  return (
+    <div className="children">
+      {nodes.map((node) => (
+        <button key={node.id} type="button" className="child-row" onClick={() => onOpen(node.id)}>
+          <span className="child-icon">{node.icon || '📄'}</span>
+          <span className="child-title">{node.title}</span>
+          <span className="child-tail">/</span>
+        </button>
+      ))}
+      <button type="button" className="add-row" onClick={onAdd}><Plus /> 新建子页</button>
+    </div>
+  );
+}
+
 function TitleField({
-  page, onRename, onPatch,
+  page, onRename, onPatch, onDelete,
 }: {
   page: PageNode;
   onRename: (id: number, title: string) => void;
   onPatch: (id: number, patch: { icon?: string; cover?: string }) => void;
+  onDelete: () => void;
 }) {
   const [draft, setDraft] = useState(page.title);
   const [picking, setPicking] = useState<'icon' | 'cover' | null>(null);
@@ -199,6 +235,11 @@ function TitleField({
         {!coverStyle(page.cover) && (
           <button type="button" onClick={() => setPicking('cover')}>添加封面</button>
         )}
+        <span className="grow" />
+        <button type="button" className="danger" onClick={() => {
+          const kids = page.children.length;
+          if (confirm(`删除「${page.title}」${kids ? `及其 ${kids} 个子页` : ''}?`)) onDelete();
+        }}><Trash /> 删除此页</button>
       </div>
 
       {picking === 'icon' && (

@@ -12,23 +12,15 @@
   },
   "scripts": {
     "setup": "npm install && npm run build",
-    "build": "vite build --config ui/vite.config.ts && npm run build:server",
+    "build": "vite build --config ui/vite.config.ts",
     "dev": "vite --config ui/vite.config.ts",
     "start": "node bin/notes.mjs start --foreground",
     "test": "node --no-warnings=ExperimentalWarning --test --test-force-exit --test-timeout=30000 \"test/*.test.mjs\"",
     "typecheck": "tsc --noEmit -p ui/tsconfig.json",
-    "check": "npm run typecheck && npm test",
-    "build:server": "esbuild bin/notes.mjs --bundle --platform=node --format=esm --outfile=dist/notes.mjs --banner:js='import{createRequire as __cr}from\"node:module\";const require=__cr(import.meta.url);'"
-  },
-  "dependencies": {
-    "lib0": "^0.2.117",
-    "ws": "^8.21.3",
-    "y-protocols": "^1.0.7",
-    "yjs": "^13.6.32"
+    "check": "npm run typecheck && npm test"
   },
   "devDependencies": {
     "@tiptap/core": "^3.30.3",
-    "@tiptap/extension-collaboration": "^3.30.3",
     "@tiptap/extension-link": "^3.30.3",
     "@tiptap/extension-placeholder": "^3.30.3",
     "@tiptap/extension-task-item": "^3.30.3",
@@ -39,15 +31,15 @@
     "@types/node": "^22.0.0",
     "@types/react": "^19.2.0",
     "@types/react-dom": "^19.2.0",
+    "@types/turndown": "^5.0.6",
     "@vitejs/plugin-react": "^5.0.0",
-    "esbuild": "^0.25.12",
+    "esbuild": "^0.28.2",
     "jsdom": "^30.0.1",
+    "marked": "^18.0.11",
     "react": "^19.2.0",
     "react-dom": "^19.2.0",
+    "turndown": "^7.2.4",
     "typescript": "^5.9.0",
-    "vite": "^7.0.0",
-    "y-indexeddb": "^9.0.12",
-    "y-prosemirror": "^1.3.7",
-    "y-websocket": "^3.1.0"
+    "vite": "^7.0.0"
   }
 }

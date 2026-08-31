@@ -6,7 +6,7 @@
     "run": {
         "command": "node",
         "args": [
-            "dist/notes.mjs",
+            "bin/notes.mjs",
             "start",
             "--foreground"
         ],

@@ -25,18 +25,19 @@ const send = (res, status, payload) => {
   res.end(body);
 };
 
-export function makeApi(yjs) {
+export function makeApi() {
   const routes = [
     ['GET', /^\/api\/tree$/, () => repo.tree()],
     ['GET', /^\/api\/search$/, (_p, _b, url) => repo.search(url.searchParams.get('q'))],
     ['GET', /^\/api\/pages\/(\d+)$/, ([id]) => repo.getPage(Number(id))],
+    // 正文是 Markdown 文本 —— 人、AI、grep 都能直接用
+    ['GET', /^\/api\/pages\/(\d+)\/body$/, ([id]) => ({ body: repo.loadBody(Number(id)) })],
+    ['PUT', /^\/api\/pages\/(\d+)\/body$/, ([id], body) => repo.saveBody(Number(id), body?.body)],
     ['POST', /^\/api\/pages$/, (_p, body) => repo.createPage(body)],
     ['PATCH', /^\/api\/pages\/(\d+)$/, ([id], body) => repo.updatePage(Number(id), body)],
     ['POST', /^\/api\/pages\/(\d+)\/move$/, ([id], body) => repo.movePage(Number(id), body)],
     ['DELETE', /^\/api\/pages\/(\d+)$/, ([id]) => {
       const pageId = Number(id);
-      // 先把内存里那份 Yjs 文档扔掉,否则它还会把已删的页写回来
-      for (const gone of repo.subtreeIds(pageId)) yjs.forget(gone);
       repo.deletePage(pageId);
       return { ok: true };
     }],

@@ -120,26 +120,26 @@ export function tree() {
 
 /* ---------------- 正文 ---------------- */
 
-export const loadDoc = (pageId) => one('SELECT state FROM docs WHERE page_id = ?', [pageId])?.state ?? null;
+export const loadBody = (pageId) => one('SELECT body FROM docs WHERE page_id = ?', [pageId])?.body ?? '';
 
-export function saveDoc(pageId, state, text = '') {
-  run(`INSERT INTO docs (page_id, state, updated_at) VALUES (?, ?, ?)
-       ON CONFLICT(page_id) DO UPDATE SET state = excluded.state, updated_at = excluded.updated_at`,
-    [pageId, state, now()]);
-  run(`INSERT INTO search (page_id, body) VALUES (?, ?)
-       ON CONFLICT(page_id) DO UPDATE SET body = excluded.body`, [pageId, text]);
+export function saveBody(pageId, body) {
+  getPage(pageId);
+  run(`INSERT INTO docs (page_id, body, updated_at) VALUES (?, ?, ?)
+       ON CONFLICT(page_id) DO UPDATE SET body = excluded.body, updated_at = excluded.updated_at`,
+    [pageId, String(body ?? ''), now()]);
   run('UPDATE pages SET updated_at = ? WHERE id = ?', [now(), pageId]);
+  return { pageId, length: String(body ?? '').length };
 }
 
-/** 标题和正文一起搜;正文那份是落盘时抽出来的纯文本镜像。 */
+/** 标题和正文一起搜。正文本身就是 Markdown 文本,直接搜它,不另存镜像。 */
 export function search(query) {
   const needle = String(query ?? '').trim();
   if (!needle) return [];
   const q = `%${needle}%`;
   return all(
-    `SELECT p.id, p.title, p.icon, substr(COALESCE(s.body, ''), 1, 160) AS snippet
-       FROM pages p LEFT JOIN search s ON s.page_id = p.id
-      WHERE p.title LIKE ? OR s.body LIKE ?
+    `SELECT p.id, p.title, p.icon, substr(COALESCE(d.body, ''), 1, 160) AS snippet
+       FROM pages p LEFT JOIN docs d ON d.page_id = p.id
+      WHERE p.title LIKE ? OR d.body LIKE ?
       ORDER BY p.updated_at DESC LIMIT 40`,
     [q, q],
   );

@@ -2,6 +2,7 @@ import { spawn } from 'node:child_process';
 import { join } from 'node:path';
 import { existsSync } from 'node:fs';
 import * as repo from '../store/repo.mjs';
+import { NotesError } from '../store/repo.mjs';
 import { ROOT, dataDir, dbFile, uiDir } from '../config.mjs';
 import { runningInstance, startServer } from '../server/index.mjs';
 import { readInput, longText, int } from './args.mjs';
@@ -125,14 +126,25 @@ const find = ([query]) => {
 };
 
 /* ---------------- 正文 ---------------- */
-// 正文是 Yjs 文档,CLI 不直接改它 —— 那要在服务端跑一遍 ProseMirror schema。
-// 想灌内容就把 Markdown 交给编辑器:CLI 负责建页,内容你在界面里写。
-// 但读是安全的:落盘时抽好的纯文本镜像就在库里。
+// 正文就是 Markdown 文本,CLI 读写它没有任何中间层。
 
 const pageShow = ([id]) => {
   const page = repo.getPage(int(id, 'page id'));
-  const hit = repo.search(page.title).find((h) => h.id === page.id);
-  return { json: page, text: `${page.icon ? page.icon + ' ' : ''}${page.title} [${page.id}]\n\n${hit?.snippet || '(正文为空,或还没落盘)'}` };
+  const body = repo.loadBody(page.id);
+  return {
+    json: { ...page, body },
+    text: `${page.icon ? page.icon + ' ' : ''}${page.title} [${page.id}]\n\n${body || '(正文为空)'}`,
+  };
+};
+
+/** 整篇覆盖。`--append` 追加,写日志类的页面用得上。 */
+const pageWrite = ([id, ...rest], options) => {
+  const pageId = int(id, 'page id');
+  const text = options.text ?? rest.join(' ');
+  if (text === undefined) throw new NotesError('要写什么?给一段文本,或用 --text');
+  const next = options.append ? `${repo.loadBody(pageId)}${text}` : text;
+  repo.saveBody(pageId, next);
+  return { json: { id: pageId, length: next.length }, text: `页面 ${pageId} 正文已写入(${next.length} 字)` };
 };
 
 export const COMMANDS = {
@@ -146,6 +158,7 @@ export const COMMANDS = {
   'page set': { run: pageSet, mutates: true, usage: 'page set <id> [--title t] [--icon emoji] [--cover gradient:dusk|https://…] [--collapse true|false]' },
   'page move': { run: pageMove, mutates: true, usage: 'page move <id> [--parent id|root] [--index n]' },
   'page show': { run: pageShow, mutates: false, usage: 'page show <id>' },
+  'page write': { run: pageWrite, mutates: true, usage: 'page write <id> <markdown…> [--append]' },
   'page rm': { run: pageRm, mutates: true, usage: 'page rm <id>' },
 };
 

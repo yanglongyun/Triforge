@@ -27,6 +27,8 @@
 | GET | `/api/pages/:id` | — | 单页 | 不存在返回 404 |
 | POST | `/api/pages` | `{title, parentId?, icon?, index?}` | 新建的页 | |
 | PATCH | `/api/pages/:id` | `{title?, icon?, cover?, collapsed?}` | 更新后的页 | 不接受其它字段 |
+| GET | `/api/pages/:id/body` | | `{body}` | 正文，Markdown 文本 |
+| PUT | `/api/pages/:id/body` | `{body}` | `{pageId, length}` | 整篇覆盖 |
 | POST | `/api/pages/:id/move` | `{parentId?, index?}` | 移动后的页 | `parentId` 传 `null` 挪到根 |
 | DELETE | `/api/pages/:id` | — | `{"ok":true}` | **不可逆**：连带删除整棵子树和其正文，删前先 `GET /api/tree` 看清楚挂了什么 |
 | GET | `/api/events` | — | SSE，`event: changed` | 结构或正文变了就推一条，前端收到后自己重新 `GET /api/tree`。协同的地基：agent 经 API 改的东西，正在看界面的人马上能看见 |
@@ -43,7 +45,8 @@ node bin/notes.mjs find <关键词>                                # 搜标题�
 node bin/notes.mjs page add <标题> [--parent id] [--icon emoji] [--index n]
 node bin/notes.mjs page set <id> [--title t] [--icon emoji] [--cover gradient:dusk|https://…] [--collapse true|false]
 node bin/notes.mjs page move <id> [--parent id|root] [--index n]
-node bin/notes.mjs page show <id>                              # 看标题 + 正文开头
+node bin/notes.mjs page show <id>
+node bin/notes.mjs page write <id> <markdown…> [--append]                              # 看标题 + 正文开头
 node bin/notes.mjs page rm <id>                                # 不可逆：连带删除整棵子树
 node bin/notes.mjs start | stop | status | doctor
 ```
@@ -86,6 +89,7 @@ SQLite 单文件，三张表（定义见 `src/store/schema.sql`）：
 | 表 | 内容 |
 |---|---|
 | `pages` | 页面树：`parent_id` 自引用、`title`、`icon`、`cover`、`position`（浮点排序）、`collapsed` |
+| `docs` | 正文：一页一行，`body` 是 Markdown 文本。搜索直接搜它，不另存镜像 |
 | `docs` | 正文：`page_id → Y.encodeStateAsUpdate` 的字节。**不要直接改，见上一节** |
 | `search` | 正文的纯文本镜像，只为 `find` 用 |
 
@@ -106,11 +110,10 @@ npm run build        # 只构建界面，等价于 setup 里的第二步
 
 ## 跑起来
 
-宿主启动的是 `dist/notes.mjs` —— esbuild 打出的自包含单文件，不需要 `node_modules`。
-它由 `npm run build` 产出（前端 + 服务端一起），`dist/` 不入版本库。
+`node bin/notes.mjs start --foreground`。**服务端零运行时依赖**，不需要 `node_modules`。
 
-改代码：`npm install`，改 `src/` 或 `ui/src/`，再 `npm run build`。
-只想跑源码不打包，直接 `node bin/notes.mjs start --foreground`。
+改前端要重新构建：`npm install && npm run build`（产物进 `ui/dist`）。
+改服务端（`src/`）改完直接跑，没有构建这一步。
 
 ## 封面（`cover`）
 

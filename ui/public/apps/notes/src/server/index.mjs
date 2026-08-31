@@ -4,7 +4,6 @@ import { HOST, PORT, dataDir, runtimeFile } from '../config.mjs';
 import { makeApi } from './api.mjs';
 import { serveStatic } from './static.mjs';
 import { closeAll } from './events.mjs';
-import { attachYjs } from './yjs.mjs';
 import { db } from '../store/db.mjs';
 
 export function readRuntime() {
@@ -40,8 +39,7 @@ export function startServer({ port = PORT } = {}) {
       res.end('server error');
     }
   });
-  const yjs = attachYjs(server);
-  handleApi = makeApi(yjs); // 要先有 server 才能挂 Yjs 的 upgrade,所以路由在这一步才成形
+  handleApi = makeApi();
 
   return new Promise((resolve, reject) => {
     server.once('error', reject);
@@ -50,10 +48,8 @@ export function startServer({ port = PORT } = {}) {
       const url = `http://${HOST}:${actual}`;
       mkdirSync(dataDir(), { recursive: true });
       writeFileSync(runtimeFile(), JSON.stringify({ pid: process.pid, port: actual, url }, null, 2));
-      /** 干净关闭:先把没落盘的正文刷掉,再断开一切长连接。
-       *  少了后半步,WebSocket 的心跳定时器会把事件循环一直吊着。 */
+      /** 干净关闭:断开一切长连接(SSE 挂着的话进程不会退)。 */
       const close = () => {
-        yjs.destroyAll();
         closeAll();
         server.closeAllConnections?.();
         server.close();
@@ -62,7 +58,7 @@ export function startServer({ port = PORT } = {}) {
       const shutdown = () => { close(); process.exit(0); };
       process.on('SIGINT', shutdown);
       process.on('SIGTERM', shutdown);
-      resolve({ server, url, port: actual, yjs, close });
+      resolve({ server, url, port: actual, close });
     });
   });
 }

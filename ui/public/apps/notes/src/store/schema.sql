@@ -18,16 +18,11 @@ CREATE TABLE IF NOT EXISTS pages (
 );
 CREATE INDEX IF NOT EXISTS idx_pages_parent ON pages(parent_id, position);
 
--- 正文:Yjs 文档的合并快照。一页一行,页没了它跟着走。
--- 存的是 Y.encodeStateAsUpdate 的字节,不是 HTML —— HTML 是渲染结果,不是真相。
+-- 正文。**Markdown 文本,不是 HTML,也不是编辑器的私有结构** ——
+-- 正文要能被人读、被 AI 读、被 grep 到,渲染是下游的事。
+-- 一页一行,页没了它跟着走。搜索直接搜这一列,不另存镜像。
 CREATE TABLE IF NOT EXISTS docs (
   page_id    INTEGER PRIMARY KEY REFERENCES pages(id) ON DELETE CASCADE,
-  state      BLOB    NOT NULL,
+  body       TEXT    NOT NULL DEFAULT '',
   updated_at INTEGER NOT NULL
-);
-
--- 纯文本镜像,只为搜索。每次落盘时从 Yjs 文档里抽一遍。
-CREATE TABLE IF NOT EXISTS search (
-  page_id INTEGER PRIMARY KEY REFERENCES pages(id) ON DELETE CASCADE,
-  body    TEXT NOT NULL DEFAULT ''
 );
