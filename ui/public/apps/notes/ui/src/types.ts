@@ -3,6 +3,7 @@ export interface PageNode {
   parent_id: number | null;
   title: string;
   icon: string;
+  cover: string;
   position: number;
   collapsed: 0 | 1;
   updated_at: number;

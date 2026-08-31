@@ -53,6 +53,7 @@ export function createPage({ parentId = null, title, icon = '', index } = {}) {
 const FIELDS = {
   title: (v) => asTitle(v),
   icon: (v) => String(v ?? '').slice(0, 8),
+  cover: (v) => String(v ?? '').slice(0, 400),
   collapsed: (v) => (v ? 1 : 0),
 };
 
@@ -106,7 +107,7 @@ export function deletePage(id) {
 
 /** 整棵树。一次查询装配,不做 N+1。 */
 export function tree() {
-  const rows = all('SELECT id, parent_id, title, icon, position, collapsed, updated_at FROM pages ORDER BY position, id');
+  const rows = all('SELECT id, parent_id, title, icon, cover, position, collapsed, updated_at FROM pages ORDER BY position, id');
   const byId = new Map(rows.map((r) => [r.id, { ...r, children: [] }]));
   const roots = [];
   for (const row of rows) {

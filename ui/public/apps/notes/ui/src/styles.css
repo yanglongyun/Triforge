@@ -337,3 +337,91 @@ button { cursor: pointer; background: none; border: 0; padding: 0; }
         font-size: 16px;
     }
 }
+
+/* ── 页面图标与封面 ───────────────────────────────────────────────── */
+
+.title-wrap { position: relative; }
+
+/* 封面在标题上方,跟着正文一起滚 —— 它是这一页的一部分,不是钉住的横幅 */
+.cover {
+  position: relative;
+  height: 180px;
+  margin: -8px 0 12px;
+  border-radius: 10px;
+  background-size: cover;
+  background-position: center;
+}
+.cover-actions {
+  position: absolute; right: 10px; bottom: 10px;
+  display: flex; gap: 6px;
+  opacity: 0; transition: opacity .15s ease;
+}
+.cover:hover .cover-actions, .cover:focus-within .cover-actions { opacity: 1; }
+.cover-actions button {
+  padding: 4px 10px; font-size: 12px; line-height: 1.4;
+  color: #fff; background: rgba(0, 0, 0, .45); border: 0; border-radius: 6px;
+  cursor: pointer; backdrop-filter: blur(6px);
+}
+.cover-actions button:hover { background: rgba(0, 0, 0, .62); }
+
+/* 图标压在封面下沿:有封面时叠上去,没封面时就是标题上方一个大字符 */
+.page-icon {
+  display: block; margin: 0 0 4px -4px; padding: 0;
+  font-size: 56px; line-height: 1;
+  background: none; border: 0; cursor: pointer;
+}
+.cover + .page-icon { margin-top: -56px; position: relative; }
+
+/* 「添加图标 / 添加封面」:悬停整块标题区才出现,不常驻占视线 */
+.title-adds {
+  display: flex; gap: 4px; height: 22px; margin-bottom: 2px;
+  opacity: 0; transition: opacity .15s ease;
+}
+.title-wrap:hover .title-adds, .title-wrap:focus-within .title-adds { opacity: 1; }
+.title-adds button {
+  padding: 2px 6px; font-size: 12.5px;
+  color: var(--muted, #888); background: none; border: 0; border-radius: 4px; cursor: pointer;
+}
+.title-adds button:hover { background: var(--hover, rgba(0, 0, 0, .05)); }
+
+/* ── 弹层(图标 / 封面共用外形) ──────────────────────────────────── */
+
+.emoji-pop, .cover-pop {
+  position: absolute; z-index: 30; top: 100%; left: 0;
+  width: 320px; padding: 10px;
+  background: var(--panel, #fff); border: 1px solid var(--line, #e4e4e7);
+  border-radius: 10px; box-shadow: 0 12px 32px rgba(0, 0, 0, .14);
+}
+.emoji-head { display: flex; gap: 6px; margin-bottom: 8px; }
+.emoji-search {
+  flex: 1; min-width: 0; padding: 5px 8px; font-size: 13px;
+  border: 1px solid var(--line, #e4e4e7); border-radius: 6px; background: transparent; color: inherit;
+}
+.emoji-clear {
+  padding: 0 8px; font-size: 12.5px; color: var(--muted, #888);
+  background: none; border: 1px solid var(--line, #e4e4e7); border-radius: 6px; cursor: pointer;
+}
+.emoji-body { max-height: 280px; overflow-y: auto; }
+.emoji-group-name { margin: 6px 2px 4px; font-size: 11.5px; color: var(--muted, #888); }
+.emoji-grid { display: grid; grid-template-columns: repeat(8, 1fr); gap: 2px; }
+.emoji-cell {
+  aspect-ratio: 1; font-size: 20px; line-height: 1;
+  background: none; border: 0; border-radius: 6px; cursor: pointer;
+}
+.emoji-cell:hover { background: var(--hover, rgba(0, 0, 0, .06)); }
+.emoji-cell[aria-pressed='true'] { background: var(--hover, rgba(0, 0, 0, .1)); }
+.emoji-empty { padding: 16px 4px; font-size: 13px; color: var(--muted, #888); text-align: center; }
+
+.cover-grid { display: grid; grid-template-columns: repeat(4, 1fr); gap: 6px; }
+.cover-swatch { height: 48px; border: 0; border-radius: 7px; cursor: pointer; }
+.cover-swatch[aria-pressed='true'] { outline: 2px solid var(--accent, #2383e2); outline-offset: 2px; }
+.cover-url { display: flex; gap: 6px; margin-top: 10px; }
+.cover-url input {
+  flex: 1; min-width: 0; padding: 5px 8px; font-size: 13px;
+  border: 1px solid var(--line, #e4e4e7); border-radius: 6px; background: transparent; color: inherit;
+}
+.cover-url button {
+  padding: 0 10px; font-size: 12.5px;
+  background: none; border: 1px solid var(--line, #e4e4e7); border-radius: 6px; cursor: pointer;
+}
+.cover-url button:disabled { opacity: .4; cursor: default; }

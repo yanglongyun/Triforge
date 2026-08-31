@@ -40,7 +40,7 @@
     "@types/react": "^19.2.0",
     "@types/react-dom": "^19.2.0",
     "@vitejs/plugin-react": "^5.0.0",
-    "esbuild": "^0.25.0",
+    "esbuild": "^0.25.12",
     "jsdom": "^30.0.1",
     "react": "^19.2.0",
     "react-dom": "^19.2.0",

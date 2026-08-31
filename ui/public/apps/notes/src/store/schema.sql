@@ -8,6 +8,9 @@ CREATE TABLE IF NOT EXISTS pages (
   parent_id  INTEGER REFERENCES pages(id) ON DELETE CASCADE,
   title      TEXT    NOT NULL DEFAULT '无标题',
   icon       TEXT    NOT NULL DEFAULT '',
+  -- 封面。空 = 没有;`gradient:<名>` 用内置渐变,`http(s)://…` 直接当图片地址。
+  -- 不收上传的文件 —— 那要一整套存储与清理,而封面的价值 90% 在「一眼认出这页」。
+  cover      TEXT    NOT NULL DEFAULT '',
   position   REAL    NOT NULL DEFAULT 0,
   collapsed  INTEGER NOT NULL DEFAULT 0 CHECK (collapsed IN (0, 1)),
   created_at INTEGER NOT NULL,

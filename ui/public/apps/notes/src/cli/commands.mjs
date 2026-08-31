@@ -93,6 +93,7 @@ const pageSet = ([id], options) => {
   const patch = {};
   if (options.title !== undefined) patch.title = options.title;
   if (options.icon !== undefined) patch.icon = options.icon;
+  if (options.cover !== undefined) patch.cover = options.cover;
   if (options.collapse !== undefined) patch.collapsed = options.collapse !== 'false' && options.collapse !== false;
   const page = repo.updatePage(int(id, 'page id'), patch);
   return { json: page, text: `页面 ${page.id} 已更新` };
@@ -142,7 +143,7 @@ export const COMMANDS = {
   tree: { run: tree, mutates: false, usage: 'tree' },
   find: { run: find, mutates: false, usage: 'find <关键词>' },
   'page add': { run: pageAdd, mutates: true, usage: 'page add <标题> [--parent id] [--icon emoji] [--index n]' },
-  'page set': { run: pageSet, mutates: true, usage: 'page set <id> [--title t] [--icon emoji] [--collapse true|false]' },
+  'page set': { run: pageSet, mutates: true, usage: 'page set <id> [--title t] [--icon emoji] [--cover gradient:dusk|https://…] [--collapse true|false]' },
   'page move': { run: pageMove, mutates: true, usage: 'page move <id> [--parent id|root] [--index n]' },
   'page show': { run: pageShow, mutates: false, usage: 'page show <id>' },
   'page rm': { run: pageRm, mutates: true, usage: 'page rm <id>' },

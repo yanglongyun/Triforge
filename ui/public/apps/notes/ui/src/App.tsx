@@ -4,6 +4,8 @@ import { findPage, trailTo, useTree } from './lib/useTree';
 import { Tree } from './components/Tree';
 import { Editor } from './components/Editor';
 import { Close, Menu, Plus, Search, Trash } from './components/icons';
+import { EmojiPicker } from './components/EmojiPicker';
+import { Cover, CoverPicker, coverStyle } from './components/Cover';
 import type { Hit, PageNode } from './types';
 
 const LAST_PAGE = 'notes:last-page';
@@ -40,6 +42,7 @@ export function App() {
     onToggle: (node: PageNode) => void act(() => api.update(node.id, { collapsed: !node.collapsed })),
     onAdd: (parentId: number) => void act(async () => { const p = await api.create({ parentId }); open(p.id); }),
     onRename: (id: number, title: string) => void act(() => api.update(id, { title })),
+    onPatch: (id: number, patch: { icon?: string; cover?: string }) => void act(() => api.update(id, patch)),
     onDelete: (node: PageNode) => void act(() => api.remove(node.id)),
     onMove: (id: number, to: { parentId?: number | null; index?: number }) => void act(() => api.move(id, to)),
   }), [act, open]);
@@ -144,7 +147,7 @@ export function App() {
 
         {active ? (
           <Editor key={active.id} pageId={active.id}
-                  title={<TitleField page={active} onRename={handlers.onRename} />} />
+                  title={<TitleField page={active} onRename={handlers.onRename} onPatch={handlers.onPatch} />} />
         ) : (
           <div className="blank">
             <h2>还没有页面</h2>
@@ -166,11 +169,53 @@ export function App() {
 }
 
 /** 页面标题：正文的第一行，改完即存。 */
-function TitleField({ page, onRename }: { page: PageNode; onRename: (id: number, title: string) => void }) {
+function TitleField({
+  page, onRename, onPatch,
+}: {
+  page: PageNode;
+  onRename: (id: number, title: string) => void;
+  onPatch: (id: number, patch: { icon?: string; cover?: string }) => void;
+}) {
   const [draft, setDraft] = useState(page.title);
+  const [picking, setPicking] = useState<'icon' | 'cover' | null>(null);
   useEffect(() => setDraft(page.title), [page.id, page.title]);
+  useEffect(() => setPicking(null), [page.id]);
+
   return (
     <div className="title-wrap">
+      <Cover cover={page.cover} onChange={(next) => onPatch(page.id, { cover: next })} />
+
+      {page.icon && (
+        <button type="button" className="page-icon" onClick={() => setPicking('icon')} aria-label="更换图标">
+          {page.icon}
+        </button>
+      )}
+
+      {/* 没有的东西才给入口:已经有图标/封面时,改它们走各自的元素 */}
+      <div className="title-adds">
+        {!page.icon && (
+          <button type="button" onClick={() => setPicking('icon')}>添加图标</button>
+        )}
+        {!coverStyle(page.cover) && (
+          <button type="button" onClick={() => setPicking('cover')}>添加封面</button>
+        )}
+      </div>
+
+      {picking === 'icon' && (
+        <EmojiPicker
+          value={page.icon}
+          onPick={(icon) => onPatch(page.id, { icon })}
+          onClose={() => setPicking(null)}
+        />
+      )}
+      {picking === 'cover' && (
+        <CoverPicker
+          cover={page.cover}
+          onPick={(cover) => onPatch(page.id, { cover })}
+          onClose={() => setPicking(null)}
+        />
+      )}
+
       <textarea
         className="title" rows={1} value={draft === '无标题' ? '' : draft} placeholder="无标题"
         onChange={(e) => {

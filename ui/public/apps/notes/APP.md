@@ -26,7 +26,7 @@
 | GET | `/api/search` | `?q=关键词` | 命中数组，每条带 `snippet` | 搜标题和正文纯文本镜像 |
 | GET | `/api/pages/:id` | — | 单页 | 不存在返回 404 |
 | POST | `/api/pages` | `{title, parentId?, icon?, index?}` | 新建的页 | |
-| PATCH | `/api/pages/:id` | `{title?, icon?, collapsed?}` | 更新后的页 | 不接受其它字段 |
+| PATCH | `/api/pages/:id` | `{title?, icon?, cover?, collapsed?}` | 更新后的页 | 不接受其它字段 |
 | POST | `/api/pages/:id/move` | `{parentId?, index?}` | 移动后的页 | `parentId` 传 `null` 挪到根 |
 | DELETE | `/api/pages/:id` | — | `{"ok":true}` | **不可逆**：连带删除整棵子树和其正文，删前先 `GET /api/tree` 看清楚挂了什么 |
 | GET | `/api/events` | — | SSE，`event: changed` | 结构或正文变了就推一条，前端收到后自己重新 `GET /api/tree`。协同的地基：agent 经 API 改的东西，正在看界面的人马上能看见 |
@@ -41,7 +41,7 @@
 node bin/notes.mjs tree                                       # 整棵树，带 id
 node bin/notes.mjs find <关键词>                                # 搜标题和正文
 node bin/notes.mjs page add <标题> [--parent id] [--icon emoji] [--index n]
-node bin/notes.mjs page set <id> [--title t] [--icon emoji] [--collapse true|false]
+node bin/notes.mjs page set <id> [--title t] [--icon emoji] [--cover gradient:dusk|https://…] [--collapse true|false]
 node bin/notes.mjs page move <id> [--parent id|root] [--index n]
 node bin/notes.mjs page show <id>                              # 看标题 + 正文开头
 node bin/notes.mjs page rm <id>                                # 不可逆：连带删除整棵子树
@@ -85,7 +85,7 @@ SQLite 单文件，三张表（定义见 `src/store/schema.sql`）：
 
 | 表 | 内容 |
 |---|---|
-| `pages` | 页面树：`parent_id` 自引用、`title`、`icon`、`position`（浮点排序）、`collapsed` |
+| `pages` | 页面树：`parent_id` 自引用、`title`、`icon`、`cover`、`position`（浮点排序）、`collapsed` |
 | `docs` | 正文：`page_id → Y.encodeStateAsUpdate` 的字节。**不要直接改，见上一节** |
 | `search` | 正文的纯文本镜像，只为 `find` 用 |
 
@@ -103,3 +103,21 @@ npm run build        # 只构建界面，等价于 setup 里的第二步
 
 改了 API 形状、CLI 命令、数据表结构，或者「正文怎么写」「协同状态」「版本或撤销」这几节描述的能力，
 要同步改本文档 —— 这几节是 agent 唯一的说明书。
+
+## 跑起来
+
+宿主启动的是 `dist/notes.mjs` —— esbuild 打出的自包含单文件，不需要 `node_modules`。
+它由 `npm run build` 产出（前端 + 服务端一起），`dist/` 不入版本库。
+
+改代码：`npm install`，改 `src/` 或 `ui/src/`，再 `npm run build`。
+只想跑源码不打包，直接 `node bin/notes.mjs start --foreground`。
+
+## 封面（`cover`）
+
+一个字符串，两种取值：
+
+- `gradient:<名>` —— 内置渐变，名在 `dawn` `dusk` `moss` `ember` `slate` `bloom` `citrus` `deep` 里选
+- `http(s)://…` —— 直接当图片地址
+
+空字符串 = 没有封面。**不收上传的文件**：那要一整套存储、配额与清理，
+而封面的价值几乎全在「一眼把这页和别的页分开」。
