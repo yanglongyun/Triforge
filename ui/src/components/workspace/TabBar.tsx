@@ -39,6 +39,7 @@ export function TabBar({
   showSideToggle,
   sideToggleOpen,
   onOpenNav,
+  navOpen,
 }: {
   tabs: WorkspaceTab[];
   activeId: string | null;
@@ -50,8 +51,9 @@ export function TabBar({
   /** 是否显示右端的分屏开关(只有最右一组显示)。 */
   showSideToggle?: boolean;
   sideToggleOpen?: boolean;
-  /** 移动端:打开侧栏抽屉。桌面端活动栏常驻,这颗汉堡不再出现。 */
   onOpenNav?: () => void;
+  /** 侧边栏当前是否展开:展开时桌面端隐藏标签栏左端的汉堡(汉堡在侧栏头部)。 */
+  navOpen?: boolean;
 }) {
   const pointerDrag = useRef<{
     startX: number;
@@ -213,13 +215,13 @@ export function TabBar({
       data-tab-count={tabs.length}
       className="flex items-stretch h-11 bg-bg-raised border-b border-border shrink-0"
     >
-      {/* 侧边栏开关:仅移动端 —— 桌面端活动栏常驻,面板开合由活动栏与侧栏头部负责 */}
+      {/* 侧边栏开关:侧栏展开时汉堡在侧栏头部,这里只在收起(或移动端)时出现 */}
       {onOpenNav && (
         <button
           onClick={onOpenNav}
           className={[
             "px-2.5 flex items-center justify-center text-text-dim hover:text-text hover:bg-bg-hover border-r border-border shrink-0",
-            "md:hidden",
+            navOpen ? "md:hidden" : "",
           ].join(" ")}
           title="展开侧边栏"
         >

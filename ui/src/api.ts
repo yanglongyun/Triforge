@@ -106,7 +106,7 @@ export type Settings = {
   toolResultMaxChars?: string;
   /** 匿名使用统计:on/off(只收 事件名/版本/平台/匿名安装 id)。 */
   telemetry?: string;
-  /** 审批模式:ask 逐步确认 / rules 按照规则 / skip 完全跳过。 */
+  /** 护盾:rules = 盾开(按规则把关)/ skip = 盾关。 */
   permissionMode?: string;
 };
 

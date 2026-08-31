@@ -46,12 +46,27 @@ const PATTERNS: [Action, RegExp][] = [
   ["format", /(^|[\s;&|(])(mkfs|fdisk|diskutil\s+erase|dd\s+.*of=\/dev\/)/],
 ];
 
+/** 审批卡上要展示的操作正文。bash 是命令,write 是内容,edit 是原文与新文。 */
+export type Preview = { label: string; text: string };
+
 export type ToolRequest = {
   tool: string;
   actions: Action[];
   paths: string[];
   command: string;
   summary: string;
+  /** 这次调用**具体要干什么** —— 只报工具名和路径,用户没法判断该不该放行。 */
+  preview: Preview[];
+};
+
+const PREVIEW_MAX = 1200;
+
+/** 太长的正文截断,但要说清截了多少 —— 悄悄截断会让人以为看到的就是全部。 */
+const clip = (value: unknown): string => {
+  const text = String(value ?? "");
+  return text.length <= PREVIEW_MAX
+    ? text
+    : `${text.slice(0, PREVIEW_MAX)}\n…(还有 ${text.length - PREVIEW_MAX} 个字符没显示)`;
 };
 
 /** 从一条 bash 命令里认出它要干的危险动作。 */
@@ -79,14 +94,24 @@ export const pathsOf = (command: unknown): string[] => {
   return [...found];
 };
 
-/** 把一次工具调用归一成可判定的形状:工具 + 动作 + 路径。 */
+/** 把一次工具调用归一成可判定的形状:工具 + 动作 + 路径,外加给人看的操作正文。 */
 export const describe = (name: string, args: any = {}): ToolRequest => {
   const tool = String(name || "");
+  const summary = String(args?.summary || "");
   if (tool === "bash") {
     const command = String(args?.command || "");
-    return { tool, actions: actionsOf(command), paths: pathsOf(command), command, summary: String(args?.summary || "") };
+    // 命令本身就是正文,界面已经把它标好色单独渲染,不必再进 preview
+    return { tool, actions: actionsOf(command), paths: pathsOf(command), command, summary, preview: [] };
   }
   const path = String(args?.path || "");
   const actions: Action[] = tool === "write" || tool === "edit" ? ["overwrite"] : [];
-  return { tool, actions, paths: path ? [path] : [], command: "", summary: String(args?.summary || "") };
+  const preview: Preview[] = [];
+  if (tool === "write") {
+    preview.push({ label: "要写入的内容", text: clip(args?.content) });
+  } else if (tool === "edit") {
+    preview.push({ label: "原文", text: clip(args?.old) });
+    preview.push({ label: "改成", text: clip(args?.new) });
+    if (args?.replace_all) preview.push({ label: "范围", text: "替换文件里所有匹配处" });
+  }
+  return { tool, actions, paths: path ? [path] : [], command: "", summary, preview };
 };

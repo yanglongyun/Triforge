@@ -60,10 +60,13 @@ export function AppPanel({ tab, socket }: { tab: AppTab; socket: Socket }) {
   }
 
   return (
+    // 嵌入义务(契约):跨源 iframe 默认关掉剪贴板/全屏/指针锁定,宿主必须放开 ——
+    // 图片编辑器里 Ctrl+V 贴不进图,用户不会怪宿主,只会觉得这个应用是坏的
     <iframe
       key={`${tab.appId}:${nonce}`}
       src={origin}
       title={tab.title}
+      allow="clipboard-read; clipboard-write; fullscreen; pointer-lock"
       className="flex-1 min-h-0 w-full border-0 bg-bg"
     />
   );

@@ -1,18 +1,28 @@
 // 护盾:权限的就地管理,全在输入框这一行完成,不进设置页。
 //
-// 不叫「权限模式」—— 用户不需要理解三种档位,只需要知道**盾开着还是关着**:
-//   盾关 = 完全跳过;盾开 = 按规则把关;「逐步确认」= 内置规则「任何操作都问我」勾上。
-// 整个模型只剩两个概念:盾是开关,规则是内容。
+// 不叫「权限模式」—— 用户不需要理解档位,只需要知道**盾开着还是关着**:
+//   盾关 = 不问不拦;盾开 = 按你写的规则把关。整个模型只有两个概念:盾是开关,规则是内容。
 //
-// 按钮显示的是**后果**不是名字:「护盾 · 3」「每次都问」「护盾已关」,一眼读出现在谁在把关。
+// **规则的本职是写进提示词约束助手**,硬闸(gate)是附加的。所以界面不说
+// 「编译失败」「拦不住」—— 那会把主路画成异常;只如实说明每条规则怎么起作用。
+//
+// 按钮显示的是**后果**不是名字:「护盾 · 3」比「按照规则」告诉你的多。
 // 规则的增删改走两级导航:列表点进详情,详情推回列表 —— 面板窄,摊不开两栏。
 import { useEffect, useRef, useState } from "react";
 import {
-  AlertTriangle, ArrowLeft, Check, ChevronRight, Loader2, Plus,
+  AlertTriangle, ArrowLeft, Check, ChevronRight, GripVertical, Loader2, Plus,
   ShieldCheck, ShieldOff, Trash2,
 } from "lucide-react";
-import { ASK_ALL_ID, permissionApi, type Mode, type Rule } from "../../lib/permission";
+import { permissionApi, type Mode, type Rule } from "../../lib/permission";
+import { beginGlobalDrag, endGlobalDrag } from "../../lib/drag";
 import { Switch } from "../ui";
+
+
+/** 硬闸的作用范围说成人话。三维全空 = 不设限 = 任何一次工具调用。 */
+const scopeOf = (rule: Rule) => {
+  const parts = [...rule.match.tools, ...rule.match.actions, ...rule.match.paths];
+  return parts.length ? parts.join(" · ") : "任何工具调用";
+};
 
 export function RulesControl({ mode, onModeChange }: { mode: Mode; onModeChange: (m: Mode) => void }) {
   const shield = mode !== "skip";
@@ -21,13 +31,14 @@ export function RulesControl({ mode, onModeChange }: { mode: Mode; onModeChange:
   const [detailId, setDetailId] = useState<string | null>(null);
   const [draft, setDraft] = useState("");
   const [busy, setBusy] = useState(false);
-  const [note, setNote] = useState("");
+  const [note, setNote] = useState("");   // 编译结果的说明:中性信息,不是错误
+  const [error, setError] = useState(""); // 真失败:存不下来
   const boxRef = useRef<HTMLDivElement>(null);
 
   const reload = () => { void permissionApi.listRules().then(setRules).catch(() => {}); };
   // 挂载即取一次:按钮上的计数(护盾 · N)不等面板打开才有
   useEffect(() => { reload(); }, []);
-  useEffect(() => { if (open) { reload(); setNote(""); } }, [open]);
+  useEffect(() => { if (open) { reload(); setNote(""); setError(""); } }, [open]);
 
   useEffect(() => {
     if (!open) return;
@@ -48,9 +59,74 @@ export function RulesControl({ mode, onModeChange }: { mode: Mode; onModeChange:
     };
   }, [open, detailId]);
 
-  const askAllRule = rules.find((r) => r.id === ASK_ALL_ID) || null;
-  const askAll = !!askAllRule?.enabled;
-  const liveCount = rules.filter((r) => r.enabled && r.id !== ASK_ALL_ID).length;
+  const liveCount = rules.filter((r) => r.enabled).length;
+
+  // ── 拖动排序 ──────────────────────────────────────────────────────────
+  // 指针拖拽,与标签栏同一套路:超过阈值才算拖(不然点一下就被当成拖),
+  // 拖拽期挂全局护栏让 webview/iframe 失明,松手事件被吞掉时靠 buttons===0 自愈。
+  const listRef = useRef<HTMLDivElement>(null);
+  const dragRef = useRef<{ id: string; from: number; to: number; startY: number; dragging: boolean } | null>(null);
+  const suppressClick = useRef(false);
+  const [dragId, setDragId] = useState<string | null>(null);
+  const [overIndex, setOverIndex] = useState<number | null>(null);
+
+  /** 指针落在第几条之前。落在最后一条的下半截 = 排到末尾。 */
+  const indexAt = (y: number) => {
+    const rows = [...(listRef.current?.querySelectorAll<HTMLElement>("[data-rule-index]") || [])];
+    for (const el of rows) {
+      const r = el.getBoundingClientRect();
+      if (y < r.top + r.height / 2) return Number(el.dataset.ruleIndex);
+    }
+    return rows.length;
+  };
+
+  const applyReorder = (from: number, to: number) => {
+    const next = [...rules];
+    const [moved] = next.splice(from, 1);
+    next.splice(to > from ? to - 1 : to, 0, moved);
+    setRules(next); // 乐观:手一松就到位,不等网络
+    void permissionApi.reorderRules(next.map((r) => r.id)).catch(reload);
+  };
+
+  const startDrag = (e: React.PointerEvent, rule: Rule, index: number) => {
+    if (e.button !== 0) return;
+    e.preventDefault();
+    e.stopPropagation();
+    dragRef.current = { id: rule.id, from: index, to: index, startY: e.clientY, dragging: false };
+
+    const onMove = (ev: PointerEvent) => {
+      const drag = dragRef.current;
+      if (!drag) return;
+      if (ev.buttons === 0) { onUp(); return; }
+      if (!drag.dragging && Math.abs(ev.clientY - drag.startY) > 5) {
+        drag.dragging = true;
+        setDragId(drag.id);
+        document.body.style.cursor = "grabbing";
+        beginGlobalDrag();
+      }
+      if (!drag.dragging) return;
+      ev.preventDefault();
+      drag.to = indexAt(ev.clientY);
+      setOverIndex(drag.to);
+    };
+    const onUp = () => {
+      window.removeEventListener("pointermove", onMove);
+      window.removeEventListener("pointerup", onUp);
+      const drag = dragRef.current;
+      dragRef.current = null;
+      setDragId(null);
+      setOverIndex(null);
+      if (!drag?.dragging) return;
+      document.body.style.cursor = "";
+      endGlobalDrag();
+      // 拖完那一下的 click 别把详情页顶出来
+      suppressClick.current = true;
+      window.setTimeout(() => { suppressClick.current = false; }, 0);
+      if (drag.to !== drag.from && drag.to !== drag.from + 1) applyReorder(drag.from, drag.to);
+    };
+    window.addEventListener("pointermove", onMove);
+    window.addEventListener("pointerup", onUp);
+  };
 
   const toggleRule = (rule: Rule) => {
     void permissionApi.updateRule(rule.id, { enabled: !rule.enabled }).then(reload).catch(() => {});
@@ -61,14 +137,15 @@ export function RulesControl({ mode, onModeChange }: { mode: Mode; onModeChange:
     if (!text || busy) return;
     setBusy(true);
     setNote("");
-    // 编译要调模型,慢是正常的 —— 但结果必须让人看见:编译成了什么条件、有没有降级
+    setError("");
+    // 编译要调模型,慢是正常的 —— 结果要让人看见:范围编成了什么,或者为什么没有闸
     void permissionApi.createRule(text)
       .then((r) => { setDraft(""); setNote(r.note || ""); reload(); })
-      .catch((e) => setNote(e?.message || "没能保存"))
+      .catch((e) => setError(e?.message || "没能保存"))
       .finally(() => setBusy(false));
   };
 
-  const label = !shield ? "护盾已关" : askAll ? "每次都问" : liveCount ? `护盾 · ${liveCount}` : "护盾";
+  const label = !shield ? "护盾已关" : liveCount ? `护盾 · ${liveCount}` : "护盾";
   const Icon = shield ? ShieldCheck : ShieldOff;
 
   return (
@@ -76,7 +153,7 @@ export function RulesControl({ mode, onModeChange }: { mode: Mode; onModeChange:
       {/* 盾牌按钮:状态一眼可见 —— 开是绿,关是红,不点开也知道现在谁在把关 */}
       <button
         onClick={() => { setOpen((v) => !v); setDetailId(null); }}
-        title="护盾:什么情况下要先问过你"
+        title="护盾:规则与拦截"
         className={[
           "inline-flex items-center gap-1.5 h-7 px-2 rounded-md text-[12.5px] transition-colors",
           shield
@@ -106,8 +183,8 @@ export function RulesControl({ mode, onModeChange }: { mode: Mode; onModeChange:
               </span>
               <span className="block text-[11.5px] text-text-faint mt-0.5 leading-tight">
                 {shield
-                  ? askAll ? "每一次动手前都会问你" : liveCount ? `按 ${liveCount} 条规则把关` : "还没有规则,什么都拦不住"
-                  : "助手做任何事都不会问你"}
+                  ? liveCount ? `${liveCount} 条规则` : "没有规则"
+                  : "规则不再生效"}
               </span>
             </span>
             <Switch
@@ -121,19 +198,30 @@ export function RulesControl({ mode, onModeChange }: { mode: Mode; onModeChange:
             <div className="relative overflow-hidden border-t border-border" style={detailId ? { minHeight: 268 } : undefined}>
               {/* 列表:命中任意一条就停下来问 */}
               <div className={detailId ? "pointer-events-none opacity-50" : ""}>
-                <div className="px-3.5 pt-2 pb-1 text-[11px] text-text-faint">命中任意一条,就停下来问你</div>
-                <div className="max-h-56 overflow-y-auto pb-1">
-                  {rules.map((rule) => {
-                    const builtin = rule.id === ASK_ALL_ID;
-                    return (
+                <div ref={listRef} className="max-h-56 overflow-y-auto pb-1">
+                  {rules.map((rule, index) => (
                       <div
                         key={rule.id}
-                        onClick={() => setDetailId(rule.id)}
+                        data-rule-index={index}
+                        onClick={() => { if (!suppressClick.current) setDetailId(rule.id); }}
                         className={[
-                          "group flex items-center gap-2 pl-3 pr-2 py-1.5 cursor-pointer transition-colors",
-                          builtin ? "bg-accent-soft/60 hover:bg-accent-soft" : "hover:bg-bg-hover",
+                          "group relative flex items-center gap-2 pl-1 pr-2 py-1.5 cursor-pointer transition-colors hover:bg-bg-hover",
+                          dragId === rule.id ? "opacity-40" : "",
                         ].join(" ")}
                       >
+                        {/* 落点提示:一条 2px 的线,插在哪儿一目了然 */}
+                        {overIndex === index && (
+                          <span className="absolute left-3 right-3 -top-px h-0.5 rounded bg-accent" />
+                        )}
+                        <span
+                          onPointerDown={(e) => startDrag(e, rule, index)}
+                          onClick={(e) => e.stopPropagation()}
+                          title="拖动排序"
+                          className="shrink-0 w-4 flex justify-center text-text-faint cursor-grab
+                            opacity-0 group-hover:opacity-70 hover:!opacity-100 transition-opacity"
+                        >
+                          <GripVertical size={12} />
+                        </span>
                         <button
                           onClick={(e) => { e.stopPropagation(); toggleRule(rule); }}
                           title={rule.enabled ? "停用" : "启用"}
@@ -147,33 +235,26 @@ export function RulesControl({ mode, onModeChange }: { mode: Mode; onModeChange:
                         <div className="min-w-0 flex-1">
                           <div className={`text-[12.5px] leading-snug ${rule.enabled ? "text-text" : "text-text-faint"}`}>
                             {rule.text}
-                            {builtin && (
-                              <span className="ml-1.5 align-[1px] text-[9.5px] px-1 py-px rounded bg-accent text-white">内置</span>
-                            )}
                           </div>
-                          {/* 编译不出条件的规则必须长得不一样 ——
-                              以为拦得住其实拦不住,比没有这条规则更糟 */}
-                          {builtin ? (
-                            <div className="mt-0.5 text-[11px] text-text-faint">勾上 = 每次动手前都问</div>
-                          ) : !rule.compiled ? (
-                            <div className="mt-0.5 flex items-center gap-1 text-[11px] text-warning">
-                              <AlertTriangle size={10} className="shrink-0" />
-                              只靠助手自觉,拦不住
-                            </div>
-                          ) : (
-                            <div className="mt-0.5 text-[11px] text-text-faint font-mono truncate">
-                              {[...rule.match.actions, ...rule.match.tools, ...rule.match.paths].join(" · ")}
+                          {/* 只摆事实:有拦截条件就显示条件,没有就不显示 */}
+                          {rule.gate && (
+                            <div className="mt-0.5 flex items-center gap-1 text-[11px] text-text-faint">
+                              <ShieldCheck size={10} className="shrink-0 text-accent" />
+                              <span className="font-mono truncate">{scopeOf(rule)}</span>
                             </div>
                           )}
                         </div>
                         <ChevronRight size={13} className="shrink-0 text-text-faint opacity-50 group-hover:opacity-100" />
                       </div>
-                    );
-                  })}
+                  ))}
+                  {overIndex === rules.length && rules.length > 0 && (
+                    <div className="relative h-0"><span className="absolute left-3 right-3 h-0.5 rounded bg-accent" /></div>
+                  )}
                   {!rules.length && (
                     <div className="px-3.5 py-3 text-[12px] text-text-faint leading-relaxed">
-                      还没有规则。写一句大白话,比如<br />
-                      「删我文档以外的东西之前先问我」
+                      还没有规则。例如:<br />
+                      「删我文档以外的东西之前先问我」<br />
+                      「所有编辑工具都先问我」
                     </div>
                   )}
                 </div>
@@ -183,7 +264,7 @@ export function RulesControl({ mode, onModeChange }: { mode: Mode; onModeChange:
                     value={draft}
                     onChange={(e) => setDraft(e.target.value)}
                     onKeyDown={(e) => { if (e.key === "Enter") add(); }}
-                    placeholder="什么情况下要先问过你…"
+                    placeholder="新增规则…"
                     className="flex-1 min-w-0 h-7 px-2 rounded-md border border-border bg-bg text-[12.5px]
                       text-text placeholder:text-text-faint outline-none focus:border-accent transition-colors"
                   />
@@ -197,9 +278,12 @@ export function RulesControl({ mode, onModeChange }: { mode: Mode; onModeChange:
                   </button>
                 </div>
                 {note && (
-                  <div className="px-3.5 pb-2 -mt-0.5 flex items-start gap-1 text-[11px] text-warning">
+                  <div className="px-3.5 pb-2 -mt-0.5 text-[11px] text-text-faint leading-relaxed">{note}</div>
+                )}
+                {error && (
+                  <div className="px-3.5 pb-2 -mt-0.5 flex items-start gap-1 text-[11px] text-danger">
                     <AlertTriangle size={10} className="shrink-0 mt-[2px]" />
-                    <span>{note}</span>
+                    <span>{error}</span>
                   </div>
                 )}
               </div>
@@ -218,9 +302,10 @@ export function RulesControl({ mode, onModeChange }: { mode: Mode; onModeChange:
             /* 关闭态:一张红卡直说后果,不绕弯 */
             <div className="px-3.5 pb-3.5">
               <div className="rounded-lg px-3 py-2.5 bg-danger/[0.06] border border-danger/25">
-                <div className="text-[12.5px] font-medium text-danger">盾关着的时候,没有任何拦截</div>
+                <div className="text-[12.5px] font-medium text-danger">护盾已关闭</div>
                 <div className="mt-0.5 text-[11.5px] text-text-dim leading-relaxed">
-                  删文件、装东西、推代码 —— 助手都会直接做,不会再问你一句。你定的规则暂时不生效。
+                  规则全部不生效,删除、安装、推送等操作不再拦截。
+                  助手仍会在自己认为必要时请示。
                 </div>
               </div>
             </div>
@@ -231,7 +316,7 @@ export function RulesControl({ mode, onModeChange }: { mode: Mode; onModeChange:
   );
 }
 
-/** 规则详情页:内置规则只读说明;用户规则可改正文(保存即重编译)、可删。 */
+/** 规则详情页:改正文(保存即重编译)、看它编译成了什么条件、删掉它。 */
 function RuleDetail({
   rule,
   onBack,
@@ -243,7 +328,6 @@ function RuleDetail({
   onSaved: (note: string) => void;
   onDeleted: () => void;
 }) {
-  const builtin = rule?.id === ASK_ALL_ID;
   const [text, setText] = useState(rule?.text || "");
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState("");
@@ -277,79 +361,59 @@ function RuleDetail({
         >
           <ArrowLeft size={14} />
         </button>
-        <span className="text-[12.5px] font-medium text-text">{builtin ? "内置规则" : "编辑规则"}</span>
+        <span className="text-[12.5px] font-medium text-text">编辑规则</span>
       </div>
 
       <div className="flex-1 min-h-0 overflow-y-auto px-3.5 py-3 flex flex-col gap-1.5">
-        <span className="text-[10.5px] text-text-faint tracking-wide">规则原话</span>
-        {builtin ? (
-          <>
-            <div className="text-[13px] text-text pb-1">{rule.text}</div>
-            <div className="text-[11.5px] text-text-faint leading-relaxed">
-              最保守的一档:助手每一次动手前都会停下来等你点头。适合你想全程盯着的时候。
-              勾上它,下面的规则就不用一条条命中了 —— 反正每次都问。
-            </div>
-          </>
+        <span className="text-[10.5px] text-text-faint tracking-wide">规则内容</span>
+        <textarea
+          value={text}
+          onChange={(e) => setText(e.target.value)}
+          rows={2}
+          className="w-full min-h-[52px] px-2.5 py-2 rounded-lg border border-border bg-bg text-[12.5px]
+            text-text leading-relaxed outline-none resize-none focus:border-accent transition-colors"
+        />
+        <span className="mt-1.5 text-[10.5px] text-text-faint tracking-wide">拦截条件</span>
+        {rule.gate ? (
+          <div className="flex flex-wrap gap-1">
+            {[...rule.match.tools, ...rule.match.actions, ...rule.match.paths].map((c) => (
+              <span key={c} className="px-1.5 py-0.5 rounded bg-accent-soft text-[11px] font-mono text-accent">{c}</span>
+            ))}
+            {!rule.match.tools.length && !rule.match.actions.length && !rule.match.paths.length && (
+              <span className="px-1.5 py-0.5 rounded bg-accent-soft text-[11px] text-accent">任何工具调用</span>
+            )}
+          </div>
         ) : (
-          <>
-            <textarea
-              value={text}
-              onChange={(e) => setText(e.target.value)}
-              rows={2}
-              className="w-full min-h-[52px] px-2.5 py-2 rounded-lg border border-border bg-bg text-[12.5px]
-                text-text leading-relaxed outline-none resize-none focus:border-accent transition-colors"
-            />
-            <span className="mt-1.5 text-[10.5px] text-text-faint tracking-wide">它会在什么时候拦下来</span>
-            {rule.compiled ? (
-              <div className="flex flex-wrap gap-1">
-                {[...rule.match.actions, ...rule.match.tools, ...rule.match.paths].map((c) => (
-                  <span key={c} className="px-1.5 py-0.5 rounded bg-accent-soft text-[11px] font-mono text-accent">{c}</span>
-                ))}
-              </div>
-            ) : (
-              <>
-                <div className="flex items-center gap-1 text-[11px] text-warning">
-                  <AlertTriangle size={10} className="shrink-0" />
-                  这句话编译不出条件,拦不住
-                </div>
-                <div className="text-[11px] text-text-faint leading-relaxed">
-                  它仍会写进助手的提示词,靠助手自觉遵守 —— 但没有硬拦截。
-                  换个更具体的说法试试,比如点名某个目录或某个动作。
-                </div>
-              </>
-            )}
-            {error && (
-              <div className="flex items-start gap-1 text-[11px] text-danger">
-                <AlertTriangle size={10} className="shrink-0 mt-[2px]" />
-                <span>{error}</span>
-              </div>
-            )}
-          </>
+          <div className="text-[12px] text-text-faint">无</div>
+        )}
+        {error && (
+          <div className="flex items-start gap-1 text-[11px] text-danger">
+            <AlertTriangle size={10} className="shrink-0 mt-[2px]" />
+            <span>{error}</span>
+          </div>
         )}
       </div>
 
-      {!builtin && (
-        <div className="shrink-0 flex items-center gap-2 px-3 py-2.5 border-t border-border">
-          <button
-            onClick={save}
-            disabled={!text.trim() || busy}
-            className="inline-flex items-center gap-1.5 h-7 px-3 rounded-md bg-accent text-white text-[12.5px]
-              hover:opacity-90 disabled:opacity-30 transition-opacity"
-          >
-            {busy && <Loader2 size={12} className="animate-spin" />}
-            保存并重新编译
-          </button>
-          <button
-            onClick={remove}
-            disabled={busy}
-            title="删除这条规则"
-            className="ml-auto inline-flex items-center gap-1 h-7 px-2.5 rounded-md text-[12.5px] text-danger
-              hover:bg-danger/10 disabled:opacity-40 transition-colors"
-          >
-            <Trash2 size={12} /> 删除
-          </button>
-        </div>
-      )}
+      <div className="shrink-0 flex items-center gap-2 px-3 py-2.5 border-t border-border">
+        <button
+          onClick={save}
+          disabled={!text.trim() || busy}
+          className="inline-flex items-center gap-1.5 h-7 px-3 rounded-md bg-accent text-white text-[12.5px]
+            hover:opacity-90 disabled:opacity-30 transition-opacity"
+        >
+          {busy && <Loader2 size={12} className="animate-spin" />}
+          保存
+        </button>
+        <button
+          onClick={remove}
+          disabled={busy}
+          title="删除这条规则"
+          className="ml-auto inline-flex items-center gap-1 h-7 px-2.5 rounded-md text-[12.5px] text-danger
+            hover:bg-danger/10 disabled:opacity-40 transition-colors"
+        >
+          <Trash2 size={12} /> 删除
+        </button>
+      </div>
     </div>
   );
 }

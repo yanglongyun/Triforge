@@ -41,7 +41,7 @@ export function WidgetsPanel({
           className="flex items-center gap-1.5 py-[4px] pl-3 pr-2 cursor-pointer select-none text-text-faint hover:text-text hover:bg-bg-hover"
         >
           <Sparkles size={14} className="shrink-0 text-accent" />
-          <span className="text-[13.5px]">让 AI 造一个组件…</span>
+          <span className="text-[13.5px]">让 AI 创建组件…</span>
         </div>
 
         {widgets.map((widget) => {
@@ -77,7 +77,7 @@ export function WidgetsPanel({
 
         {!widgets.length && (
           <div className="px-3 py-6 text-center text-[12.5px] text-text-faint leading-relaxed">
-            还没有组件<br />点上面让 AI 造一个
+还没有组件
           </div>
         )}
       </div>

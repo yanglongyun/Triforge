@@ -17,8 +17,10 @@ const ROOT = join(dirname(fileURLToPath(import.meta.url)), "..");
 // 它一旦跟着显示名变,macOS 就认为换了个应用 —— 设置、数据、自动更新链全断。
 // APP_NAME 只用于人眼可见处(窗口标题、Documents 下的工作区目录)。
 const SLUG = "workbench";
-const APP_NAME = "Triforge";
-const LEGACY_NAMES = ["Workbench"]; // 用过的旧显示名,用于一次性搬迁工作区目录
+const APP_NAME = "Mainbench";
+// 用过的旧显示名,用于一次性搬迁工作区目录。**新名字排前面** ——
+// 循环命中第一个就停,而用户的东西一定在最近用过的那个名字下面。
+const LEGACY_NAMES = ["Triforge", "Workbench"];
 
 // userData 显式钉死:Electron 默认按 productName 取路径,改显示名会让数据"凭空消失"。
 app.setPath("userData", join(app.getPath("appData"), SLUG));

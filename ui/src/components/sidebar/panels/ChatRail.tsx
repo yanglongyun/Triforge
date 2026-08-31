@@ -196,7 +196,7 @@ export function ChatRail({
       {agents.length > 0 && (
         <div
           onClick={() => void createNow()}
-          className="flex items-center gap-1.5 py-[4px] pl-3 pr-2 cursor-pointer select-none text-text-faint hover:text-text hover:bg-bg-hover"
+          className="flex items-center gap-1.5 py-[4px] pl-3 pr-2 cursor-pointer select-none text-text hover:bg-bg-hover"
         >
           <Plus size={14} className="shrink-0" />
           <span className="text-[13.5px]">新建对话</span>
@@ -229,7 +229,7 @@ export function ChatRail({
         <div className="flex flex-col items-center gap-3 px-6 py-16 text-center">
           <div className="text-3xl opacity-80">🌱</div>
           <div className="text-[13px] text-text-faint leading-relaxed">
-            还没有对话。<br />每段对话都绑定一个真实文件夹。
+还没有对话
           </div>
           <button
             onClick={() => void createNow()}

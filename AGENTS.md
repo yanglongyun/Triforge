@@ -1,4 +1,4 @@
-# Triforge 仓库约定
+# Mainbench 仓库约定
 
 给在本仓库工作的所有智能体与人。行为规范只写"会被违反的",不写显然的。
 
@@ -23,6 +23,6 @@
 ## 通用
 
 - 行为冻结的重构与功能开发分开提交,不混。
-- typecheck(`npm run typecheck`)与打包是每次交付的守门;交付 = 替换桌面 `Triforge.app`,由用户自测。
+- typecheck(`npm run typecheck`)与打包是每次交付的守门;交付 = 替换桌面 `Mainbench.app`,由用户自测。
 - 拖拽类交互必须接 `lib/drag.ts` 的全局护栏(webview/iframe 会吞 pointerup)。
 - 组件/面板相关改动先读 `WIDGET.md`;发版与平台服务(更新/公告/遥测)见 iimos 仓库 `platform/`。

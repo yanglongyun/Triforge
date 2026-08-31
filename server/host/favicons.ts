@@ -42,7 +42,7 @@ const fetchBytes = async (target: string, maxBytes = 512 * 1024) => {
     const res = await fetch(target, {
       signal: controller.signal,
       redirect: "follow",
-      headers: { "user-agent": "Mozilla/5.0 (Macintosh) Triforge", accept: "*/*" },
+      headers: { "user-agent": "Mozilla/5.0 (Macintosh) Mainbench", accept: "*/*" },
     });
     if (!res.ok) return null;
     const buf = Buffer.from(await res.arrayBuffer());

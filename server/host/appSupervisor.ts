@@ -21,7 +21,10 @@ const LOG_LINES = 200;
 const MAX_RESTARTS = 3;
 const IDLE_SWEEP_MS = 30_000;
 const KILL_GRACE_MS = 5_000;
-const START_TIMEOUT_MS = 10_000;
+// 启动的两条时限:没人应答用短的,一旦应答过(=活着,在初始化)换成长的。
+// 数字全是宿主策略,契约只规定 health 的三态语义。
+const CONNECT_TIMEOUT_MS = 10_000;
+const INIT_TIMEOUT_MS = 180_000;
 
 const MIME: Record<string, string> = {
   ".html": "text/html; charset=utf-8", ".js": "text/javascript; charset=utf-8",
@@ -93,19 +96,37 @@ const log = (record: Record_, stream: LogLine["stream"], chunk: unknown) => {
 const lastError = (record: Record_) =>
   record.logs.filter((e) => e.stream === "stderr").slice(-3).map((e) => e.line).join(" / ");
 
+/**
+ * health 是三态的(契约条款):
+ *   连不上         还没开始监听,或者已经死了
+ *   2xx            就绪
+ *   其它 HTTP 应答  活着、正在初始化 —— 宿主应继续等
+ *
+ * 所以时限也是两条:一直没人应答就按启动失败算;只要应答过一次,
+ * 说明进程活着只是还没起好(重型引擎、要预热的东西),换成宽得多的初始化上限。
+ * 慢启动因此不必祈祷宿主把常量调大 —— 它自己就能表达。
+ */
 const waitHealthy = async (record: Record_, app: AppDef) => {
-  const deadline = Date.now() + START_TIMEOUT_MS;
   const url = `http://127.0.0.1:${record.port}${app.run!.health}`;
+  const started = Date.now();
+  let deadline = started + CONNECT_TIMEOUT_MS;
+  let initializing = false;
   while (Date.now() < deadline) {
     const child = record.proc as ChildProcess | null;
     if (!child || child.exitCode !== null) throw new Error(lastError(record) || "进程启动后立即退出");
     try {
       const response = await fetch(url, { signal: AbortSignal.timeout(1500) });
       if (response.ok) return;
-    } catch { /* 还没起来,继续等 */ }
+      if (!initializing) {
+        initializing = true;
+        deadline = started + INIT_TIMEOUT_MS;
+        setStatus(record, "starting", "应用正在初始化…");
+      }
+    } catch { /* 还没开始监听,继续等 */ }
     await sleep(150);
   }
-  throw new Error(`${START_TIMEOUT_MS / 1000} 秒内没有通过健康检查(${app.run!.health})`);
+  const cap = (initializing ? INIT_TIMEOUT_MS : CONNECT_TIMEOUT_MS) / 1000;
+  throw new Error(`${cap} 秒内没有通过健康检查(${app.run!.health})`);
 };
 
 /** 纯静态 app:宿主替它当那个「网站」。目录根即站点根,未命中回落 index.html。 */
@@ -151,6 +172,8 @@ const launch = async (app: AppDef): Promise<Record_> => {
     env: {
       ...process.env,
       PORT: String(record.port),
+      // 绑定地址由宿主指定(契约):本机宿主给 loopback,容器等沙箱宿主给别的
+      HOST: "127.0.0.1",
       APP_ID: app.id,
       APP_DATA_DIR: dataDir,
       HOST_URL: `http://127.0.0.1:${process.env.WORKBENCH_PORT || ""}`,
@@ -252,6 +275,28 @@ export const identifyApp = (token: string) => {
   return "";
 };
 
+/**
+ * 回收前先问一声(契约条款)。
+ *
+ * 必须问,因为 lastUsed 只反映取址和 /host/* 调用 —— **浏览器是直连 app 自己的
+ * origin 的,那些流量宿主根本看不见**。用户正开着应用干活,在宿主眼里和闲置十分钟
+ * 一模一样,不问就杀是错的。app 在 health 里应答 `{"busy": true}` 即推迟回收。
+ *
+ * 应答不是 JSON 也无所谓:解析失败按「不忙」算 —— 契约的最小示例就返回纯文本 ok,
+ * 拿它当 JSON 解析会炸,那是宿主的错,不是 app 的。
+ */
+const recycle = async (record: Record_, app: AppDef) => {
+  try {
+    const response = await fetch(`http://127.0.0.1:${record.port}${app.run!.health}`,
+      { signal: AbortSignal.timeout(1500) });
+    if (response.ok) {
+      const body: any = await response.json().catch(() => null);
+      if (body?.busy === true) { record.lastUsed = Date.now(); return; }
+    }
+  } catch { /* 连 health 都不应答了,回收没商量 */ }
+  await stopApp(record.id);
+};
+
 // 空闲回收:只回收 on-demand 的进程。always 与静态服务不回收
 const sweep = setInterval(() => {
   for (const record of records.values()) {
@@ -259,7 +304,7 @@ const sweep = setInterval(() => {
     const app = getApp(record.id);
     if (!app?.run || app.run.mode === "always") continue;
     const idle = app.run.idleTimeoutMs || 0;
-    if (idle > 0 && Date.now() - record.lastUsed > idle) void stopApp(record.id);
+    if (idle > 0 && Date.now() - record.lastUsed > idle) void recycle(record, app);
   }
 }, IDLE_SWEEP_MS);
 sweep.unref?.();

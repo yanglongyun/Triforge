@@ -2,8 +2,7 @@
 import type { IncomingMessage, ServerResponse } from "node:http";
 import { listApprovals, respondApproval } from "../permission/approvals.js";
 import { compileRule } from "../permission/compile.js";
-import { createRule, deleteRule, listRules, updateRule } from "../repo/rules.js";
-import { ASK_ALL_ID, hasMatch } from "../permission/rules.js";
+import { createRule, deleteRule, listRules, reorderRules, updateRule } from "../repo/rules.js";
 
 const json = (res: ServerResponse, status: number, body: unknown) => {
   res.writeHead(status, { "content-type": "application/json; charset=utf-8" });
@@ -17,9 +16,8 @@ const readBody = async (req: IncomingMessage): Promise<any> => {
   try { return JSON.parse(Buffer.concat(chunks).toString("utf8")); } catch { return {}; }
 };
 
-/** 对外形状:补一个 compiled —— 界面要如实标出「这条拦不住任何东西」。
- *  内置「任何操作都问我」在 decide 里直判,不靠条件,永远算 compiled。 */
-const publicRule = (rule: any) => ({ ...rule, compiled: rule.id === ASK_ALL_ID || hasMatch(rule) });
+/** 对外形状:gate 已经是规则自己的字段,界面据它说明这条规则怎么起作用。 */
+const publicRule = (rule: any) => rule;
 
 export const handlePermissionRoutes = async (
   req: IncomingMessage,
@@ -39,7 +37,7 @@ export const handlePermissionRoutes = async (
     const body = await readBody(req);
     const compiled = await compileRule(body.text);
     if (!compiled.text) { json(res, 400, { error: compiled.note || "内容为空" }); return true; }
-    const rule = createRule({ text: compiled.text, prompt: compiled.prompt, match: compiled.match });
+    const rule = createRule({ text: compiled.text, prompt: compiled.prompt, match: compiled.match, gate: compiled.gate });
     json(res, 201, { rule: publicRule(rule), note: compiled.note });
     return true;
   }
@@ -47,14 +45,14 @@ export const handlePermissionRoutes = async (
   if (p === "/api/rules" && method === "PATCH") {
     const body = await readBody(req);
     const id = url.searchParams.get("id") || body.id;
-    // 内置规则只有勾/不勾一个自由度:正文与条件都是硬编码的语义,不许改
-    const patch: any = String(id) === ASK_ALL_ID ? { enabled: body.enabled } : { ...body };
+    const patch: any = { ...body };
     let note = "";
-    if (String(id) !== ASK_ALL_ID && typeof body.text === "string" && body.text.trim()) {
+    if (typeof body.text === "string" && body.text.trim()) {
       const compiled = await compileRule(body.text);
       patch.text = compiled.text;
       patch.prompt = compiled.prompt;
       patch.match = compiled.match;
+      patch.gate = compiled.gate;
       note = compiled.note;
     }
     const rule = updateRule(String(id), patch);
@@ -63,10 +61,15 @@ export const handlePermissionRoutes = async (
     return true;
   }
 
+  // 重排:整份顺序一次发过来,服务端照单重写 position
+  if (p === "/api/rules/order" && method === "POST") {
+    const body = await readBody(req);
+    json(res, 200, { rules: reorderRules(body.ids).map(publicRule) });
+    return true;
+  }
+
   if (p === "/api/rules" && method === "DELETE") {
-    const id = String(url.searchParams.get("id") || "");
-    if (id === ASK_ALL_ID) { json(res, 400, { error: "内置规则不能删除,只能停用" }); return true; }
-    json(res, 200, { deleted: deleteRule(id) });
+    json(res, 200, { deleted: deleteRule(String(url.searchParams.get("id") || "")) });
     return true;
   }
 

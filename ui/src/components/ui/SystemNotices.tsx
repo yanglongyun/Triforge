@@ -1,13 +1,13 @@
 // 右下角系统气泡:两类,同一叠放。
 //   更新就绪 —— 壳广播 workbench:update-ready(electron-updater 下载完),点「重启更新」装上;
-//   官方公告 —— api.iimos.ai 的 notices,启动拉一次 + 每 6 小时,看过的 id 记 localStorage。
+//   官方公告 —— api.mainbench.iimos.ai 的 notices,启动拉一次 + 每 6 小时,看过的 id 记 localStorage。
 // 都拿不到就安静,绝不打扰。
 import { useEffect, useState } from "react";
 import { ArrowUpCircle, Megaphone, X } from "lucide-react";
 
 type Notice = { id: number; title: string; body: string; url: string };
 
-const NOTICES_API = "https://api.iimos.ai/v1/workbench/notices";
+const NOTICES_API = "https://api.mainbench.iimos.ai/notices";
 const SEEN_KEY = "workbench.seenNotices";
 
 const seenIds = (): number[] => {

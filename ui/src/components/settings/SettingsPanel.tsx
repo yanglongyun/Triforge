@@ -25,7 +25,7 @@ const DRIVER_OPTIONS = [
 
 const inputClass =
   "w-full border border-border bg-bg px-3 py-2 text-[13px] text-text outline-none transition-colors focus:border-accent";
-const repositoryUrl = "https://github.com/yanglongyun/Triforge";
+const repositoryUrl = "https://github.com/yanglongyun/Mainbench";
 
 export function SettingsPanel({ onSaved }: { onSaved?: (settings: Settings) => void }) {
   const [form, setForm] = useState<Settings>(emptySettings);
@@ -235,7 +235,7 @@ function BrowserLogins() {
           <div className="text-[13px] text-text">从 Chrome 导入登录状态</div>
           <div className="mt-0.5 text-[12px] text-text-faint leading-relaxed">
             {available
-              ? <>导入的是<b>全部站点</b>的登录信息,系统会先弹钥匙串授权。导入后 AI 也能在这些已登录的页面上替你操作。</>
+              ? <>导入范围为<b>全部站点</b>的登录信息,需通过系统钥匙串授权。导入后 AI 可在这些已登录的页面上执行操作。</>
               : "需要 macOS 上装有 Chrome"}
           </div>
         </div>
@@ -244,7 +244,7 @@ function BrowserLogins() {
           disabled={!available || !!busy}
           onClick={() => run("import", async () => {
             const r = await importChromeCookies();
-            return `已从 ${r.profile} 导入 ${r.imported} 条${r.failed ? `,跳过 ${r.failed} 条` : ""} —— 刷新页面生效`;
+            return `已从 ${r.profile} 导入 ${r.imported} 条${r.failed ? `,跳过 ${r.failed} 条` : ""}。刷新页面后生效。`;
           })}
         >
           {busy === "import" ? "导入中…" : "导入"}
@@ -254,7 +254,7 @@ function BrowserLogins() {
       <div className="flex items-start gap-3">
         <div className="min-w-0 flex-1">
           <div className="text-[13px] text-text">退出所有网站</div>
-          <div className="mt-0.5 text-[12px] text-text-faint">清除 Cookie 与站点数据,你将从已登录的网站退出</div>
+          <div className="mt-0.5 text-[12px] text-text-faint">清除 Cookie 与站点数据,所有网站将退出登录</div>
         </div>
         <button
           className={rowBtn}

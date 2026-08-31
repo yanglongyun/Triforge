@@ -4,7 +4,7 @@
 // 而挂住的那一轮既不入库也不报错,是最难查的一类故障。
 import { randomUUID } from "node:crypto";
 import { emit } from "../bus.js";
-import { ACTION_LABELS, type ToolRequest } from "./danger.js";
+import { ACTION_LABELS, type Preview, type ToolRequest } from "./danger.js";
 import type { Verdict } from "./rules.js";
 
 const TIMEOUT_MS = 300_000;
@@ -21,6 +21,8 @@ export type ApprovalCard = {
   command: string;
   paths: string[];
   actions: string[];
+  /** 这次调用具体要干什么(write 的内容、edit 的原文与新文)。 */
+  preview: Preview[];
   /** 动作的中文名,界面直接用(免得前端再维护一份词表)。 */
   actionLabels: string[];
   reason: string;
@@ -68,7 +70,7 @@ export const requestConsult = (
     tool: "consult",
     summary,
     command: detail,
-    paths: [], actions: [], actionLabels: [],
+    paths: [], actions: [], actionLabels: [], preview: [],
     risk,
     reason: "",
     rule: null,
@@ -95,6 +97,7 @@ export const requestApproval = (
     command: request.command,
     paths: request.paths,
     actions: request.actions,
+    preview: request.preview,
     actionLabels: request.actions.map((a) => ACTION_LABELS[a] || a),
     reason: verdict.reason,
     rule: verdict.rule ? { id: verdict.rule.id, text: verdict.rule.text } : null,

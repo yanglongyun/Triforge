@@ -46,14 +46,14 @@ export function WidgetsManager() {
           <div className="flex-1 min-w-0">
             <h1 className="text-[17px] font-semibold text-text">组件</h1>
             <p className="mt-0.5 text-[12.5px] text-text-faint">
-              一个组件 = 组件的家里的一个目录,零构建、写出目录即安装。打开开关,它就出现在左边的活动栏上。
+零构建的小工具,一个目录即一个组件。开启后显示在活动栏。
             </p>
           </div>
           <button
             onClick={requestCreateWidget}
             className="shrink-0 inline-flex items-center gap-1.5 px-3 py-1.5 rounded-md bg-accent text-white text-[13px] hover:opacity-90 transition-opacity"
           >
-            <Sparkles size={14} /> 让 AI 造一个
+            <Sparkles size={14} /> 让 AI 创建
           </button>
         </div>
 
@@ -63,8 +63,7 @@ export function WidgetsManager() {
           <div className="py-16 text-center">
             <div className="text-[14px] text-text-dim">还没有组件</div>
             <div className="mt-1.5 text-[12.5px] text-text-faint leading-relaxed">
-              点右上角让 AI 造一个,或者自己在组件的家里建个目录<br />
-              (放一个 widget.json 和 index.html 就成)
+可让 AI 创建,或手动新建目录并放入 widget.json 与 index.html
             </div>
           </div>
         ) : (

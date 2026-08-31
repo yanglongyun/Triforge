@@ -9,7 +9,7 @@ import { randomUUID } from "crypto";
 import { getDb } from "./db.js";
 import { getSettings } from "./repo/settings.js";
 
-const API = "https://api.iimos.ai/v1/workbench/t";
+const API = "https://api.mainbench.iimos.ai/t";
 
 const installId = () => {
   const db = getDb();

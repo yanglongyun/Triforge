@@ -181,7 +181,7 @@ export function FilesPanel({
       if (clip.cut) {
         try { await api.moveNode(id, targetDir); }
         catch (e: any) {
-          if (/已有同名/.test(e?.message || "") && (await dialog.confirm(`${e.message}。覆盖吗?(被覆盖的会进废纸篓)`, { danger: true, confirmText: "覆盖" }))) {
+          if (/已有同名/.test(e?.message || "") && (await dialog.confirm(`${e.message}。是否覆盖?被覆盖的文件将移入废纸篓。`, { danger: true, confirmText: "覆盖" }))) {
             await api.moveNode(id, targetDir, undefined, true).catch((err: any) => void dialog.alert(err?.message || "移动失败"));
           } else if (!/已有同名/.test(e?.message || "")) void dialog.alert(e?.message || "移动失败");
         }
@@ -517,7 +517,7 @@ export function FilesPanel({
       await api.updateNode(id, { title });
     } catch (e: any) {
       // 重名:确认后覆盖(旧的进废纸篓),否则放弃
-      if (/已有同名/.test(e?.message || "") && (await dialog.confirm(`${e.message}。覆盖吗?(被覆盖的会进废纸篓)`, { danger: true, confirmText: "覆盖" }))) {
+      if (/已有同名/.test(e?.message || "") && (await dialog.confirm(`${e.message}。是否覆盖?被覆盖的文件将移入废纸篓。`, { danger: true, confirmText: "覆盖" }))) {
         await api.updateNode(id, { title, overwrite: true }).catch((err: any) => void dialog.alert(err?.message || "重命名失败"));
       } else if (!/已有同名/.test(e?.message || "")) {
         void dialog.alert(e?.message || "重命名失败");
@@ -762,7 +762,7 @@ export function FilesPanel({
             <div className="flex flex-col items-center gap-3 px-6 py-16 text-center">
               <div className="text-3xl opacity-80">🌱</div>
               <div className="text-[13px] text-text-faint leading-relaxed">
-                还空着。<br />新建一个文件夹开始生长。
+    还没有内容
               </div>
               <button
                 onClick={() => startCreate(null, "space")}

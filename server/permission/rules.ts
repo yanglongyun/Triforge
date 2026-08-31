@@ -1,30 +1,39 @@
 // 规则:用户写的一句话,加上系统为它派生的东西。
 //
-// 一条规则就是一个**触发条件**:命中了就停下来问用户。没有 deny/allow 的分档,
-// 也没有类别 —— 该不该做,用户在弹窗那一刻自己判断。
+// **规则的本职是约束模型**:每一条都会写进提示词,这是主路,对所有规则都成立。
+// 在此之上,如果这句话能落成明确的作用范围,系统再加一道硬闸(gate)——
+// 命中就停下来等用户点头。**硬闸是附加的,没有硬闸不是失败。**
 //
-// 两个出口,硬度不同:
-//   prompt  写进提示词 —— 永远有,靠模型自觉
-//   match   编译成拦截条件 —— 编译不出来就是空的,那条规则拦不住任何东西
+//   prompt  写进提示词 —— 永远有
+//   gate    有没有硬闸 —— 显式的事实,不从 match 推断
+//   match   硬闸的作用范围 —— 先看工具,再按动作和路径收窄;空维度 = 不设限
 //
+// 没有 deny/allow 的分档,也没有类别 —— 该不该做,用户在弹窗那一刻自己判断。
 // 用户维护的始终是自己那句 text,不是编译产物。
 import { ACTIONS, TOOLS, type ToolRequest } from "./danger.js";
 
-// 护盾模型:盾是开关,规则是内容。skip = 盾关,rules = 盾开;
-// 旧「逐步确认」档收敛成内置规则「任何操作都问我」(ask 仅为老库兼容保留,启动时会被迁移掉)。
-export const MODES = ["ask", "rules", "skip"] as const;
+// 护盾模型:盾是开关,规则是内容。skip = 盾关,rules = 盾开。
+// 只有两档 —— 老库里的 "ask"(逐步确认)启动时迁移成 rules,见 permission/seed.ts。
+export const MODES = ["rules", "skip"] as const;
 export type Mode = (typeof MODES)[number];
 
-/** 内置规则:勾上 = 每次动手前都问。它不走条件编译,在 decide 里直判。 */
-export const ASK_ALL_ID = "factory-ask-all";
-export const ASK_ALL_TEXT = "任何操作都问我";
-
+/** 硬闸的作用范围。维度之间是与,维度之内是或;**留空 = 该维度不设限**。 */
 export type RuleMatch = { tools: string[]; actions: string[]; paths: string[] };
 export type Rule = {
   id: string;
   text: string;
   prompt: string;
   match: RuleMatch;
+  /**
+   * 这条规则有没有硬闸。
+   *
+   * **必须显式存,不能从 match 三维是否为空推断** —— 三维全空既可能是
+   * 「拦住任何一次工具调用」,也可能是「这句话落不成条件」,推断不出来。
+   * 从前就是这个歧义逼出了一条内置的特例规则(见 .dev/1.3.0)。
+   *
+   * false 是常态,不是失败:规则的本职是写进提示词约束模型,硬闸是附加的。
+   */
+  gate: boolean;
   enabled: boolean;
   origin: "user" | "factory" | "agent";
 };
@@ -60,10 +69,6 @@ export const absolutize = (value: unknown, { home = "", cwd = "" } = {}) => {
   return `/${parts.join("/")}`;
 };
 
-/** 这条规则有没有真正的拦截条件。三个维度全空 = 拦不住任何东西。 */
-export const hasMatch = (rule: Partial<Rule> | null | undefined) =>
-  Boolean(rule?.match && (rule.match.tools?.length || rule.match.actions?.length || rule.match.paths?.length));
-
 /** 校验并归一。闭集外的动作和工具直接丢掉 —— 编译产物必须落在词汇表内。 */
 export const normalizeRule = (raw: any = {}): Rule => ({
   id: String(raw.id || ""),
@@ -74,13 +79,18 @@ export const normalizeRule = (raw: any = {}): Rule => ({
     actions: unique(raw.match?.actions).filter((a) => (ACTIONS as readonly string[]).includes(a)),
     paths: unique(raw.match?.paths),
   },
+  gate: raw.gate === true || raw.gate === 1 || raw.match?.gate === true,
   enabled: raw.enabled !== 0 && raw.enabled !== false,
   origin: ["user", "factory", "agent"].includes(raw.origin) ? raw.origin : "user",
 });
 
-/** 这条规则管不管这次调用。维度之间是与,维度之内是或。 */
+/**
+ * 这条规则的硬闸管不管这次调用。维度之间是与,维度之内是或,**空维度 = 不设限**。
+ * 所以 `gate` 开着而三维全空 = 拦住任何一次工具调用 ——「所有编辑工具都先问我」
+ * 只是 tools 填了两个值的普通情形,不需要任何特例。
+ */
 export const matches = (rule: Rule, request: ToolRequest, context: { home?: string; cwd?: string } = {}) => {
-  if (!hasMatch(rule) || !rule.enabled) return false;
+  if (!rule.gate || !rule.enabled) return false;
   const { tools, actions, paths } = rule.match;
   if (tools.length && !tools.includes(request.tool)) return false;
   if (actions.length && !actions.some((a) => (request.actions as string[]).includes(a))) return false;
@@ -102,19 +112,14 @@ export type Verdict = { effect: "allow" | "ask"; reason: string; rule: Rule | nu
 
 /**
  * 判这次调用怎么走。
- *   ask   逐步确认 —— 每次都停下来
- *   rules 按照规则 —— 命中任意一条规则就停下来;都没命中就放行
- *   skip  完全跳过 —— 不问不拦
+ *   盾关(skip)  不问不拦
+ *   盾开(rules) 命中任意一条规则就停下来问;都没命中就放行
  */
 export const decide = (
   { mode, rules = [], request, context = {} }:
   { mode: Mode; rules?: Rule[]; request: ToolRequest; context?: { home?: string; cwd?: string } },
 ): Verdict => {
   if (mode === "skip") return { effect: "allow", reason: "护盾已关", rule: null };
-  // 内置「任何操作都问我」勾上 = 逐步确认:不看条件,每一次工具调用都停
-  const askAll = rules.find((r) => r.id === ASK_ALL_ID && r.enabled);
-  if (askAll) return { effect: "ask", reason: askAll.text, rule: askAll };
-  if (mode !== "rules") return { effect: "ask", reason: "逐步确认", rule: null };
 
   const rule = rules.find((r) => matches(r, request, context));
   if (!rule) return { effect: "allow", reason: "没有规则说到这件事", rule: null };
@@ -123,18 +128,12 @@ export const decide = (
 
 /** 拼进系统提示词的那一段。 */
 export const injection = (rules: Rule[] = [], mode: Mode = "rules") => {
-  // 内置「任何操作都问我」不进规则清单 —— 它的全部含义就是下面那一行模式说明
-  const askAll = rules.some((r) => r.id === ASK_ALL_ID && r.enabled);
-  const live = rules.filter((r) => r.enabled && r.id !== ASK_ALL_ID);
+  const live = rules.filter((r) => r.enabled);
   const lines: string[] = [];
   if (live.length) {
     lines.push("## 用户的规则", "用户对你提了这些要求,优先于你自己的判断:");
-    for (const rule of live) {
-      const soft = hasMatch(rule) ? "" : "(没有拦截条件兜底,全靠你自觉遵守)";
-      lines.push(`- ${rule.prompt}${soft}`);
-    }
+    for (const rule of live) lines.push(`- ${rule.prompt}`);
   }
   if (mode === "skip") lines.push("", "当前护盾已关:没有任何拦截,你要自己为后果负责。");
-  else if (askAll || mode === "ask") lines.push("", "用户开着「任何操作都问我」:你的每次工具调用都会先交给用户过目。");
   return lines.join("\n");
 };

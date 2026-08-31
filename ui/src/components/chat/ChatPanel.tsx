@@ -264,7 +264,8 @@ export function ChatPanel({
             ref={inputRef}
             rows={2}
             className="w-full min-h-[62px] max-h-60 bg-transparent px-3.5 pt-3 text-[15px] text-text placeholder:text-text-faint outline-none resize-none leading-relaxed overflow-y-auto"
-            placeholder="发送消息… (Enter 发送 · Shift+Enter 换行)"
+            // 跑着的时候输入框是禁用的,再摆一句「发送消息…」等于叫人做一件做不了的事
+            placeholder={busy ? "" : "发送消息… (Enter 发送 · Shift+Enter 换行)"}
             value={prompt}
             onChange={(e) => { setPrompt(e.target.value); persistDraft(e.target.value); }}
             onCompositionStart={() => { composingRef.current = true; }}

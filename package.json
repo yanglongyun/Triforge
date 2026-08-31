@@ -23,12 +23,12 @@
   },
   "build": {
     "appId": "ai.iimos.workbench",
-    "productName": "Triforge",
+    "productName": "Mainbench",
     "afterSign": "scripts/notarize.cjs",
     "publish": [
       {
         "provider": "generic",
-        "url": "https://dl.iimos.ai/workbench/mac-arm64"
+        "url": "https://r2.iimos.ai/mainbench/mac-arm64"
       }
     ],
     "directories": {

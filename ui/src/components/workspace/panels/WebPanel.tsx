@@ -144,7 +144,7 @@ export function WebPanel({ tab, socket, onUpdate }: {
     setImportNote("");
     void importChromeCookies()
       .then((r) => {
-        setImportNote(`已从 ${r.profile} 导入 ${r.imported} 条登录信息${r.failed ? `,跳过 ${r.failed} 条` : ""} —— 刷新页面即可生效`);
+        setImportNote(`已从 ${r.profile} 导入 ${r.imported} 条登录信息${r.failed ? `,跳过 ${r.failed} 条` : ""}。刷新页面后生效。`);
         setPromptImport(false);
       })
       .catch((e) => setImportNote(e?.message || "导入失败"))
@@ -303,10 +303,10 @@ export function WebPanel({ tab, socket, onUpdate }: {
         <div className="shrink-0 flex items-start gap-2.5 px-3 py-2 border-b border-border bg-accent/[0.06]">
           <KeyRound size={14} className="mt-0.5 shrink-0 text-accent" />
           <div className="min-w-0 flex-1">
-            <div className="text-[12.5px] text-text">网页都是未登录状态?可以把 Chrome 的登录状态导进来。</div>
+            <div className="text-[12.5px] text-text">导入 Chrome 登录状态</div>
             <div className="mt-0.5 text-[11.5px] text-text-faint leading-relaxed">
-              导入的是<b>全部站点</b>的登录信息(系统会先弹钥匙串授权)。
-              导入后 AI 也能在这些已登录的页面上替你操作。
+              导入范围为<b>全部站点</b>的登录信息,需通过系统钥匙串授权。
+              导入后 AI 可在这些已登录的页面上执行操作。
             </div>
           </div>
           <button

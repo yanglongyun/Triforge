@@ -18,6 +18,8 @@ export type ApprovalCard = {
   paths: string[];
   actions: string[];
   actionLabels: string[];
+  /** 这次调用具体要干什么:write 的内容、edit 的原文与新文。 */
+  preview: { label: string; text: string }[];
   reason: string;
   rule: { id: string; text: string } | null;
   at: string;
@@ -30,16 +32,15 @@ export type Rule = {
   match: { tools: string[]; actions: string[]; paths: string[] };
   enabled: boolean;
   origin: "user" | "factory" | "agent";
-  /** false = 这条编译不出触发条件,只写进了提示词,拦不住任何东西。 */
-  compiled: boolean;
+  /**
+   * 有没有硬闸。**false 是常态,不是失败** —— 规则的本职是写进提示词约束模型,
+   * 硬闸是附加的。true 时 match 描述闸的作用范围(空维度 = 不设限)。
+   */
+  gate: boolean;
 };
 
-// 护盾模型:盾是开关(rules = 开,skip = 关),规则是内容。
-// 「逐步确认」= 内置规则「任何操作都问我」勾上;ask 仅为老库兼容保留。
-export type Mode = "ask" | "rules" | "skip";
-
-/** 内置规则的 id(服务端 server/permission/rules.ts 同名常量)。 */
-export const ASK_ALL_ID = "factory-ask-all";
+// 护盾模型:盾是开关(rules = 盾开,skip = 盾关),规则是内容。没有第三档。
+export type Mode = "rules" | "skip";
 
 const req = async (url: string, init?: RequestInit) => {
   const res = await fetch(url, {
@@ -59,6 +60,9 @@ export const permissionApi = {
   updateRule: (id: string, patch: Partial<Rule>) =>
     req(`/api/rules?id=${encodeURIComponent(id)}`, { method: "PATCH", body: JSON.stringify(patch) }) as Promise<{ rule: Rule; note: string }>,
   deleteRule: (id: string) => req(`/api/rules?id=${encodeURIComponent(id)}`, { method: "DELETE" }),
+  /** 整份顺序发过去 —— 拖完就是一次落库,不做增量位移。 */
+  reorderRules: (ids: string[]) =>
+    req("/api/rules/order", { method: "POST", body: JSON.stringify({ ids }) }).then((r) => (r.rules || []) as Rule[]),
   listApprovals: (chatId: string) =>
     req(`/api/approvals?chatId=${encodeURIComponent(chatId)}`).then((r) => (r.approvals || []) as ApprovalCard[]),
   respond: (id: string, answer: "allow" | "deny") =>

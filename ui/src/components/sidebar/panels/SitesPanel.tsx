@@ -54,9 +54,9 @@ export function SitesPanel({ onOpenUrl, socket }: {
       <div className="flex-1 overflow-y-auto py-1">
         <div
           onClick={add}
-          className="flex items-center gap-1.5 py-[4px] pl-3 pr-2 cursor-pointer select-none text-text-faint hover:text-text hover:bg-bg-hover"
+          className="flex items-center gap-1.5 py-[4px] pl-3 pr-2 cursor-pointer select-none text-text hover:bg-bg-hover"
         >
-          <Plus size={14} className="shrink-0 text-accent" />
+          <Plus size={14} className="shrink-0" />
           <span className="text-[13.5px]">添加网站…</span>
         </div>
 
@@ -87,7 +87,7 @@ export function SitesPanel({ onOpenUrl, socket }: {
 
         {!sites.length && (
           <div className="px-3 py-6 text-center text-[12.5px] text-text-faint leading-relaxed">
-            还没有收藏的网站<br />点上面「添加网站」
+还没有收藏的网站
           </div>
         )}
       </div>

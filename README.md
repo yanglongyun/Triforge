@@ -1,4 +1,4 @@
-# Triforge ▲
+# Mainbench ▲
 
 > 一个本地工作台:左边是**对话**、**文件**、**网站**,中间是标签页,侧栏挂着你自己的**组件**。
 
@@ -58,7 +58,7 @@ workspaces/                    ← 你挂进来的真实目录
 组件 = 组件的家里的一个目录,**零构建**(ESM + 原生 CSS,浏览器直接吃),写出目录即安装:
 
 ```
-~/Documents/Triforge/widgets/<id>/
+~/Documents/Mainbench/widgets/<id>/
   widget.json   manifest(名字 / 图标 / 权限)
   index.html    入口
   main.js  style.css
@@ -82,8 +82,8 @@ workspaces/                    ← 你挂进来的真实目录
 ## 跑起来
 
 ```bash
-git clone https://github.com/yanglongyun/Triforge
-cd Triforge
+git clone https://github.com/yanglongyun/Mainbench
+cd Mainbench
 npm install
 
 # 开发(两个进程)

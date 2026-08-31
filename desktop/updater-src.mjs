@@ -4,7 +4,7 @@
 // 开发态没有这个产物,main.js 动态 import 失败即静默跳过 —— 开发本来也不更新。
 //
 // 更新源:electron-builder 因 publish 配置把 app-update.yml 埋进包里,
-// 指向 https://dl.iimos.ai/workbench/mac-arm64/(latest-mac.yml + zip 差量)。
+// 指向 https://r2.iimos.ai/mainbench/mac-arm64/(latest-mac.yml + zip 差量)。
 // 流程:启动静默检查 → 有新版后台下载 → 下载完通知界面出「重启更新」气泡。
 import electronUpdater from "electron-updater";
 

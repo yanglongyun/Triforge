@@ -269,7 +269,7 @@ export function App() {
     { label: "新建终端", icon: <Terminal size={14} className="text-success" />, onClick: () => {
       const node = selectedNode || activeNode;
       if (node) openTerminal(node);
-      else void dialog.alert("先添加一个工作区,终端才有落脚的目录。");
+      else void dialog.alert("请先添加工作区,终端需要一个目录。");
     } },
   ];
 
@@ -348,7 +348,6 @@ export function App() {
         onOpenUrl={openWebTab}
         onOpenApp={openApp}
         onToggleNav={toggleNav}
-        onSetDesktopOpen={setDesktopNavOpen}
         onOpenSide={(n) => openNode(n, { groupId: "side" })}
         onOpenTerminal={openTerminal}
         onOpenGit={openGit}
@@ -384,6 +383,7 @@ export function App() {
           allGroups={tabGroups.allGroups}
           activeGroupId={tabGroups.activeGroupId}
           sideOpen={tabGroups.sideOpen}
+          navOpen={desktopNavOpen}
           onOpenNav={toggleNav}
           dirtyIds={dirtyIds}
           tabs={tabActions}

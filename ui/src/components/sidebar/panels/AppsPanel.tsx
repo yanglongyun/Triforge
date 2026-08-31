@@ -6,7 +6,7 @@
 import { useCallback, useEffect, useState } from "react";
 import { api, type AppInfo } from "../../../api";
 import { ContextMenu, type MenuItem } from "../../ui";
-import { AlertTriangle, RotateCw, Square } from "lucide-react";
+import { AlertTriangle, Plus, RotateCw, Square } from "lucide-react";
 
 type Socket = { send: (m: any) => void; on: (t: string, fn: (p: any) => void) => () => void };
 
@@ -25,7 +25,12 @@ const DOT: Record<string, string> = {
   invalid: "bg-danger",
 };
 
-export function AppsPanel({ socket, onOpenApp }: { socket: Socket; onOpenApp: (app: AppInfo) => void }) {
+export function AppsPanel({ socket, onOpenApp, onCreate }: {
+  socket: Socket;
+  onOpenApp: (app: AppInfo) => void;
+  /** 让 AI 造一个应用 —— 动作住在 PanelHost(要开对话、发提示词)。 */
+  onCreate?: () => void;
+}) {
   const [apps, setApps] = useState<AppInfo[]>([]);
   const [menu, setMenu] = useState<{ x: number; y: number; items: MenuItem[] } | null>(null);
 
@@ -53,6 +58,15 @@ export function AppsPanel({ socket, onOpenApp }: { socket: Socket; onOpenApp: (a
 
   return (
     <div className="flex-1 overflow-y-auto py-1">
+      {onCreate && apps.length > 0 && (
+        <div
+          onClick={onCreate}
+          className="flex items-center gap-1.5 py-[4px] pl-3 pr-2 cursor-pointer select-none text-text hover:bg-bg-hover"
+        >
+          <Plus size={14} className="shrink-0" />
+          <span className="text-[13.5px]">创建应用…</span>
+        </div>
+      )}
       {apps.map((app) => (
         <div
           key={app.id}
@@ -84,10 +98,16 @@ export function AppsPanel({ socket, onOpenApp }: { socket: Socket; onOpenApp: (a
       ))}
 
       {!apps.length && (
-        <div className="px-4 py-16 text-center text-[12.5px] text-text-faint leading-relaxed">
-          还没有应用<br />
-          让 AI 在应用的家里建一个目录<br />
-          <span className="text-[11.5px]">(manifest.json + 一个监听 $PORT 的 server)</span>
+        <div className="px-4 py-14 flex flex-col items-center text-center">
+          <div className="text-[12.5px] text-text-faint">还没有应用</div>
+          {onCreate && (
+            <button
+              onClick={onCreate}
+              className="mt-3 inline-flex items-center gap-1.5 px-3 py-1.5 rounded-md bg-accent text-white text-[13px] hover:opacity-90 transition-opacity"
+            >
+              <Plus size={13} /> 创建应用
+            </button>
+          )}
         </div>
       )}
 

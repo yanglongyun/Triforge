@@ -7,7 +7,7 @@
 // 那是一种失控:今天的放行会替将来的你放过你并不想放的事。
 import { useState } from "react";
 import { AlertTriangle, Check, MessageCircleQuestion, ShieldAlert, X } from "lucide-react";
-import { ASK_ALL_ID, highlightCommand, permissionApi, type ApprovalCard as Card } from "../../lib/permission";
+import { highlightCommand, permissionApi, type ApprovalCard as Card } from "../../lib/permission";
 
 export function ApprovalCard({ card, onDone }: { card: Card; onDone: (id: string) => void }) {
   const [busy, setBusy] = useState(false);
@@ -69,7 +69,19 @@ export function ApprovalCard({ card, onDone }: { card: Card; onDone: (id: string
         </div>
       )}
 
-      {/* 为什么停下来:助手说的风险 / 命中的规则原话 / 「逐步确认」 */}
+      {/* 操作正文:光有工具名和路径判断不了该不该放行 ——
+          写什么、把哪句改成哪句,得摊在眼前 */}
+      {(card.preview || []).map((block) => (
+        <div key={block.label} className="mx-4 mb-2">
+          <div className="mb-1 text-[10.5px] text-text-faint tracking-wide">{block.label}</div>
+          <pre className="px-3 py-2 rounded-lg bg-bg-panel text-[12px] font-mono text-text-dim
+            leading-relaxed whitespace-pre-wrap break-all select-text max-h-[132px] overflow-y-auto">
+            {block.text || <span className="text-text-faint">(空)</span>}
+          </pre>
+        </div>
+      ))}
+
+      {/* 为什么停下来:助手说的风险,或命中的那条规则原话 */}
       {(card.risk || card.reason || card.rule) && (
         <div className="px-4 pb-2.5 flex items-start gap-1.5 text-[12px] text-text-faint">
           <AlertTriangle size={11} className="shrink-0 mt-[3px]" />
@@ -77,9 +89,7 @@ export function ApprovalCard({ card, onDone }: { card: Card; onDone: (id: string
             {consulting
               ? card.risk
               : card.rule
-                ? card.rule.id === ASK_ALL_ID
-                  ? <>你开着<span className="text-text-dim">「任何操作都问我」</span>,每次动手都会先过你这关</>
-                  : <>命中你的规则:<span className="text-text-dim">{card.rule.text}</span></>
+                ? <>命中规则:<span className="text-text-dim">{card.rule.text}</span></>
                 : card.reason}
           </span>
         </div>
