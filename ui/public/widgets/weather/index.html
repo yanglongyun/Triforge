@@ -1,0 +1,16 @@
+<!doctype html>
+<meta charset="utf-8">
+<title>天气</title>
+<link rel="stylesheet" href="./style.css">
+<div class="wrap">
+  <div class="head">
+    <button id="citybtn" class="citybtn" title="换城市"><span id="cityname">…</span> ▾</button>
+    <button id="refresh" class="iconbtn" title="刷新">↻</button>
+  </div>
+  <div id="search" class="card search" hidden>
+    <input id="q" type="search" placeholder="搜城市,如:上海 / Tokyo">
+    <div id="hits"></div>
+  </div>
+  <div id="body"><div class="empty">加载中…</div></div>
+</div>
+<script type="module" src="./main.js"></script>

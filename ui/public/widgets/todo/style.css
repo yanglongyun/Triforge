@@ -1,15 +1,48 @@
-.wrap { padding: 12px; font: 14px system-ui, -apple-system, sans-serif; }
-form { display: flex; gap: 6px; }
-input[type=text], #text { flex: 1; min-width: 0; background: var(--bg-raised); color: var(--text);
-  border: 1px solid var(--border); border-radius: 7px; padding: 6px 9px; font-size: 13.5px; }
-form button { background: var(--accent); color: #fff; border: 0; border-radius: 7px;
-  padding: 6px 12px; cursor: pointer; font-size: 13.5px; }
-ul { list-style: none; padding: 0; margin: 12px 0 0; }
-li { display: flex; align-items: center; gap: 8px; padding: 5px 0; border-top: 1px solid var(--border); }
-li span { flex: 1; min-width: 0; overflow-wrap: anywhere; }
-li.done span { text-decoration: line-through; color: var(--text-dim); }
-li button { background: none; border: 0; color: var(--text-dim); cursor: pointer;
-  font-size: 16px; line-height: 1; padding: 0 2px; opacity: 0; }
-li:hover button { opacity: 1; }
-li button:hover { color: var(--danger); }
-.foot { margin-top: 10px; color: var(--text-dim); font-size: 12px; }
+* { box-sizing: border-box; margin: 0; padding: 0; }
+html, body { height: 100%; }
+body { font: 13.5px/1.55 -apple-system, "PingFang SC", "Microsoft YaHei", system-ui, sans-serif;
+  -webkit-font-smoothing: antialiased; }
+.wrap { display: flex; flex-direction: column; gap: 10px; padding: 12px; min-height: 100%; }
+.card { background: var(--bg-raised); border: 1px solid var(--border); border-radius: 10px; }
+input, textarea, select, button { font: inherit; color: inherit; }
+[hidden] { display: none !important; }
+input[type=text], input[type=number], input[type=search], textarea, select {
+  width: 100%; background: var(--bg); color: var(--text); border: 1px solid var(--border);
+  border-radius: 8px; padding: 7px 10px; outline: none; transition: border-color .15s, box-shadow .15s; }
+input:focus, textarea:focus, select:focus { border-color: var(--accent);
+  box-shadow: 0 0 0 3px color-mix(in srgb, var(--accent) 16%, transparent); }
+textarea { resize: none; }
+.btn { display: inline-flex; align-items: center; justify-content: center; gap: 5px;
+  background: var(--accent); color: #fff; border: 0; border-radius: 8px; padding: 7px 13px;
+  cursor: pointer; white-space: nowrap; transition: filter .15s; }
+.btn:hover { filter: brightness(1.08); }
+.btn:disabled { opacity: .5; cursor: default; filter: none; }
+.ghost { background: transparent; color: var(--text-dim); border: 1px solid var(--border); }
+.ghost:hover { color: var(--text); background: var(--bg-hover); filter: none; }
+.iconbtn { background: none; border: 0; color: var(--text-dim); cursor: pointer; border-radius: 6px;
+  width: 24px; height: 24px; display: inline-flex; align-items: center; justify-content: center; }
+.iconbtn:hover { color: var(--text); background: var(--bg-hover); }
+.dim { color: var(--text-dim); }
+.small { font-size: 12px; }
+.empty { text-align: center; color: var(--text-dim); font-size: 12.5px; padding: 22px 0; }
+::-webkit-scrollbar { width: 8px; height: 8px; }
+::-webkit-scrollbar-thumb { background: var(--border); border-radius: 4px; }
+::-webkit-scrollbar-track { background: transparent; }
+
+.row { display: flex; gap: 8px; }
+#list { list-style: none; display: flex; flex-direction: column; }
+#list li { display: flex; align-items: flex-start; gap: 9px; padding: 8px 2px; border-bottom: 1px solid var(--border); }
+#list li:last-child { border-bottom: 0; }
+.check { flex: none; appearance: none; width: 17px; height: 17px; margin-top: 2px; cursor: pointer;
+  border: 1.5px solid var(--border); border-radius: 50%; display: grid; place-content: center; transition: all .15s; }
+.check:hover { border-color: var(--accent); }
+.check:checked { background: var(--accent); border-color: var(--accent); }
+.check:checked::before { content: ""; width: 9px; height: 9px;
+  background: #fff; clip-path: polygon(14% 44%, 0 65%, 40% 100%, 100% 16%, 84% 0, 38% 66%); }
+#list li span { flex: 1; min-width: 0; overflow-wrap: anywhere; transition: color .15s; }
+#list li.done span { text-decoration: line-through; color: var(--text-dim); }
+#list li .iconbtn { opacity: 0; flex: none; }
+#list li:hover .iconbtn { opacity: 1; }
+#list li .iconbtn:hover { color: var(--danger); }
+.foot { display: flex; justify-content: space-between; align-items: center; min-height: 24px; }
+.ghost.small { padding: 3px 9px; }

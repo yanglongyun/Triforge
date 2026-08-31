@@ -1,0 +1,22 @@
+<!doctype html>
+<meta charset="utf-8">
+<title>日历</title>
+<link rel="stylesheet" href="./style.css">
+<div class="wrap">
+  <div class="head">
+    <div id="title" class="title"></div>
+    <div class="nav">
+      <button id="prev" class="iconbtn" title="上个月">‹</button>
+      <button id="today" class="ghost btn small">今天</button>
+      <button id="next" class="iconbtn" title="下个月">›</button>
+    </div>
+  </div>
+  <div class="grid" id="week"></div>
+  <div class="grid" id="days"></div>
+  <div class="daypane">
+    <div id="daytitle" class="dim small"></div>
+    <ul id="events"></ul>
+    <form id="form" class="row"><input id="text" type="text" placeholder="这天有什么事?" autocomplete="off"><button class="btn">记上</button></form>
+  </div>
+</div>
+<script type="module" src="./main.js"></script>

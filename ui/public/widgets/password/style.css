@@ -29,20 +29,23 @@ textarea { resize: none; }
 ::-webkit-scrollbar-thumb { background: var(--border); border-radius: 4px; }
 ::-webkit-scrollbar-track { background: transparent; }
 
-.composer { padding: 8px; display: flex; flex-direction: column; gap: 8px; }
-.composer textarea { border: 0; background: transparent; padding: 3px 4px; }
-.composer textarea:focus { box-shadow: none; }
-.composer-foot { display: flex; justify-content: space-between; align-items: center; gap: 8px; }
-.composer-foot .btn { padding: 5px 12px; font-size: 12.5px; }
-.aiout { padding: 10px 12px; }
-.aiout-head { display: flex; justify-content: space-between; align-items: center; margin-bottom: 4px; }
-#outbody { white-space: pre-wrap; font-size: 13px; }
-#list { list-style: none; display: flex; flex-direction: column; gap: 8px; }
-#list li { position: relative; background: var(--bg-raised); border: 1px solid var(--border);
-  border-radius: 10px; padding: 9px 30px 7px 12px; }
-#list li p { white-space: pre-wrap; overflow-wrap: anywhere; }
-#list li em { display: block; font-style: normal; font-size: 11px; color: var(--text-dim); margin-top: 3px; }
-#list li button { position: absolute; top: 6px; right: 6px; opacity: 0; }
-#list li:hover button { opacity: 1; }
-#list li button:hover { color: var(--danger); }
-#list li.empty { background: none; border: 0; padding: 22px 0; }
+
+.pwbox { padding: 12px; display: flex; align-items: center; gap: 8px; }
+.pw { flex: 1; min-width: 0; font: 600 15px/1.5 ui-monospace, "SF Mono", Menlo, monospace;
+  overflow-wrap: anywhere; user-select: all; }
+.pw .d { color: var(--accent); }
+.pw .s { color: var(--danger); }
+.pwbtns { display: flex; align-items: center; gap: 4px; flex: none; }
+.btn.small { padding: 4px 11px; font-size: 12.5px; }
+.meter { height: 4px; border-radius: 2px; background: var(--bg-hover); overflow: hidden; }
+.meter i { display: block; height: 100%; border-radius: 2px; transition: all .25s; }
+.opts { padding: 6px 12px; display: flex; flex-direction: column; }
+.lenrow { display: flex; align-items: center; gap: 10px; padding: 8px 0; border-bottom: 1px solid var(--border); }
+.lenrow span { flex: none; }
+.lenrow b { flex: none; width: 22px; text-align: right; font-variant-numeric: tabular-nums; }
+.lenrow input { flex: 1; accent-color: var(--accent); padding: 0; border: 0; }
+.lenrow input:focus { box-shadow: none; }
+.opt { display: flex; align-items: center; gap: 9px; padding: 7px 0; cursor: pointer;
+  border-bottom: 1px solid var(--border); font-size: 13px; }
+.opt:last-child { border-bottom: 0; }
+.opt input { width: 15px; height: 15px; accent-color: var(--accent); }

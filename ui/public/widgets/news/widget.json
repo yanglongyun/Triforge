@@ -1,0 +1,14 @@
+{
+  "name": "新闻",
+  "icon": "📰",
+  "description": "少数派 / 爱范儿 / Solidot 的信息流,干活间隙扫一眼",
+  "permissions": [
+    "net"
+  ],
+  "hosts": [
+    "sspai.com",
+    "www.ifanr.com",
+    "www.solidot.org"
+  ],
+  "position": 7
+}

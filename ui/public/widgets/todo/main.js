@@ -1,9 +1,8 @@
-const sql = (sql, params = []) =>
-  fetch("/_wb/sql", {
-    method: "POST",
-    headers: { "content-type": "application/json" },
-    body: JSON.stringify({ sql, params }),
-  }).then((r) => r.json());
+const post = (path, body) =>
+  fetch(path, { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify(body) })
+    .then((r) => r.json());
+const sql = (q, params = []) => post("/_wb/sql", { sql: q, params });
+const esc = (s) => String(s).replace(/[<>&"]/g, (c) => ({ "<": "&lt;", ">": "&gt;", "&": "&amp;", '"': "&quot;" }[c]));
 
 await sql(`CREATE TABLE IF NOT EXISTS todos (
   id INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -15,12 +14,13 @@ const render = async () => {
   const { rows } = await sql("SELECT * FROM todos ORDER BY done, id DESC");
   list.innerHTML = rows.map((t) => `
     <li class="${t.done ? "done" : ""}">
-      <input type="checkbox" data-toggle="${t.id}" ${t.done ? "checked" : ""}>
-      <span>${t.text.replace(/[<>&]/g, (c) => ({ "<": "&lt;", ">": "&gt;", "&": "&amp;" }[c]))}</span>
-      <button data-del="${t.id}" title="删除">×</button>
-    </li>`).join("");
+      <input type="checkbox" class="check" data-toggle="${t.id}" ${t.done ? "checked" : ""}>
+      <span>${esc(t.text)}</span>
+      <button class="iconbtn" data-del="${t.id}" title="删除">×</button>
+    </li>`).join("") || '<li class="empty">今天没有要办的事</li>';
   const left = rows.filter((t) => !t.done).length;
-  foot.textContent = rows.length ? `未完 ${left} · 共 ${rows.length}` : "还没有待办";
+  stat.textContent = rows.length ? `未完 ${left} · 共 ${rows.length}` : "";
+  clear.hidden = !rows.some((t) => t.done);
 };
 
 form.onsubmit = async (e) => {
@@ -33,12 +33,14 @@ form.onsubmit = async (e) => {
 };
 
 list.onclick = async (e) => {
-  const del = e.target.dataset?.del;
+  const del = e.target.closest("[data-del]")?.dataset.del;
   const toggle = e.target.dataset?.toggle;
   if (del) await sql("DELETE FROM todos WHERE id = ?", [del]);
   else if (toggle) await sql("UPDATE todos SET done = 1 - done WHERE id = ?", [toggle]);
   else return;
   render();
 };
+
+clear.onclick = async () => { await sql("DELETE FROM todos WHERE done = 1"); render(); };
 
 render();

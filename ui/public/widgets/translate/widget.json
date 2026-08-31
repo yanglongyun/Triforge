@@ -1,0 +1,9 @@
+{
+  "name": "翻译",
+  "icon": "🌐",
+  "description": "中英日互译,贴进来就译,一键复制",
+  "permissions": [
+    "ai"
+  ],
+  "position": 5
+}

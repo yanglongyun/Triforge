@@ -29,20 +29,18 @@ textarea { resize: none; }
 ::-webkit-scrollbar-thumb { background: var(--border); border-radius: 4px; }
 ::-webkit-scrollbar-track { background: transparent; }
 
-.composer { padding: 8px; display: flex; flex-direction: column; gap: 8px; }
-.composer textarea { border: 0; background: transparent; padding: 3px 4px; }
-.composer textarea:focus { box-shadow: none; }
-.composer-foot { display: flex; justify-content: space-between; align-items: center; gap: 8px; }
-.composer-foot .btn { padding: 5px 12px; font-size: 12.5px; }
-.aiout { padding: 10px 12px; }
-.aiout-head { display: flex; justify-content: space-between; align-items: center; margin-bottom: 4px; }
-#outbody { white-space: pre-wrap; font-size: 13px; }
-#list { list-style: none; display: flex; flex-direction: column; gap: 8px; }
-#list li { position: relative; background: var(--bg-raised); border: 1px solid var(--border);
-  border-radius: 10px; padding: 9px 30px 7px 12px; }
-#list li p { white-space: pre-wrap; overflow-wrap: anywhere; }
-#list li em { display: block; font-style: normal; font-size: 11px; color: var(--text-dim); margin-top: 3px; }
-#list li button { position: absolute; top: 6px; right: 6px; opacity: 0; }
-#list li:hover button { opacity: 1; }
-#list li button:hover { color: var(--danger); }
-#list li.empty { background: none; border: 0; padding: 22px 0; }
+
+.panel { padding: 12px; display: flex; flex-direction: column; gap: 4px; }
+.side { display: flex; align-items: center; gap: 10px; }
+.side select { width: 108px; flex: none; font-weight: 600; }
+.side input { text-align: right; font-size: 16px; font-variant-numeric: tabular-nums; }
+#swap { align-self: center; font-size: 15px; }
+.result { flex: 1; text-align: right; font-size: 20px; font-weight: 700; font-variant-numeric: tabular-nums;
+  padding: 4px 2px; overflow-wrap: anywhere; }
+.meta { display: flex; justify-content: space-between; padding: 0 2px; min-height: 16px; }
+.grid { display: grid; grid-template-columns: 1fr 1fr; gap: 6px; }
+.cell { background: var(--bg-raised); border: 1px solid var(--border); border-radius: 8px;
+  padding: 7px 10px; font-size: 12px; display: flex; justify-content: space-between; gap: 6px; }
+.cell b { font-variant-numeric: tabular-nums; font-weight: 600; }
+.cell span { color: var(--text-dim); }
+.err { color: var(--danger); font-size: 12.5px; text-align: center; padding: 12px 0; }

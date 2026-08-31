@@ -1,0 +1,23 @@
+<!doctype html>
+<meta charset="utf-8">
+<title>密码生成</title>
+<link rel="stylesheet" href="./style.css">
+<div class="wrap">
+  <div class="card pwbox">
+    <div id="pw" class="pw"></div>
+    <div class="pwbtns">
+      <button id="regen" class="iconbtn" title="换一个">↻</button>
+      <button id="copy" class="btn small">复制</button>
+    </div>
+  </div>
+  <div id="meter" class="meter"><i></i></div>
+  <div class="card opts">
+    <label class="lenrow"><span>长度</span><input id="len" type="range" min="8" max="64" value="16"><b id="lenv">16</b></label>
+    <label class="opt"><input type="checkbox" id="upper" checked><span>大写 A-Z</span></label>
+    <label class="opt"><input type="checkbox" id="lower" checked><span>小写 a-z</span></label>
+    <label class="opt"><input type="checkbox" id="digit" checked><span>数字 0-9</span></label>
+    <label class="opt"><input type="checkbox" id="symbol" checked><span>符号 !@#$…</span></label>
+    <label class="opt"><input type="checkbox" id="plain"><span>排除易混淆的 0O1lI</span></label>
+  </div>
+</div>
+<script type="module" src="./main.js"></script>

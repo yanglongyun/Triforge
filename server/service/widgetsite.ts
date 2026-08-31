@@ -12,6 +12,7 @@ import http from "http";
 import { getWidget, widgetFile, listWidgets } from "./widgets.js";
 import { batchWidgetSql, execWidgetSql } from "./widgetdb.js";
 import { runWidgetAi } from "./widgetai.js";
+import { fetchForWidget } from "./widgetnet.js";
 
 type Site = { port: number; server: http.Server; lastHit: number };
 
@@ -89,6 +90,12 @@ const hostApi = async (id: string, rel: string, req: http.IncomingMessage, res: 
       const body = await readBody(req);
       const { results } = batchWidgetSql(id, Array.isArray(body?.statements) ? body.statements : []);
       return json(res, 200, { ok: true, results });
+    }
+    if (rel === "/http" && method === "POST") {
+      need(id, "net");
+      const body = await readBody(req);
+      const r = await fetchForWidget(getWidget(id)?.hosts || [], String(body?.url || ""));
+      return json(res, 200, { ok: true, ...r });
     }
     if (rel === "/ai" && method === "POST") {
       need(id, "ai");

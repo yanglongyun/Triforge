@@ -18,7 +18,7 @@ const HOME = process.env.WORKBENCH_HOME || path.join(__dirname, "../..");
 const UI_DIST = process.env.WORKBENCH_UI_DIST || path.join(HOME, "ui/dist");
 
 const WIDGET_ID = /^[a-z0-9][a-z0-9-]{0,63}$/;
-export const PERMISSIONS = ["sql", "fs", "ai"] as const; // ui 免申请
+export const PERMISSIONS = ["sql", "fs", "ai", "net"] as const; // ui 免申请
 
 export type WidgetInfo = {
   id: string;
@@ -26,6 +26,8 @@ export type WidgetInfo = {
   icon: string;
   description: string;
   permissions: string[];
+  hosts: string[]; // net 权限的域名白名单,宿主代理只放行这些
+  position: number; // 列表排序,小的在前;没写的排最后
   dir: string;
 };
 
@@ -46,6 +48,8 @@ const readManifest = (dir: string): WidgetInfo | null => {
     icon: String(raw?.icon || "📦").slice(0, 8),
     description: String(raw?.description || "").slice(0, 200),
     permissions: declared.filter((p: string) => (PERMISSIONS as readonly string[]).includes(p)),
+    hosts: Array.isArray(raw?.hosts) ? raw.hosts.map((h: unknown) => String(h).toLowerCase()).slice(0, 16) : [],
+    position: Number.isFinite(raw?.position) ? Number(raw.position) : 1000,
     dir,
   };
 };
@@ -60,7 +64,7 @@ export const listWidgets = (): WidgetInfo[] => {
     const widget = readManifest(path.join(home, entry.name));
     if (widget) out.push(widget);
   }
-  return out.sort((a, b) => a.name.localeCompare(b.name, "zh"));
+  return out.sort((a, b) => a.position - b.position || a.name.localeCompare(b.name, "zh"));
 };
 
 export const getWidget = (id: string): WidgetInfo | null =>

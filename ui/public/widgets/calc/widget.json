@@ -1,0 +1,7 @@
+{
+  "name": "计算器",
+  "icon": "🧮",
+  "description": "普通计算器,支持键盘输入",
+  "permissions": [],
+  "position": 10
+}

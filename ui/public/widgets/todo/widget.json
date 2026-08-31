@@ -1,1 +1,9 @@
-{ "name": "待办", "icon": "✅", "description": "一个简单的待办清单,勾选完成、可删除", "permissions": ["sql"] }
+{
+  "name": "待办",
+  "icon": "✅",
+  "description": "一个简单的待办清单,勾选完成、可删除",
+  "permissions": [
+    "sql"
+  ],
+  "position": 2
+}

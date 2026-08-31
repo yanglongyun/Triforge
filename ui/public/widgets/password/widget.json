@@ -1,0 +1,7 @@
+{
+  "name": "密码生成",
+  "icon": "🔐",
+  "description": "本地生成强密码,不联网、不落盘",
+  "permissions": [],
+  "position": 11
+}

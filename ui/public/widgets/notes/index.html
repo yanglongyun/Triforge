@@ -1,11 +1,19 @@
 <!doctype html>
 <meta charset="utf-8">
-<title>速记</title>
+<title>便签</title>
 <link rel="stylesheet" href="./style.css">
 <div class="wrap">
-  <form id="form"><textarea id="text" rows="2" placeholder="随手记一句…"></textarea><button>记下</button></form>
-  <button id="sum" class="ghost">让 AI 整理成要点</button>
-  <pre id="out" hidden></pre>
+  <form id="form" class="card composer">
+    <textarea id="text" rows="2" placeholder="随手记一句…(⌘/Ctrl+Enter 记下)"></textarea>
+    <div class="composer-foot">
+      <button id="sum" type="button" class="ghost btn small">✨ AI 整理成要点</button>
+      <button class="btn">记下</button>
+    </div>
+  </form>
+  <div id="out" class="card aiout" hidden>
+    <div class="aiout-head"><span class="dim small">AI 整理</span><button id="close" type="button" class="iconbtn">×</button></div>
+    <div id="outbody"></div>
+  </div>
   <ul id="list"></ul>
 </div>
 <script type="module" src="./main.js"></script>

@@ -74,6 +74,8 @@ widgets/<id>/
 | `icon` | 否 | 单个 emoji,缺省 `📦` |
 | `description` | 否 | **给 AI 看的**:它据此判断该不该复用这个组件,而不是再造一个 |
 | `permissions` | 否 | 见第 4 节;缺省 `[]` |
+| `hosts` | 否 | `net` 权限的域名白名单(如 `["api.open-meteo.com"]`),代理只放行这些 |
+| `position` | 否 | 列表排序,小的在前;缺省排最后 |
 
 > manifest 一份三用:**字段表 = 权限清单 = SDK 文档**。三份会漂移,一份不会。
 
@@ -133,6 +135,7 @@ Content-Security-Policy: default-src 'self'; connect-src 'self'; img-src 'self' 
 | `ui` | `/_wb/toast`、`/_wb/confirm` | 免申请?见开放问题 1 |
 | `fs` | `/_wb/fs/*` 读写工作区文件 | **首次使用弹用户授权**,不能靠 manifest 一次性拿到 |
 | `ai` | `/_wb/ai` 无状态补全 | 每次调用必带 `summary`,打进服务端控制台 |
+| `net` | `/_wb/http` 宿主代理 GET | 只放行 manifest `hosts` 里声明的域名;CSP 断网不变,出口只有这一个 |
 
 原则:
 - **能力即知情同意** —— 声明是给用户看的,不是给系统看的;
@@ -178,6 +181,7 @@ const res = await fetch("/_wb/sql", {
 | `/_wb/toast` | POST | `{ message }` |
 | `/_wb/confirm` | POST | `{ message }` → `{ ok }`,阻塞到用户选择 |
 | `/_wb/ai` | POST | `{ summary, system, prompt }` → `{ text, tokens }`,`summary` 必填 |
+| `/_wb/http` | POST | `{ url }` → `{ status, contentType, text }`;GET 代理,12s 超时,2MB 上限,非 UTF-8 源转码后返回 |
 | `/_wb/fs/read` `/_wb/fs/write` `/_wb/fs/list` | POST | 工作区文件,首次使用弹授权 |
 
 `toast` / `confirm` 需要服务端→客户端的通道(宿主自己的 WS,不受 workerd 那套限制)。

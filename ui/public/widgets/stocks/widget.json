@@ -1,0 +1,12 @@
+{
+  "name": "股市",
+  "icon": "📈",
+  "description": "自选行情,A股/港股/美股,30 秒一刷(腾讯行情源)",
+  "permissions": [
+    "net"
+  ],
+  "hosts": [
+    "qt.gtimg.cn"
+  ],
+  "position": 8
+}

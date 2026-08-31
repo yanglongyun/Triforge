@@ -1,0 +1,12 @@
+{
+  "name": "汇率",
+  "icon": "💱",
+  "description": "常用币种换算,当日中间价(frankfurter,免费源)",
+  "permissions": [
+    "net"
+  ],
+  "hosts": [
+    "api.frankfurter.dev"
+  ],
+  "position": 9
+}
