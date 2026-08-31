@@ -11,6 +11,13 @@ contextBridge.exposeInMainWorld("workbenchDesktop", {
   /** 导入 Chrome 登录态 —— 必须由界面上的明确点击触发,系统会弹钥匙串授权。 */
   chromeProfiles: () => ipcRenderer.invoke("workbench:chrome-profiles"),
   importChromeCookies: (options) => ipcRenderer.invoke("workbench:import-chrome-cookies", options),
+  /** 回答浏览器抛上来的问询(权限 / HTTP 认证)。 */
+  answerWebPrompt: (id, value) => ipcRenderer.invoke("workbench:web-prompt-answer", { id, value }),
+  /** 用户在证书警告上点了「仍要继续」:本次运行内信任这个域名。 */
+  trustCertHost: (host) => ipcRenderer.invoke("workbench:web-trust-cert", host),
+  /** 清空已授予的网站权限与证书例外。 */
+  forgetWebPermissions: () => ipcRenderer.invoke("workbench:web-forget-permissions"),
+
   /** 退出所有网站:清网页分区的 cookie 与站点数据。 */
   clearWebLogins: () => ipcRenderer.invoke("workbench:clear-web-logins"),
   /** 清缓存:腾磁盘,不影响登录态。 */

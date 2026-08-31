@@ -7,7 +7,7 @@ import { QuickOpen, CommandPalette, type Command } from "./components/command";
 import { PanelHost } from "./components/sidebar";
 import { WorkspaceLayout, isSettingsTab, isNodeTab, useTabGroups, webTab, type TabActions, type WorkspaceGroupId } from "./components/workspace";
 import { looksLikeUrl } from "./lib/urls";
-import { DialogHost, ContextMenu, dialog, SystemNotices, ToastHost, type MenuItem } from "./components/ui";
+import { BrowsingPrompts, DialogHost, ContextMenu, dialog, SystemNotices, ToastHost, type MenuItem } from "./components/ui";
 import { FileText, Folder, FolderPlus, Bot, Globe, LayoutGrid, Search, Settings as SettingsIcon, Terminal, X, PanelRight } from "lucide-react";
 
 export function App() {
@@ -379,6 +379,7 @@ export function App() {
       {quickOpen && <QuickOpen onPick={(n) => openNode(n)} onClose={() => setQuickOpen(false)} />}
       {cmdOpen && <CommandPalette commands={commands} onClose={() => setCmdOpen(false)} />}
       <DialogHost />{/* 全局对话框:提示/确认/输入,全产品一套 */}
+      <BrowsingPrompts />{/* 网页的权限 / HTTP 认证 / 证书问询 —— session 级,挂一份 */}
       {newMenu && <ContextMenu x={newMenu.x} y={newMenu.y} items={newMenuItems} onClose={() => setNewMenu(null)} />}
       <SystemNotices />{/* 右下角系统气泡:更新就绪 + 官方公告 */}
       <ToastHost />{/* 轻提示(应用 ui.toast 也走这里) */}

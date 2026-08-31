@@ -142,6 +142,17 @@ export function WebPanel({ tab, socket, onUpdate }: {
   // 开对话框:选哪个 Chrome 配置、导什么,由用户定 —— 这里只负责把它打开
   const runImport = useCallback(() => setImportOpen(true), []);
 
+  // 证书例外刚加上:只有重载才会走一遍新的验证结果
+  useEffect(() => {
+    const onReload = (e: Event) => {
+      const host = String((e as CustomEvent).detail?.host || "");
+      if (!host || !tab.url.includes(host)) return;
+      (viewRef.current as any)?.reload?.();
+    };
+    window.addEventListener("workbench:reload-web", onReload);
+    return () => window.removeEventListener("workbench:reload-web", onReload);
+  }, [tab.url]);
+
   // ⌘F 打开页内查找。挂在面板上而不是全局:多个网页标签常驻挂载,
   // 全局监听会让每个标签都抢一次快捷键 —— 只有可见的那个才响应。
   useEffect(() => {

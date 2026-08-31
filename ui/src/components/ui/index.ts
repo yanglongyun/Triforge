@@ -1,3 +1,4 @@
+export { BrowsingPrompts } from "./BrowsingPrompts";
 export { ChromeImportDialog } from "./ChromeImportDialog";
 export { ContextMenu, type MenuItem } from "./ContextMenu";
 export { Favicon } from "./Favicon";

@@ -276,6 +276,23 @@ function BrowserLogins() {
 
       <div className="flex items-start gap-3">
         <div className="min-w-0 flex-1">
+          <div className="text-[13px] text-text">清空网站权限</div>
+          <div className="mt-0.5 text-[12px] text-text-faint">撤销已授予的摄像头、麦克风、位置等权限,以及证书例外</div>
+        </div>
+        <button
+          className={rowBtn}
+          disabled={!!busy}
+          onClick={() => run("perm", async () => {
+            await window.workbenchDesktop?.forgetWebPermissions();
+            return "已清空,下次访问会重新询问。";
+          })}
+        >
+          {busy === "perm" ? "清空中…" : "清空"}
+        </button>
+      </div>
+
+      <div className="flex items-start gap-3">
+        <div className="min-w-0 flex-1">
           <div className="text-[13px] text-text">清除缓存</div>
           <div className="mt-0.5 text-[12px] text-text-faint">腾出磁盘空间,不影响登录状态</div>
         </div>

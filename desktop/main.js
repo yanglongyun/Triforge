@@ -168,16 +168,21 @@ const startServer = async (port) => {
 };
 
 
+import {
+  serveAnswers, serveCertErrors, serveHttpAuth, servePermissions,
+} from "./browsing.js";
+
 const WEB_PARTITION = "persist:web";
 const webSession = () => session.fromPartition(WEB_PARTITION);
 
 /** 给界面派一个事件。没有反向 IPC 通道,沿用 executeJavaScript 那条路。 */
 const toRenderer = (name, detail) => {
   const target = BrowserWindow.getAllWindows()[0];
-  if (!target) return;
+  if (!target) return false;   // 没窗口 = 没人能回答,调用方据此当场拒绝
   target.webContents
     .executeJavaScript(`window.dispatchEvent(new CustomEvent(${JSON.stringify(name)},{detail:${JSON.stringify(detail)}}))`)
     .catch(() => { /* 页面还没加载好,丢了就算 */ });
+  return true;
 };
 
 /**
@@ -470,6 +475,11 @@ app.whenReady().then(async () => {
     // 晚一步的话第一个 webview 就漏过去了
     routeNewWindows(port);
     servePageMenu();
+    // 权限 / 认证 / 证书:都挂在网页那个 session 上,和窗口无关,越早挂越好
+    servePermissions(webSession(), toRenderer);
+    serveHttpAuth(toRenderer);
+    serveCertErrors(webSession(), toRenderer);
+    serveAnswers();
     await startServer(port);
     createWindow(port);
     void setupUpdates();
