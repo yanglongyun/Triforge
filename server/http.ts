@@ -9,7 +9,6 @@ import { seedPresetWidgets, sweepTrash } from "./service/widgets.js";
 import { startWidgetSiteSweeper } from "./service/widgetsite.js";
 import { watchApps } from "./host/apps.js";
 import { startAlwaysApps, stopAllApps } from "./host/appSupervisor.js";
-import { seedShield } from "./permission/seed.js";
 
 const startServer = async (port = 9506) =>
   new Promise((resolve, reject) => {
@@ -33,7 +32,6 @@ const startServer = async (port = 9506) =>
       startWatcher(); // 工作区文件监听:磁盘上的任何变化 → 树自动刷新
       track("app_open"); // 匿名遥测(仅打包应用;设置可关,见 telemetry.ts)
       seedPresetWidgets(); // 预装组件落地到组件的家 —— 之后就是用户自己的组件(可改可删)
-      seedShield();        // 护盾内置规则 + 老三档设置的收敛迁移
       sweepTrash();        // 回收站里躺满 30 天的真删
       startWidgetSiteSweeper(); // 组件站点闲置回收
       watchApps();              // 应用目录监听:AI 刚写完一个 app,刷新就出现在列表里

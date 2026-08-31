@@ -13,7 +13,6 @@
 import { ACTIONS, TOOLS, type ToolRequest } from "./danger.js";
 
 // 护盾模型:盾是开关,规则是内容。skip = 盾关,rules = 盾开。
-// 只有两档 —— 老库里的 "ask"(逐步确认)启动时迁移成 rules,见 permission/seed.ts。
 export const MODES = ["rules", "skip"] as const;
 export type Mode = (typeof MODES)[number];
 

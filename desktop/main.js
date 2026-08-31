@@ -4,7 +4,7 @@
 // 的 ABI 编译;塞进 Electron 的 Node 要 electron-rebuild 整一轮。开发期直接用系统
 // node 零 ABI 纠纷;正式打包时再换成随包 node + rebuild(见 dev/ 版本文档)。
 import { app, BrowserWindow, Menu, clipboard, dialog, ipcMain, nativeTheme, session, shell } from "electron";
-import { existsSync, renameSync, mkdirSync, readFileSync, writeFileSync } from "node:fs";
+import { mkdirSync, readFileSync, writeFileSync } from "node:fs";
 import { spawn } from "node:child_process";
 import { createServer } from "node:net";
 import { dirname, join } from "node:path";
@@ -18,27 +18,13 @@ const ROOT = join(dirname(fileURLToPath(import.meta.url)), "..");
 // APP_NAME 只用于人眼可见处(窗口标题、Documents 下的工作区目录)。
 const SLUG = "workbench";
 const APP_NAME = "Mainbench";
-// 用过的旧显示名,用于一次性搬迁工作区目录。**新名字排前面** ——
-// 循环命中第一个就停,而用户的东西一定在最近用过的那个名字下面。
-const LEGACY_NAMES = ["Triforge", "Workbench"];
-
 // userData 显式钉死:Electron 默认按 productName 取路径,改显示名会让数据"凭空消失"。
 app.setPath("userData", join(app.getPath("appData"), SLUG));
 
-/** 工作区目录跟显示名走(用户要在 Finder 里天天看见它),改名时自动搬过去。 */
+/** 工作区目录跟显示名走 —— 用户要在 Finder 里天天看见它。 */
 const workspacesDir = () => {
-  const docs = app.getPath("documents");
-  const target = join(docs, APP_NAME);
-  if (!existsSync(target)) {
-    for (const old of LEGACY_NAMES) {
-      const from = join(docs, old);
-      if (existsSync(from)) {
-        try { renameSync(from, target); console.log(`[rename] 工作区目录 ${old} → ${APP_NAME}`); break; }
-        catch (e) { console.error("[rename] 工作区目录搬迁失败:", e?.message); }
-      }
-    }
-  }
-  try { mkdirSync(target, { recursive: true }); } catch { /* 已存在 */ }
+  const target = join(app.getPath("documents"), APP_NAME);
+  mkdirSync(target, { recursive: true });
   return target;
 };
 

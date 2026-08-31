@@ -111,21 +111,6 @@ const initDb = () => {
     CREATE INDEX IF NOT EXISTS idx_compactions_chat ON compactions(chat_id, id);
   `);
 
-  // 老库补列:CREATE TABLE IF NOT EXISTS 不会给已存在的表加字段,
-  // 而 ALTER TABLE ADD COLUMN 重复执行会报错 —— 所以先问一遍 PRAGMA。
-  const columns = new Set(
-    (db.prepare("PRAGMA table_info(sites)").all() as { name: string }[]).map((c) => c.name),
-  );
-  if (!columns.has("kind")) db.exec("ALTER TABLE sites ADD COLUMN kind TEXT NOT NULL DEFAULT 'site'");
-  if (!columns.has("parent_id")) db.exec("ALTER TABLE sites ADD COLUMN parent_id TEXT");
-  if (!columns.has("position")) {
-    db.exec("ALTER TABLE sites ADD COLUMN position INTEGER NOT NULL DEFAULT 0");
-    // 老数据没有次序,按创建时间铺一遍,别让它们全挤在 position=0
-    const rows = db.prepare("SELECT id FROM sites ORDER BY created_at, rowid").all() as { id: string }[];
-    const write = db.prepare("UPDATE sites SET position = ? WHERE id = ?");
-    rows.forEach((row, index) => write.run(index, row.id));
-  }
-
   return db;
 };
 
