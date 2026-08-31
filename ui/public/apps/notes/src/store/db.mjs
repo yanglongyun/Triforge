@@ -14,7 +14,23 @@ export function db() {
   handle.exec('PRAGMA foreign_keys = ON');
   handle.exec('PRAGMA journal_mode = WAL'); // CLI 写、服务端读,两个进程要并存
   handle.exec(readFileSync(join(ROOT, 'src', 'store', 'schema.sql'), 'utf8'));
+  seedHome(handle);
   return handle;
+}
+
+/**
+ * 空库种一个「首页」笔记本,所有东西住在它下面。
+ *
+ * 根层不能是一堆没有归属的平级页 —— 那样「首页」就没有图标、没有封面、
+ * 也没有一个能点回去的地方。这一条种下去就是用户自己的,可以改名换图标,
+ * 只是删不掉(删了就没有根了)。
+ */
+export function seedHome(d = db()) {
+  const { n } = d.prepare('SELECT COUNT(*) AS n FROM pages').get();
+  if (n > 0) return;
+  const t = Date.now();
+  d.prepare(`INSERT INTO pages (parent_id, kind, title, icon, position, created_at, updated_at)
+             VALUES (NULL, 'folder', '首页', '📚', 0, ?, ?)`).run(t, t);
 }
 
 export function closeDb() {

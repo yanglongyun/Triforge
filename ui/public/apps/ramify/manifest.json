@@ -1,13 +1,17 @@
 {
   "id": "ramify",
-  "name": "Ramify",
+  "name": "创意",
   "version": "0.2.0",
   "description": "本地创意发散画布：把一个想法发散成多个可预览、可比较的方案（落地页、Demo、文案、视觉、文档、媒体），分叉迭代、选优定稿。用户想要「做几个方向」「对比几版」「分叉试试」，或提到 Ramify、创意树时用它。",
   "run": {
     "command": "node",
-    "args": ["app/dist/server.mjs"],
+    "args": [
+      "app/dist/server.mjs"
+    ],
     "health": "/api/health",
     "mode": "on-demand"
   },
-  "permissions": ["ai.agent"]
+  "permissions": [
+    "ai.agent"
+  ]
 }

@@ -83,11 +83,12 @@ const tree = () => {
 const pageAdd = ([title], options) => {
   const page = repo.createPage({
     title,
+    kind: options.folder ? 'folder' : 'note',
     parentId: options.parent === undefined ? null : int(options.parent, '--parent'),
     icon: options.icon,
     index: options.index === undefined ? undefined : int(options.index, '--index'),
   });
-  return { json: page, text: `页面 ${page.id}:${page.title}` };
+  return { json: page, text: `${page.kind === 'folder' ? '笔记本' : '笔记'} ${page.id}:${page.title}` };
 };
 
 const pageSet = ([id], options) => {
@@ -130,6 +131,9 @@ const find = ([query]) => {
 
 const pageShow = ([id]) => {
   const page = repo.getPage(int(id, 'page id'));
+  if (page.kind === 'folder') {
+    return { json: page, text: `${page.icon ? page.icon + ' ' : ''}${page.title} [${page.id}] —— 笔记本,没有正文` };
+  }
   const body = repo.loadBody(page.id);
   return {
     json: { ...page, body },
@@ -154,8 +158,8 @@ export const COMMANDS = {
   doctor: { run: doctor, mutates: false, usage: 'doctor' },
   tree: { run: tree, mutates: false, usage: 'tree' },
   find: { run: find, mutates: false, usage: 'find <关键词>' },
-  'page add': { run: pageAdd, mutates: true, usage: 'page add <标题> [--parent id] [--icon emoji] [--index n]' },
-  'page set': { run: pageSet, mutates: true, usage: 'page set <id> [--title t] [--icon emoji] [--cover gradient:dusk|https://…] [--collapse true|false]' },
+  'page add': { run: pageAdd, mutates: true, usage: 'page add <标题> [--parent id] [--folder] [--icon emoji] [--index n]' },
+  'page set': { run: pageSet, mutates: true, usage: 'page set <id> [--title t] [--icon emoji] [--cover preset:2|https://…] [--collapse true|false]' },
   'page move': { run: pageMove, mutates: true, usage: 'page move <id> [--parent id|root] [--index n]' },
   'page show': { run: pageShow, mutates: false, usage: 'page show <id>' },
   'page write': { run: pageWrite, mutates: true, usage: 'page write <id> <markdown…> [--append]' },

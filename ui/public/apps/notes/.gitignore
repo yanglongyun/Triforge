@@ -3,3 +3,4 @@ ui/dist/
 *.log
 .DS_Store
 .env
+ui/.smoke/

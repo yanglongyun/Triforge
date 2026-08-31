@@ -36,14 +36,28 @@ export function getPage(id) {
   return page;
 }
 
-export function createPage({ parentId = null, title, icon = '', index } = {}) {
+export const KINDS = ['folder', 'note'];
+
+/**
+ * 只有笔记本能当爹。
+ *
+ * 这是这套模型的全部意义所在:笔记本装东西,笔记装内容。
+ * 允许笔记再套笔记的话,两者就没区别了 —— 那就是另一套模型,不是这一套。
+ */
+function mustHold(parent) {
+  if (parent?.kind === 'note') throw new NotesError(`「${parent.title}」是一篇笔记,笔记里放不了东西`);
+}
+
+export function createPage({ parentId = null, kind = 'note', title, icon = '', index } = {}) {
   const parent = parentId == null ? null : getPage(parentId);
+  mustHold(parent);
+  const type = KINDS.includes(kind) ? kind : 'note';
   const position = positionAt(childrenOf(parent?.id ?? null), index);
   const t = now();
   const page = one(
-    `INSERT INTO pages (parent_id, title, icon, position, created_at, updated_at)
-     VALUES (?, ?, ?, ?, ?, ?) RETURNING *`,
-    [parent?.id ?? null, asTitle(title), String(icon ?? ''), position, t, t],
+    `INSERT INTO pages (parent_id, kind, title, icon, position, created_at, updated_at)
+     VALUES (?, ?, ?, ?, ?, ?, ?) RETURNING *`,
+    [parent?.id ?? null, type, asTitle(title), String(icon ?? ''), position, t, t],
   );
   // 新页要展开父级,否则建完根本看不见
   if (parent?.collapsed) run('UPDATE pages SET collapsed = 0 WHERE id = ?', [parent.id]);
@@ -88,7 +102,11 @@ export function subtreeIds(id) {
 /** 换父 + 换位置。整棵子树跟着走 —— 只改这一行的指针。 */
 export function movePage(id, { parentId, index } = {}) {
   const page = getPage(id);
-  const target = parentId === undefined ? page.parent_id : (parentId == null ? null : getPage(parentId).id);
+  const parent = parentId === undefined
+    ? (page.parent_id == null ? null : getPage(page.parent_id))
+    : (parentId == null ? null : getPage(parentId));
+  mustHold(parent);
+  const target = parent?.id ?? null;
   if (target != null && subtreeIds(id).has(target)) {
     throw new NotesError('不能把一页移到它自己的子孙下面');
   }
@@ -101,13 +119,17 @@ export function movePage(id, { parentId, index } = {}) {
 }
 
 export function deletePage(id) {
-  getPage(id);
+  const page = getPage(id);
+  // 最后一个根删不得 —— 删完就没有「首页」,东西全无处可放
+  if (page.parent_id == null && childrenOf(null).length === 1) {
+    throw new NotesError('这是首页,删不了。要清空就删它下面的东西。');
+  }
   run('DELETE FROM pages WHERE id = ?', [id]); // 子树与正文靠外键级联
 }
 
 /** 整棵树。一次查询装配,不做 N+1。 */
 export function tree() {
-  const rows = all('SELECT id, parent_id, title, icon, cover, position, collapsed, updated_at FROM pages ORDER BY position, id');
+  const rows = all('SELECT id, parent_id, kind, title, icon, cover, position, collapsed, updated_at FROM pages ORDER BY position, id');
   const byId = new Map(rows.map((r) => [r.id, { ...r, children: [] }]));
   const roots = [];
   for (const row of rows) {
@@ -123,7 +145,9 @@ export function tree() {
 export const loadBody = (pageId) => one('SELECT body FROM docs WHERE page_id = ?', [pageId])?.body ?? '';
 
 export function saveBody(pageId, body) {
-  getPage(pageId);
+  const page = getPage(pageId);
+  // 笔记本是容器,不是内容 —— 让它能存正文,两种东西就又混起来了
+  if (page.kind !== 'note') throw new NotesError(`「${page.title}」是笔记本,没有正文`);
   run(`INSERT INTO docs (page_id, body, updated_at) VALUES (?, ?, ?)
        ON CONFLICT(page_id) DO UPDATE SET body = excluded.body, updated_at = excluded.updated_at`,
     [pageId, String(body ?? ''), now()]);
@@ -137,7 +161,7 @@ export function search(query) {
   if (!needle) return [];
   const q = `%${needle}%`;
   return all(
-    `SELECT p.id, p.title, p.icon, substr(COALESCE(d.body, ''), 1, 160) AS snippet
+    `SELECT p.id, p.kind, p.title, p.icon, substr(COALESCE(d.body, ''), 1, 160) AS snippet
        FROM pages p LEFT JOIN docs d ON d.page_id = p.id
       WHERE p.title LIKE ? OR d.body LIKE ?
       ORDER BY p.updated_at DESC LIMIT 40`,

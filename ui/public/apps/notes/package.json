@@ -16,30 +16,23 @@
     "dev": "vite --config ui/vite.config.ts",
     "start": "node bin/notes.mjs start --foreground",
     "test": "node --no-warnings=ExperimentalWarning --test --test-force-exit --test-timeout=30000 \"test/*.test.mjs\"",
-    "typecheck": "tsc --noEmit -p ui/tsconfig.json",
+    "typecheck": "vue-tsc --noEmit -p ui/tsconfig.json",
     "check": "npm run typecheck && npm test"
   },
   "devDependencies": {
-    "@tiptap/core": "^3.30.3",
-    "@tiptap/extension-link": "^3.30.3",
-    "@tiptap/extension-placeholder": "^3.30.3",
-    "@tiptap/extension-task-item": "^3.30.3",
-    "@tiptap/extension-task-list": "^3.30.3",
-    "@tiptap/react": "^3.30.3",
-    "@tiptap/starter-kit": "^3.30.3",
-    "@tiptap/suggestion": "^3.30.3",
+    "@tailwindcss/vite": "^4.3.3",
     "@types/node": "^22.0.0",
-    "@types/react": "^19.2.0",
-    "@types/react-dom": "^19.2.0",
     "@types/turndown": "^5.0.6",
-    "@vitejs/plugin-react": "^5.0.0",
+    "@vitejs/plugin-vue": "^6.0.8",
+    "emojibase-data": "^17.0.0",
     "esbuild": "^0.28.2",
     "jsdom": "^30.0.1",
     "marked": "^18.0.11",
-    "react": "^19.2.0",
-    "react-dom": "^19.2.0",
+    "tailwindcss": "^4.3.3",
     "turndown": "^7.2.4",
     "typescript": "^5.9.0",
-    "vite": "^7.0.0"
+    "vite": "^7.0.0",
+    "vue": "^3.5.42",
+    "vue-tsc": "^3.3.11"
   }
 }

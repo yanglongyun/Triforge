@@ -1,16 +1,16 @@
 {
-    "id": "mindmap",
-    "name": "思维导图",
-    "version": "1.0.0",
-    "description": "本地交互式思维导图,支持画布与大纲两种视图。用户说「整理成导图」「画个脑图」「思维导图」或要把层级化的想法可视化时用它。",
-    "run": {
-        "command": "node",
-        "args": [
-            "scripts/mindmap.mjs",
-            "_serve"
-        ],
-        "health": "/health",
-        "mode": "on-demand"
-    },
-    "permissions": []
+  "id": "mindmap",
+  "name": "导图",
+  "version": "1.0.0",
+  "description": "本地交互式思维导图,支持画布与大纲两种视图。用户说「整理成导图」「画个脑图」「思维导图」或要把层级化的想法可视化时用它。",
+  "run": {
+    "command": "node",
+    "args": [
+      "scripts/mindmap.mjs",
+      "_serve"
+    ],
+    "health": "/health",
+    "mode": "on-demand"
+  },
+  "permissions": []
 }

@@ -1,0 +1,126 @@
+@import "tailwindcss";
+
+
+@theme {
+  --color-nt:             rgb(55, 53, 47);
+  --color-nt-muted:       rgba(55, 53, 47, 0.65);
+  --color-nt-soft:        rgba(55, 53, 47, 0.45);
+  --color-nt-hint:        rgba(55, 53, 47, 0.25);
+  --color-nt-hover:       rgba(55, 53, 47, 0.06);
+  --color-nt-hover-strong:rgba(55, 53, 47, 0.10);
+  --color-nt-divider:     rgba(55, 53, 47, 0.09);
+  --color-nt-accent:      rgb(35, 131, 226);
+  --color-nt-accent-bg:   rgba(35, 131, 226, 0.10);
+  --color-nt-danger:      #e03e3e;
+  --color-nt-danger-bg:   rgba(224, 62, 62, 0.08);
+}
+
+html, body, #app { min-height: 100dvh; }
+html, body { overflow-x: hidden; }
+
+body {
+  color: var(--color-nt);
+  background: #fff;
+  font-family:
+    "SF Pro", "SF Pro Text", -apple-system, BlinkMacSystemFont,
+    "Segoe UI", "Inter", "PingFang SC", "Hiragino Sans GB",
+    "Microsoft YaHei", sans-serif;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+}
+
+* { box-sizing: border-box; }
+
+::-webkit-scrollbar      { width: 10px; height: 10px; }
+::-webkit-scrollbar-track{ background: transparent; }
+::-webkit-scrollbar-thumb{ background: rgba(55,53,47,0.18); border-radius: 999px; }
+::-webkit-scrollbar-thumb:hover { background: rgba(55,53,47,0.30); }
+
+:focus-visible {
+  outline: 2px solid var(--color-nt-accent);
+  outline-offset: 1px;
+  border-radius: 3px;
+}
+
+/* 写内容的地方不要蓝色聚焦框,保留其它控件的可访问性 */
+input:focus-visible,
+textarea:focus-visible,
+[contenteditable]:focus-visible { outline: none; }
+
+::selection { background: rgba(35,131,226,0.22); }
+
+.no-scrollbar::-webkit-scrollbar { display: none; }
+.no-scrollbar { -ms-overflow-style: none; scrollbar-width: none; }
+
+/* 助理消息 markdown 渲染样式 */
+.md > div > :first-child { margin-top: 0; }
+.md > div > :last-child  { margin-bottom: 0; }
+.md p { margin: 0.5em 0; }
+.md h1, .md h2, .md h3, .md h4, .md h5, .md h6 {
+  font-weight: 600;
+  margin: 0.7em 0 0.3em;
+  line-height: 1.3;
+}
+.md h1 { font-size: 1.2em; }
+.md h2 { font-size: 1.12em; }
+.md h3 { font-size: 1.05em; }
+.md h4, .md h5, .md h6 { font-size: 1em; }
+.md ul, .md ol { margin: 0.4em 0; padding-left: 1.5em; }
+.md ul { list-style: disc; }
+.md ol { list-style: decimal; }
+.md li { margin: 0.15em 0; }
+.md li > p { margin: 0.2em 0; }
+.md code {
+  background: rgba(55,53,47,0.08);
+  padding: 1px 5px;
+  border-radius: 3px;
+  font-size: 0.92em;
+  font-family: ui-monospace, SFMono-Regular, "SF Mono", Menlo, Consolas, monospace;
+}
+.md pre {
+  background: rgba(55,53,47,0.08);
+  padding: 10px 12px;
+  border-radius: 6px;
+  overflow-x: auto;
+  margin: 0.6em 0;
+  font-size: 0.88em;
+  line-height: 1.55;
+}
+.md pre code { background: transparent; padding: 0; font-size: inherit; }
+.md a { color: var(--color-nt-accent); text-decoration: underline; word-break: break-all; }
+.md blockquote {
+  border-left: 3px solid var(--color-nt-divider);
+  padding-left: 10px;
+  color: var(--color-nt-muted);
+  margin: 0.5em 0;
+}
+.md strong { font-weight: 600; }
+.md em { font-style: italic; }
+.md hr { border: none; border-top: 1px solid var(--color-nt-divider); margin: 0.8em 0; }
+.md table { border-collapse: collapse; margin: 0.5em 0; font-size: 0.95em; }
+.md th, .md td { border: 1px solid var(--color-nt-divider); padding: 4px 8px; }
+.md th { background: rgba(55,53,47,0.05); font-weight: 600; }
+.md img { max-width: 100%; border-radius: 4px; }
+
+
+.post-clamp {
+  display: -webkit-box;
+  -webkit-line-clamp: 6;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
+  mask-image: linear-gradient(to bottom, #000 75%, transparent);
+  -webkit-mask-image: linear-gradient(to bottom, #000 75%, transparent);
+}
+
+.mb-input {
+  width: 100%;
+  border-radius: 6px;
+  border: 1px solid rgba(55, 53, 47, 0.16);
+  padding: 8px 10px;
+  font-size: 14px;
+  color: var(--color-nt);
+  background: white;
+  outline: none;
+}
+.mb-input:focus { border-color: var(--color-nt-accent); }
+.mb-input::placeholder { color: var(--color-nt-hint); }

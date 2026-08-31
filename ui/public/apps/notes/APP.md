@@ -25,7 +25,7 @@
 | GET | `/api/tree` | — | 页面树（含 children） | |
 | GET | `/api/search` | `?q=关键词` | 命中数组，每条带 `snippet` | 搜标题和正文纯文本镜像 |
 | GET | `/api/pages/:id` | — | 单页 | 不存在返回 404 |
-| POST | `/api/pages` | `{title, parentId?, icon?, index?}` | 新建的页 | |
+| POST | `/api/pages` | `{title, kind?, parentId?, icon?, index?}` | 新建的页 | `kind` 默认 `note` |
 | PATCH | `/api/pages/:id` | `{title?, icon?, cover?, collapsed?}` | 更新后的页 | 不接受其它字段 |
 | GET | `/api/pages/:id/body` | | `{body}` | 正文，Markdown 文本 |
 | PUT | `/api/pages/:id/body` | `{body}` | `{pageId, length}` | 整篇覆盖 |
@@ -42,8 +42,8 @@
 ```bash
 node bin/notes.mjs tree                                       # 整棵树，带 id
 node bin/notes.mjs find <关键词>                                # 搜标题和正文
-node bin/notes.mjs page add <标题> [--parent id] [--icon emoji] [--index n]
-node bin/notes.mjs page set <id> [--title t] [--icon emoji] [--cover gradient:dusk|https://…] [--collapse true|false]
+node bin/notes.mjs page add <标题> [--parent id] [--folder] [--icon emoji] [--index n]
+node bin/notes.mjs page set <id> [--title t] [--icon emoji] [--cover preset:2|https://…] [--collapse true|false]
 node bin/notes.mjs page move <id> [--parent id|root] [--index n]
 node bin/notes.mjs page show <id>
 node bin/notes.mjs page write <id> <markdown…> [--append]                              # 看标题 + 正文开头
@@ -53,6 +53,27 @@ node bin/notes.mjs start | stop | status | doctor
 
 所有命令加 `--json` 输出 JSON。**独立使用**（不是被宿主拉起）时，`start` 默认后台常驻；
 被宿主拉起走的是 `manifest.json` 里的 `run`，即 `start --foreground`，不需要也不应该再手动 `start`。
+
+## 两种东西
+
+和文件夹 / 文件一个道理：
+
+- **笔记本**（`kind: 'folder'`）—— 可以无限套，**没有正文**
+- **笔记**（`kind: 'note'`）—— **有正文，不能再套东西**
+
+允许笔记里再放笔记的话，两者就没区别了 —— 那是另一套模型，不是这一套。
+所以 `createPage` / `movePage` 会挡住「往笔记里塞东西」，`saveBody` 会挡住「给笔记本写正文」。
+
+空库自动种一个 `📚 首页` 笔记本，所有东西住在它下面。它可以改名换图标，**但删不掉** ——
+删了就没有根，东西无处可放。
+
+## 界面
+
+Vue 3 + Tailwind v4，单列布局：顶栏 → 封面 → 大 emoji → 添加图标/封面/管理 → 面包屑 → 标题 →
+（笔记）正文 ／（笔记本）里面的东西 + 两个创建入口。**页面自己就是索引** —— 没有常驻的树。
+
+组件与设计 token 取自 mindbase（同一作者打磨过的那套），改动看 `ui/src/`。
+emoji 选择器用 `emojibase-data` 全量数据，走动态 import，只在第一次打开时加载。
 
 ## 正文怎么写（重要）
 
@@ -88,7 +109,7 @@ SQLite 单文件，三张表（定义见 `src/store/schema.sql`）：
 
 | 表 | 内容 |
 |---|---|
-| `pages` | 页面树：`parent_id` 自引用、`title`、`icon`、`cover`、`position`（浮点排序）、`collapsed` |
+| `pages` | 页面树：`kind`(folder/note)、`parent_id` 自引用、`title`、`icon`、`cover`、`position`（浮点排序）、`collapsed` |
 | `docs` | 正文：一页一行，`body` 是 Markdown 文本。搜索直接搜它，不另存镜像 |
 | `docs` | 正文：`page_id → Y.encodeStateAsUpdate` 的字节。**不要直接改，见上一节** |
 | `search` | 正文的纯文本镜像，只为 `find` 用 |
@@ -119,7 +140,8 @@ npm run build        # 只构建界面，等价于 setup 里的第二步
 
 一个字符串，两种取值：
 
-- `gradient:<名>` —— 内置渐变，名在 `dawn` `dusk` `moss` `ember` `slate` `bloom` `citrus` `deep` 里选
+- `preset:1` … `preset:8` —— 内置的八张图，映射表在 `ui/src/lib/cover.js`。
+  **它们是外链（Unsplash），离线时封面不显示** —— 想完全离线就用不着封面这个功能
 - `http(s)://…` —— 直接当图片地址
 
 空字符串 = 没有封面。**不收上传的文件**：那要一整套存储、配额与清理，
