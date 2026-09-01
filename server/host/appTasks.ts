@@ -1,16 +1,22 @@
 // @ts-nocheck
 // 应用触发的 agent 轮次(POST /host/ai/agent)—— 任务机制。
 //
-// 与用户会话的三点不同:
-//   1. 不进 chats/messages,落 tasks 表一行(过程不落库,先把机制跑起来);
-//   2. **不过护盾**:任务没有人守在旁边,confirm 也不在工具表里 —— 直接按 skip 跑;
-//   3. 结果以 SSE 流回给发起的应用:tool(进度)/ error / done。应用只认 error 和 done。
+// 过程与用户会话**同规格**:每一步(思考/正文/工具调用/工具结果)逐条落 messages,
+// 任务本身就是一段会话 —— tasks.id 即 chats.id,只是 chats.origin_app 记着是哪个应用开的,
+// 因此它不进会话列表,在「任务」里看。这样详情页能完整回放它到底干了什么。
+//
+// 与用户会话的两点不同:
+//   1. **不过护盾**:任务没有人守在旁边,confirm 也不在工具表里 —— 直接按 skip 跑;
+//   2. 结果以 SSE 流回给发起的应用:tool(进度)/ error / done。应用只认 error 和 done。
 import { homedir } from "node:os";
 import { runAgent as runAi } from "../ai/index.js";
 import { buildExecutors, tools } from "../tools/index.js";
 import { gate, gateTools } from "../permission/gate.js";
 import { getSettings } from "../repo/settings.js";
 import { createTask, settleTask } from "../repo/tasks.js";
+import { createChat } from "../repo/chats.js";
+import { appendItem } from "../repo/messages.js";
+import { EVENTS } from "../shared/events.js";
 import { ensureRoot } from "../repo/tree.js";
 import { buildSystem } from "../runs/system.js";
 import { emit } from "../bus.js";
@@ -32,7 +38,11 @@ export const runAppTask = async (
   }
 
   const cwd = workdir || ensureRoot();
-  const taskId = createTask({ appId, title: prompt.slice(0, 60), prompt });
+  // 任务 = 一段会话:过程逐条落 messages,详情页照会话那样回放
+  const chat = createChat({ title: prompt.slice(0, 24), workdir: cwd, originApp: appId });
+  const taskId = chat.id;
+  createTask({ id: taskId, appId, prompt });
+  appendItem(taskId, { role: "user", content: prompt }, { meta: { kind: "message" } });
   emit({ type: "tasks_changed" });
 
   res.writeHead(200, {
@@ -50,8 +60,8 @@ export const runAppTask = async (
   res.on("close", () => controller.abort()); // 应用断开(它自己有超时)= 停止任务
 
   const ctx = {
-    selfChatId: `task:${taskId}`,
-    chatId: `task:${taskId}`,
+    selfChatId: taskId,
+    chatId: taskId,
     cwd,
     emit,
     toolResultMaxChars: Number(settings.toolResultMaxChars) || 30000,
@@ -81,9 +91,13 @@ export const runAppTask = async (
       workdir: cwd,
       env: process.env,
       signal: controller.signal,
+      // 与会话同一套落库口径:内核吐出的每个 item 都进 messages,详情页据此回放
       emit: (type, data) => {
-        if (type === "function_call" && data.phase === "started") send("tool", { phase: "started" });
-        else if (type === "function_call" && data.item) send("tool", { name: data.item.name });
+        if (type === "function_call" && data.phase === "started") { send("tool", { phase: "started" }); return; }
+        if (!data.item) return;
+        appendItem(taskId, data.item, { usage: data.usage || null });
+        emit({ type: EVENTS.INPUT, chatId: taskId });
+        if (type === "function_call") send("tool", { name: data.item.name });
       },
     });
 
@@ -93,12 +107,12 @@ export const runAppTask = async (
         : Array.isArray(item.content) ? item.content.map((p) => p?.text || "").join("") : ""))
       .join("\n\n").trim();
 
-    settleTask(taskId, "done", { response: finalText });
+    settleTask(taskId, "done");
     send("done", { taskId, text: finalText });
   } catch (error) {
     const aborted = controller.signal.aborted || error?.name === "AbortError";
     const message = String(error?.message || error).slice(0, ERROR_MAX_CHARS);
-    settleTask(taskId, aborted ? "aborted" : "error", { error: message });
+    settleTask(taskId, aborted ? "aborted" : "error", message);
     if (!aborted) send("error", { taskId, message });
     send("done", { taskId }); // 契约:done 是终局信号,error 之后也要发
   } finally {

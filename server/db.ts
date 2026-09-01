@@ -27,6 +27,8 @@ const initDb = () => {
 
     CREATE TABLE IF NOT EXISTS chats (
       id           TEXT PRIMARY KEY,
+      -- 发起方:NULL = 用户自己开的会话;非 NULL = 该应用触发的任务(不进会话列表)
+      origin_app   TEXT,
       title        TEXT NOT NULL,
       system       TEXT,
       workdir      TEXT NOT NULL,
@@ -57,15 +59,13 @@ const initDb = () => {
       created_at       TEXT NOT NULL DEFAULT (datetime('now'))
     );
 
-    -- 应用触发的 agent 轮次(/host/ai/agent):独立任务,不进用户会话。
-    -- 消息不落库,先把机制跑起来 —— 过程事件实时流回给发起的应用。
+    -- 应用触发的 agent 轮次(/host/ai/agent)。
+    -- 过程与会话同规格:逐条落 messages(id 就是那段会话的 id);这里只记发起方与终局。
     CREATE TABLE IF NOT EXISTS tasks (
-      id         TEXT PRIMARY KEY,
+      id         TEXT PRIMARY KEY REFERENCES chats(id) ON DELETE CASCADE,
       app_id     TEXT NOT NULL,
-      title      TEXT NOT NULL DEFAULT '',
       prompt     TEXT NOT NULL,
       status     TEXT NOT NULL DEFAULT 'running' CHECK (status IN ('running','done','error','aborted')),
-      response   TEXT,
       error      TEXT,
       created_at TEXT NOT NULL DEFAULT (datetime('now')),
       updated_at TEXT NOT NULL DEFAULT (datetime('now'))

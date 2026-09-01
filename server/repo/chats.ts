@@ -30,8 +30,9 @@ const toNode = (row) => row && ({
 
 const getChat = (id) => toNode(getDb().prepare("SELECT * FROM chats WHERE id = ?").get(String(id || "")));
 
+/** 只列用户自己的会话 —— 应用触发的任务在「任务」里看,不混进这份清单。 */
 const listChats = () =>
-  getDb().prepare("SELECT * FROM chats ORDER BY pinned DESC, updated_at DESC, created_at DESC").all().map(toNode);
+  getDb().prepare("SELECT * FROM chats WHERE origin_app IS NULL ORDER BY pinned DESC, updated_at DESC, created_at DESC").all().map(toNode);
 
 /** item 里的纯文本(与界面 thread.ts 的 itemText 同口径)。 */
 const itemText = (item) => {
@@ -78,12 +79,13 @@ const lastMessages = (ids) => {
   return out;
 };
 
-const createChat = ({ title, system = null, workdir } = {}) => {
+const createChat = ({ title, system = null, workdir, originApp = null } = {}) => {
   const id = randomUUID();
   const home = String(workdir || "").trim() || (listWorkspaces()[0]?.path || ensureRoot());
   getDb().prepare(`
-    INSERT INTO chats (id, title, system, workdir) VALUES (?, ?, ?, ?)
-  `).run(id, String(title || DEFAULT_TITLE).trim() || DEFAULT_TITLE, system == null ? null : String(system), home);
+    INSERT INTO chats (id, origin_app, title, system, workdir) VALUES (?, ?, ?, ?, ?)
+  `).run(id, originApp == null ? null : String(originApp),
+    String(title || DEFAULT_TITLE).trim() || DEFAULT_TITLE, system == null ? null : String(system), home);
   return getChat(id);
 };
 

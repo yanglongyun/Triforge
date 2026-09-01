@@ -45,12 +45,12 @@ export type AppInfo = {
 
 /** 网站收藏:一棵浅树。kind='folder' 的没有 url,别的行 parent_id 指向它。 */
 export type TaskInfo = {
+  /** 同时也是这段任务会话的 chatId —— 过程在 messages 里。 */
   id: string;
   app_id: string;
   title: string;
   prompt: string;
   status: "running" | "done" | "error" | "aborted";
-  response: string | null;
   error: string | null;
   created_at: string;
   updated_at: string;
