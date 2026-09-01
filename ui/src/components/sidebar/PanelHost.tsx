@@ -9,7 +9,6 @@ import { useEffect, useState } from "react";
 import { api, type GitRepositoryStatus, type Node } from "../../api";
 import { ContextMenu, dialog, type MenuItem } from "../ui";
 import { LayoutGrid, PanelLeft, Plus, Settings, Sparkles, X } from "lucide-react";
-import { APP_NAME } from "../../lib/brand";
 import { beginGlobalDrag, endGlobalDrag } from "../../lib/drag";
 import { CREATE_WIDGET_EVENT, dropPin, togglePin as togglePinId, useWidgetPins } from "../../lib/widgetPins";
 import { EVENTS } from "../../../../server/shared/events";
@@ -372,10 +371,14 @@ export function PanelHost({
           desktopOpen ? "" : "md:hidden",
         ].join(" ")}
       >
-        {/* brand:右上角 = 收起面板(移动端沿用 X 关闭抽屉) */}
-        <div className="flex items-center gap-2.5 px-3.5 h-11 border-b border-border">
-          <span className="text-[20px] leading-none select-none">🌳</span>
-          <span className="text-[17px] font-semibold text-text flex-1 tracking-tight">{APP_NAME}</span>
+        {/* 面板头:一行搞定 —— 当前面板叫什么 + 右侧收起(移动端 X 关抽屉),没有品牌行 */}
+        <div className="shrink-0 h-10 flex items-center gap-2 px-3.5 border-b border-border">
+          {activeWidget
+            ? <span className="text-[14px] leading-none">{activeWidget.icon}</span>
+            : activeNative && <activeNative.icon size={14} className="text-accent shrink-0" />}
+          <span className="text-[13px] font-medium text-text truncate flex-1">
+            {activeWidget ? activeWidget.name : activeNative?.title}
+          </span>
           {onToggleNav && (
             <button
               onClick={onToggleNav}
@@ -393,16 +396,6 @@ export function PanelHost({
               <X size={14} />
             </button>
           )}
-        </div>
-
-        {/* 面板标题:活动栏只有图标,当前视图叫什么在这儿说 */}
-        <div className="shrink-0 h-9 flex items-center gap-2 px-3.5 border-b border-border">
-          {activeWidget
-            ? <span className="text-[14px] leading-none">{activeWidget.icon}</span>
-            : activeNative && <activeNative.icon size={14} className="text-accent shrink-0" />}
-          <span className="text-[13px] font-medium text-text truncate">
-            {activeWidget ? activeWidget.name : activeNative?.title}
-          </span>
         </div>
 
         {/* ── 面板身体:会话切走即卸;文件常驻隐藏保重状态;组件 = iframe 沙箱 ── */}
