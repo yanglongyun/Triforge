@@ -61,10 +61,18 @@ const ago = (date) => {
 
 const show = (items, name) => {
   list.innerHTML = items.map((it) => `
-    <a class="item" href="${esc(it.link)}" target="_blank" rel="noreferrer">
+    <a class="item" href="${esc(it.link)}">
       <div class="t">${esc(it.title)}</div>
       <div class="m">${esc(name)}${ago(it.at) ? " · " + ago(it.at) : ""}</div>
     </a>`).join("");
+};
+
+// 链接开进工作台的网页标签(/_wb/open),不去系统浏览器
+list.onclick = (e) => {
+  const a = e.target.closest("a.item");
+  if (!a) return;
+  e.preventDefault();
+  void post("/_wb/open", { url: a.getAttribute("href") });
 };
 
 const load = async (force = false) => {

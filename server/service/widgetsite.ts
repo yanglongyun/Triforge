@@ -12,6 +12,7 @@ import http from "http";
 import { getWidget, widgetFile, listWidgets } from "./widgets.js";
 import { batchWidgetSql, execWidgetSql } from "./widgetdb.js";
 import { runWidgetAi } from "./widgetai.js";
+import { emit } from "../bus.js";
 import { fetchForWidget } from "./widgetnet.js";
 
 type Site = { port: number; server: http.Server; lastHit: number };
@@ -90,6 +91,17 @@ const hostApi = async (id: string, rel: string, req: http.IncomingMessage, res: 
       const body = await readBody(req);
       const { results } = batchWidgetSql(id, Array.isArray(body?.statements) ? body.statements : []);
       return json(res, 200, { ok: true, results });
+    }
+    if (rel === "/open" && method === "POST") {
+      // ui 类能力,免申请:把一个链接开进工作台的网页标签(而不是被 Electron 丢去系统浏览器)
+      const body = await readBody(req);
+      let target: URL;
+      try { target = new URL(String(body?.url || "")); } catch { return json(res, 400, { ok: false, error: "url 不合法" }); }
+      if (target.protocol !== "https:" && target.protocol !== "http:") {
+        return json(res, 400, { ok: false, error: "只支持 http(s)" });
+      }
+      emit({ type: "widget_open_url", widgetId: id, url: target.href });
+      return json(res, 200, { ok: true });
     }
     if (rel === "/http" && method === "POST") {
       need(id, "net");

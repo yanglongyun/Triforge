@@ -101,6 +101,7 @@ export function App() {
     }).catch(() => {});
     syncTitles();
     const offs = [
+      socket.on("widget_open_url", (p: any) => { if (p?.url) openWebTab(String(p.url)); }),
       socket.on("chats_changed", syncTitles),
       socket.on(EVENTS.START, (p: any) => set(p.chatId, { status: "running" })),
       socket.on(EVENTS.DONE, (p: any) => set(p.chatId, { status: "idle" })),

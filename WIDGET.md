@@ -132,7 +132,7 @@ Content-Security-Policy: default-src 'self'; connect-src 'self'; img-src 'self' 
 | 权限 | 能力 | 备注 |
 |---|---|---|
 | `sql` | `/_wb/sql`、`/_wb/sql/batch` | 只能碰自己的库,物理隔离 |
-| `ui` | `/_wb/toast`、`/_wb/confirm` | 免申请?见开放问题 1 |
+| `ui` | `/_wb/toast`、`/_wb/confirm`、`/_wb/open` | 免申请;`open` 把链接开进工作台网页标签 |
 | `fs` | `/_wb/fs/*` 读写工作区文件 | **首次使用弹用户授权**,不能靠 manifest 一次性拿到 |
 | `ai` | `/_wb/ai` 无状态补全 | 每次调用必带 `summary`,打进服务端控制台 |
 | `net` | `/_wb/http` 宿主代理 GET | 只放行 manifest `hosts` 里声明的域名;CSP 断网不变,出口只有这一个 |
@@ -180,6 +180,7 @@ const res = await fetch("/_wb/sql", {
 | `/_wb/context` | GET | 组件自身信息:`{ id, name, theme, locale }` |
 | `/_wb/toast` | POST | `{ message }` |
 | `/_wb/confirm` | POST | `{ message }` → `{ ok }`,阻塞到用户选择 |
+| `/_wb/open` | POST | `{ url }` → `{ ok }`;在工作台里开网页标签(组件里 `target="_blank"` 会被桌面壳丢去系统浏览器,别用) |
 | `/_wb/ai` | POST | `{ summary, system, prompt }` → `{ text, tokens }`,`summary` 必填 |
 | `/_wb/http` | POST | `{ url }` → `{ status, contentType, text }`;GET 代理,12s 超时,2MB 上限,非 UTF-8 源转码后返回 |
 | `/_wb/fs/read` `/_wb/fs/write` `/_wb/fs/list` | POST | 工作区文件,首次使用弹授权 |
