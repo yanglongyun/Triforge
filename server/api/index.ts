@@ -12,6 +12,7 @@ import { handleAppRoutes } from "./app.js";
 import { handlePermissionRoutes } from "./permission.js";
 import { handleHostRoutes } from "../host/appBridge.js";
 import { listRows } from "../repo/messages.js";
+import { listTasks } from "../repo/tasks.js";
 import { runningIds } from "../runs/index.js";
 import { getSettings, saveSettings } from "../repo/settings.js";
 import {
@@ -260,6 +261,11 @@ const handleApi = async (req, res) => {
     }
 
     // 全树扁平列表(⌘P 快速打开)
+    // 任务:应用触发的 agent 轮次(见 host/appTasks.ts)
+    if (path === "/api/tasks" && method === "GET") {
+      return json(res, 200, { ok: true, tasks: listTasks(Number(url.searchParams.get("limit")) || 50) });
+    }
+
     if (path === "/api/tree/all" && method === "GET") {
       return json(res, 200, { ok: true, items: tree.listAll() });
     }

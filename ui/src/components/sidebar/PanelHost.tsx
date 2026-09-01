@@ -8,7 +8,7 @@
 import { useEffect, useState } from "react";
 import { api, type GitRepositoryStatus, type Node } from "../../api";
 import { ContextMenu, dialog, type MenuItem } from "../ui";
-import { PanelLeft, Plus, Settings, Trash2, X } from "lucide-react";
+import { Activity, PanelLeft, Plus, Settings, Trash2, X } from "lucide-react";
 import { beginGlobalDrag, endGlobalDrag } from "../../lib/drag";
 import { CREATE_WIDGET_EVENT, applyOrder, dropFromOrder, useWidgetOrder, writeOrder } from "../../lib/widgetOrder";
 import { EVENTS } from "../../../../server/shared/events";
@@ -17,6 +17,7 @@ import { ChatRail } from "./panels/ChatRail";
 import { FilesPanel } from "./panels/FilesPanel";
 import { SitesPanel } from "./panels/SitesPanel";
 import { AppsPanel } from "./panels/AppsPanel";
+import { TasksPanel } from "./panels/TasksPanel";
 import { WidgetFrame } from "../widgets/WidgetFrame";
 
 type Socket = { send: (m: any) => void; on: (t: string, fn: (p: any) => void) => () => void };
@@ -179,7 +180,7 @@ export function PanelHost({
     writeOrder(ids);
   };
   const nativeIds = NATIVE_PANELS.map((p) => p.id as string);
-  const activePanelId = nativeIds.includes(sideTab) || railWidgets.some((w) => w.id === sideTab)
+  const activePanelId = nativeIds.includes(sideTab) || sideTab === "tasks" || railWidgets.some((w) => w.id === sideTab)
     ? sideTab : "agents";
   const switchTab = (tab: string) => {
     setSideTab(tab);
@@ -426,11 +427,15 @@ export function PanelHost({
               </RailButton>
             </div>
           ))}
+          {/* 创建组件:排在所有组件之后,跟着列表走 */}
+          <RailButton title="创建组件" active={false} onClick={createWidgetWithAI}>
+            <Plus size={18} />
+          </RailButton>
         </div>
         <div className="shrink-0 w-full flex flex-col items-center gap-0.5 pt-1">
           <div className="w-7 h-px bg-border mb-1" />
-          <RailButton title="创建组件" active={false} onClick={createWidgetWithAI}>
-            <Plus size={18} />
+          <RailButton title="任务:应用在后台替你干的活" active={activePanelId === "tasks" && !settingsActive} onClick={() => onRailClick("tasks")}>
+            <Activity size={18} />
           </RailButton>
           <RailButton title="设置" active={settingsActive} onClick={handleToggleSettings}>
             <Settings size={18} />
@@ -450,9 +455,11 @@ export function PanelHost({
         <div className="shrink-0 h-10 flex items-center gap-2 px-3.5 border-b border-border">
           {activeWidget
             ? <span className="text-[14px] leading-none">{activeWidget.icon}</span>
-            : activeNative && <activeNative.icon size={14} className="text-accent shrink-0" />}
+            : activePanelId === "tasks"
+              ? <Activity size={14} className="text-accent shrink-0" />
+              : activeNative && <activeNative.icon size={14} className="text-accent shrink-0" />}
           <span className="text-[13px] font-medium text-text truncate flex-1">
-            {activeWidget ? activeWidget.name : activeNative?.title}
+            {activeWidget ? activeWidget.name : activePanelId === "tasks" ? "任务" : activeNative?.title}
           </span>
           {onToggleNav && (
             <button
@@ -500,7 +507,8 @@ export function PanelHost({
         {activePanelId === "apps" && (
           <AppsPanel socket={socket} onOpenApp={(app) => onOpenApp(app.id, app.name)} onCreate={createAppWithAI} />
         )}
-        {activeWidget && <WidgetFrame key={activeWidget.id} widget={activeWidget} />}
+          {activePanelId === "tasks" && <TasksPanel socket={socket} />}
+      {activeWidget && <WidgetFrame key={activeWidget.id} widget={activeWidget} />}
 
         <div
           onPointerDown={startResize}

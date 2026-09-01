@@ -44,6 +44,18 @@ export type AppInfo = {
 };
 
 /** 网站收藏:一棵浅树。kind='folder' 的没有 url,别的行 parent_id 指向它。 */
+export type TaskInfo = {
+  id: string;
+  app_id: string;
+  title: string;
+  prompt: string;
+  status: "running" | "done" | "error" | "aborted";
+  response: string | null;
+  error: string | null;
+  created_at: string;
+  updated_at: string;
+};
+
 export type GitCommitInfo = { hash: string; short: string; author: string; date: string; subject: string };
 export type GitCommitFile = { status: string; path: string; oldPath: string | null };
 
@@ -228,6 +240,8 @@ export const api = {
   /** 组件的地址:http://127.0.0.1:<组件专属端口>/ —— 真 origin,不是路径前缀。 */
   widgetUrl: (id: string) =>
     request<{ url: string }>(`/api/widgets/url?id=${encodeURIComponent(id)}`).then((r) => r.url),
+  /** 任务:应用触发的 agent 轮次。 */
+  listTasks: (limit = 50) => request<{ tasks: TaskInfo[] }>(`/api/tasks?limit=${limit}`).then((r) => r.tasks || []),
   /** 组件 confirm 的回执。 */
   widgetConfirmResult: (requestId: string, ok: boolean) =>
     request<{ ok: boolean }>("/api/widgets/confirm-result", { method: "POST", ...jsonBody({ requestId, ok }) }),
