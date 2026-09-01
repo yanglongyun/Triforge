@@ -72,8 +72,9 @@ Base URL 用宿主传入的 `PORT`/`HOST` 现拼，不要缓存。JSON body 限 
 生成流水线。**全程没有 agent、没有工具**，只有两级普通补全：
 
 1. 服务端校验 `project`/`node` 与 `nodeIds` 都存在，立即回 `202 {accepted, nodeIds}`，流水线转后台。
-2. **计划**：一次 `POST ${HOST_URL}/host/ai/complete`（`Authorization: Bearer $APP_TOKEN`），system 是
-   创意总监提示词，要求只输出 JSON：`{"directions":[{"title","type":"html|markdown|svg","idea"}]}`。
+2. **计划**：一次 `POST ${HOST_URL}/host/ai/complete`（`Authorization: Bearer $APP_TOKEN`），body 里带
+   `schema`（JSON Schema，宿主翻成协议原生的结构化输出约束），产出必然是
+   `{"directions":[{"title","type":"html|markdown|svg","idea"}]}`，不靠提示词求格式。
    解析后逐个占位节点认领一个方向；方向数不足用最后一个补齐，完全解析不出则全部标失败。
 3. **生成**：每个节点一次 `/host/ai/complete`，system 按 type 选（网页工程师 / 写作者 / 插画师），
    prompt 是该方向的 idea（分支时附父节点完整源码）。产出要求单文件、无外部资源;剥掉围栏后按

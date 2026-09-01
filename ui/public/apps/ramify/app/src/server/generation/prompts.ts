@@ -40,8 +40,7 @@ export const generatorSystem = (type: CardType): string => GENERATOR_SYSTEMS[typ
 
 export const PLAN_SYSTEM =
   'You are a senior creative director. Understand what the user actually wants, then split it into executable creative directions. '
-  + 'Output a JSON object only — no markdown, no explanation. '
-  + 'The structure must be {"directions":[{"title":"short title","type":"html|markdown|svg","idea":"a concrete direction for the downstream creator"}]}. '
+  + 'Each direction has a short title, an output type, and an idea — a concrete direction for the downstream creator. '
   + 'Keep title and idea separate. '
   + LANGUAGE_RULE
   + ' Both title and idea follow that same language.\n'
@@ -110,6 +109,28 @@ export function contentError(type: CardType, content: string): string {
 }
 
 export type Direction = { title: string; type: CardType; idea: string };
+
+/** 计划步的结构化输出约束:原生 json_schema,不靠提示词求格式。 */
+export const DIRECTIONS_SCHEMA = {
+  type: 'object',
+  additionalProperties: false,
+  required: ['directions'],
+  properties: {
+    directions: {
+      type: 'array',
+      items: {
+        type: 'object',
+        additionalProperties: false,
+        required: ['title', 'type', 'idea'],
+        properties: {
+          title: { type: 'string' },
+          type: { type: 'string', enum: ['html', 'markdown', 'svg'] },
+          idea: { type: 'string' },
+        },
+      },
+    },
+  },
+} as const;
 
 const asType = (value: unknown): CardType =>
   (CARD_TYPES as readonly string[]).includes(String(value || '').trim().toLowerCase())

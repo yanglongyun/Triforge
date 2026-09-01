@@ -77,9 +77,17 @@ export const handleHostRoutes = async (
         json(res, 400, { error: "宿主还没配置模型:先在设置里填接口地址、密钥和模型" });
         return true;
       }
+      // 结构化输出:app 传 schema(JSON Schema),按协议翻成各自的原生格式约束
+      let modelOptions: any;
+      if (input.schema && typeof input.schema === "object") {
+        const name = String(input.schemaName || "result").slice(0, 64);
+        modelOptions = base.driver === "chat"
+          ? { chat: { response_format: { type: "json_schema", json_schema: { name, schema: input.schema, strict: true } } } }
+          : { text: { format: { type: "json_schema", name, schema: input.schema, strict: true } } };
+      }
       const result: any = await complete({
         ...base,
-        modelOptions: undefined,
+        modelOptions,
         retry: undefined,
         errorMaxChars: 4000,
         signal: undefined,

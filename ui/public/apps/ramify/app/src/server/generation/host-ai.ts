@@ -5,12 +5,12 @@ const TIMEOUT_MS = 8 * 60 * 1000;
 export const hostAiAvailable = (): boolean =>
   Boolean(process.env.HOST_URL) && Boolean(process.env.APP_TOKEN);
 
-export async function hostComplete(system: string, prompt: string): Promise<string> {
+export async function hostComplete(system: string, prompt: string, schema?: object): Promise<string> {
   const hostUrl = (process.env.HOST_URL ?? '').replace(/\/+$/, '');
   const res = await fetch(`${hostUrl}/host/ai/complete`, {
     method: 'POST',
     headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${process.env.APP_TOKEN ?? ''}` },
-    body: JSON.stringify({ prompt, instructions: system }),
+    body: JSON.stringify({ prompt, instructions: system, ...(schema ? { schema, schemaName: 'directions' } : {}) }),
     signal: AbortSignal.timeout(TIMEOUT_MS),
   });
   let data: any = {};

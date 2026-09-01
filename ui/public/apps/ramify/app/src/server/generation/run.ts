@@ -6,7 +6,7 @@ import type { NodeService } from '../nodes/node.service.js';
 import { hostComplete } from './host-ai.js';
 import {
   type CardType, type Direction,
-  PLAN_SYSTEM, branchPrompt, contentError, generatorSystem,
+  DIRECTIONS_SCHEMA, PLAN_SYSTEM, branchPrompt, contentError, generatorSystem,
   normalizeContent, parseDirections, planPrompt, rootPrompt,
 } from './prompts.js';
 
@@ -56,7 +56,7 @@ export function dispatchGeneration(nodes: NodeRepository, nodeService: NodeServi
       const plan = await hostComplete(PLAN_SYSTEM, planPrompt({
         kind: job.kind, count: job.count, prompt: job.prompt,
         parentType: job.parent?.type, parentContent: job.parent?.content.slice(0, MAX_PARENT_CHARS),
-      }));
+      }), DIRECTIONS_SCHEMA);
       directions = parseDirections(plan, job.count);
     } catch (error) {
       const message = error instanceof Error ? error.message : String(error);
