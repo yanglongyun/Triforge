@@ -46,6 +46,7 @@ export type WidgetsTab = {
   title: "组件";
 };
 
+export const TASK_TAB_PREFIX = "__task__";
 export const APP_TAB_PREFIX = "__app__";
 
 /** 应用标签:一个 iframe 指向 app 自己的 origin(每个 app 一个真端口)。
@@ -86,7 +87,15 @@ export type WebTab = {
   openerId?: string;
 };
 
-export type WorkspaceTab = Node | TerminalTab | GitTab | GitDiffTab | SettingsTab | WidgetsTab | AppTab | WebTab | LauncherTab;
+/** 任务详情:应用触发的一次 agent 轮次,摊开看 prompt / 回复 / 报错。 */
+export type TaskTab = {
+  id: string;
+  kind: "task";
+  title: string;
+  taskId: string;
+};
+
+export type WorkspaceTab = Node | TerminalTab | GitTab | GitDiffTab | SettingsTab | WidgetsTab | AppTab | WebTab | LauncherTab | TaskTab;
 export type WorkspaceGroupId = "main" | "side";
 
 export type WorkspaceGroupState = {
@@ -142,6 +151,13 @@ export const settingsTab = (): SettingsTab => ({
   title: "设置",
 });
 
+export const taskTab = (taskId: string, title: string): TaskTab => ({
+  id: `${TASK_TAB_PREFIX}:${taskId}`,
+  kind: "task",
+  title,
+  taskId,
+});
+
 export const widgetsTab = (): WidgetsTab => ({
   id: WIDGETS_TAB_ID,
   kind: "widgets",
@@ -185,6 +201,9 @@ export const isSettingsTab = (tab: WorkspaceTab | null | undefined): tab is Sett
 
 export const isWidgetsTab = (tab: WorkspaceTab | null | undefined): tab is WidgetsTab =>
   tab?.kind === "widgets";
+
+export const isTaskTab = (tab: WorkspaceTab | null | undefined): tab is TaskTab =>
+  tab?.kind === "task";
 
 export const isAppTab = (tab: WorkspaceTab | null | undefined): tab is AppTab =>
   tab?.kind === "app";

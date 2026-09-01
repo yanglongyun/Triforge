@@ -1,6 +1,6 @@
 import { useEffect, useRef, useState } from "react";
 import { iconFor, colorFor } from "../sidebar/panels/NodeRow";
-import { X, AppWindow, LayoutGrid, Circle, Columns2, GitBranch, GitCompare, Globe, PanelLeft, PanelRight, Plus, Radio, Settings, Terminal } from "lucide-react";
+import { X, Activity, AppWindow, LayoutGrid, Circle, Columns2, GitBranch, GitCompare, Globe, PanelLeft, PanelRight, Plus, Radio, Settings, Terminal } from "lucide-react";
 import { ContextMenu, Favicon, type MenuItem } from "../ui";
 import { beginGlobalDrag, endGlobalDrag } from "../../lib/drag";
 import type { TabActions, WorkspaceGroupId, WorkspaceTab } from "./types";
@@ -13,6 +13,7 @@ const tabIconFor = (tab: WorkspaceTab) =>
   tab.kind === "terminal" ? Terminal :
   tab.kind === "app" ? AppWindow :
   tab.kind === "web" ? Globe :
+  tab.kind === "task" ? Activity :
   tab.kind === "launcher" ? Plus : iconFor(tab.kind, tab.title);
 
 const tabColorFor = (tab: WorkspaceTab) =>
@@ -23,6 +24,7 @@ const tabColorFor = (tab: WorkspaceTab) =>
   tab.kind === "terminal" ? "text-success" :
   tab.kind === "app" ? "text-accent" :
   tab.kind === "web" ? "text-accent" :
+  tab.kind === "task" ? "text-accent" :
   tab.kind === "launcher" ? "text-text-faint" : colorFor(tab.kind);
 
 type DropGuide = {

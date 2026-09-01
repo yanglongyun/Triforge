@@ -430,6 +430,7 @@ export function App() {
         socket={socket}
         onOpenUrl={openWebTab}
         onOpenApp={openApp}
+        onOpenTask={(taskId, title) => tabGroups.openTask(taskId, title)}
         onToggleNav={toggleNav}
         onSetDesktopOpen={setDesktopNavOpen}
         onOpenSide={(n) => openNode(n, { groupId: "side" })}

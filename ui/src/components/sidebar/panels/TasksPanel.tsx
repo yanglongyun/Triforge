@@ -23,9 +23,8 @@ const ago = (at: string) => {
   return `${Math.round(ms / 86400_000)} 天前`;
 };
 
-export function TasksPanel({ socket }: { socket: Socket }) {
+export function TasksPanel({ socket, onOpenTask }: { socket: Socket; onOpenTask: (taskId: string, title: string) => void }) {
   const [tasks, setTasks] = useState<TaskInfo[] | null>(null);
-  const [openId, setOpenId] = useState<string | null>(null);
 
   const load = useCallback(() => {
     void api.listTasks().then(setTasks).catch(() => setTasks([]));
@@ -50,31 +49,21 @@ export function TasksPanel({ socket }: { socket: Socket }) {
     <div className="flex-1 min-h-0 overflow-y-auto py-1">
       {tasks.map((task) => {
         const meta = STATUS[task.status] || STATUS.done;
-        const open = openId === task.id;
         return (
-          <div key={task.id}>
-            <button
-              onClick={() => setOpenId(open ? null : task.id)}
-              className="w-full flex items-start gap-2 px-3 py-2 text-left hover:bg-bg-hover"
-            >
-              <span className={`shrink-0 w-1.5 h-1.5 rounded-full mt-[6px] ${meta.dot}`} />
-              <span className="min-w-0 flex-1">
-                <span className="block truncate text-[13px] text-text leading-[18px]">{task.title || task.prompt}</span>
-                <span className="block text-[11px] text-text-faint leading-[16px] mt-0.5">
-                  {task.app_id} · {meta.label} · {ago(task.created_at)}
-                </span>
+          <button
+            key={task.id}
+            onClick={() => onOpenTask(task.id, task.title || task.prompt.slice(0, 24))}
+            title="在标签页查看详情"
+            className="w-full flex items-start gap-2 px-3 py-2 text-left hover:bg-bg-hover"
+          >
+            <span className={`shrink-0 w-1.5 h-1.5 rounded-full mt-[6px] ${meta.dot}`} />
+            <span className="min-w-0 flex-1">
+              <span className="block truncate text-[13px] text-text leading-[18px]">{task.title || task.prompt}</span>
+              <span className="block text-[11px] text-text-faint leading-[16px] mt-0.5">
+                {task.app_id} · {meta.label} · {ago(task.created_at)}
               </span>
-            </button>
-            {open && (
-              <div className="px-3 pb-2.5 pl-[26px]">
-                <div className="rounded-md bg-bg-inset px-2.5 py-2 text-[11.5px] leading-relaxed whitespace-pre-wrap break-words max-h-56 overflow-y-auto">
-                  <div className="text-text-faint">{task.prompt}</div>
-                  {task.error && <div className="mt-2 text-danger">{task.error}</div>}
-                  {task.response && <div className="mt-2 text-text-dim border-t border-border pt-2">{task.response}</div>}
-                </div>
-              </div>
-            )}
-          </div>
+            </span>
+          </button>
         );
       })}
     </div>

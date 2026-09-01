@@ -122,6 +122,7 @@ export function PanelHost({
   socket,
   onOpenUrl,
   onOpenApp,
+  onOpenTask,
   onToggleNav,
   onSetDesktopOpen,
   onOpenSide,
@@ -142,6 +143,8 @@ export function PanelHost({
   onOpenUrl: (url: string, title?: string) => void;
   /** 打开一个应用(开在标签页 —— 组件挂侧栏,应用上标签)。 */
   onOpenApp: (appId: string, name: string) => void;
+  /** 打开一条任务的详情标签。 */
+  onOpenTask: (taskId: string, title: string) => void;
   onToggleNav?: () => void;
   /** 直接设定内容面板开合(点当前图标收起、点别的图标展开都要一个确定态,toggle 不够)。 */
   onSetDesktopOpen?: (open: boolean) => void;
@@ -507,7 +510,7 @@ export function PanelHost({
         {activePanelId === "apps" && (
           <AppsPanel socket={socket} onOpenApp={(app) => onOpenApp(app.id, app.name)} onCreate={createAppWithAI} />
         )}
-          {activePanelId === "tasks" && <TasksPanel socket={socket} />}
+          {activePanelId === "tasks" && <TasksPanel socket={socket} onOpenTask={onOpenTask} />}
       {activeWidget && <WidgetFrame key={activeWidget.id} widget={activeWidget} />}
 
         <div
