@@ -10,6 +10,7 @@ import { getSettings } from "../repo/settings.js";
 import { emit } from "../bus.js";
 import { getApp } from "./apps.js";
 import { identifyApp, touchApp } from "./appSupervisor.js";
+import { runAppTask } from "./appTasks.js";
 
 const json = (res: ServerResponse, status: number, body: unknown) => {
   res.writeHead(status, { "content-type": "application/json; charset=utf-8" });
@@ -104,9 +105,18 @@ export const handleHostRoutes = async (
       return true;
     }
 
-    // ai.agent 见 .dev/1.2.0:要先有 app 触发的轮次落在哪、谁来守审批门的答案
+    // 应用触发的完整 agent 轮次:独立任务(tasks 表),不过护盾,SSE 流回
     if (method === "POST" && path === "/ai/agent") {
-      json(res, 501, { error: "这个宿主还没实现 /host/ai/agent(见 .dev/1.2.0)" });
+      if (!need("ai.agent")) return true;
+      const input = await readBody(req);
+      const prompt = String(input.prompt || "").trim();
+      if (!prompt) { json(res, 400, { error: "prompt 不能为空" }); return true; }
+      await runAppTask({
+        appId: app.id,
+        appName: app.name,
+        prompt,
+        workdir: input.workdir ? String(input.workdir) : undefined,
+      }, res);
       return true;
     }
 

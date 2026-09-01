@@ -57,6 +57,20 @@ const initDb = () => {
       created_at       TEXT NOT NULL DEFAULT (datetime('now'))
     );
 
+    -- 应用触发的 agent 轮次(/host/ai/agent):独立任务,不进用户会话。
+    -- 消息不落库,先把机制跑起来 —— 过程事件实时流回给发起的应用。
+    CREATE TABLE IF NOT EXISTS tasks (
+      id         TEXT PRIMARY KEY,
+      app_id     TEXT NOT NULL,
+      title      TEXT NOT NULL DEFAULT '',
+      prompt     TEXT NOT NULL,
+      status     TEXT NOT NULL DEFAULT 'running' CHECK (status IN ('running','done','error','aborted')),
+      response   TEXT,
+      error      TEXT,
+      created_at TEXT NOT NULL DEFAULT (datetime('now')),
+      updated_at TEXT NOT NULL DEFAULT (datetime('now'))
+    );
+
     CREATE TABLE IF NOT EXISTS settings (
       key   TEXT PRIMARY KEY,
       value TEXT NOT NULL
