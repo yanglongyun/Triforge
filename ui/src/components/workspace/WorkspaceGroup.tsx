@@ -22,7 +22,7 @@ export type TabContentProps = {
   onOpenSettings: () => void;
   onSettingsSaved?: (settings: Settings) => void;
   onGitChanged?: () => void;
-  onOpenGitDiff: (root: string, path: string, staged?: boolean) => void;
+  onOpenGitDiff: (root: string, path: string, staged?: boolean, commit?: string) => void;
   /** 常驻层要用:开网页标签。 */
   onOpenUrl: (url: string, title?: string) => void;
 };

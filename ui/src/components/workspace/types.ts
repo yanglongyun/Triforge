@@ -21,6 +21,8 @@ export type GitDiffTab = {
   root: string;
   path: string;
   staged?: boolean;
+  /** 看历史:该提交 vs 其父提交(与 staged 互斥)。 */
+  commit?: string;
 };
 
 export type GitTab = {
@@ -124,13 +126,14 @@ export const gitTab = (root: string, title = "Git"): GitTab => ({
   root,
 });
 
-export const gitDiffTab = (root: string, filePath: string, staged = false): GitDiffTab => ({
-  id: `${GIT_DIFF_TAB_PREFIX}:${root}:${filePath}:${staged ? "staged" : "worktree"}`,
+export const gitDiffTab = (root: string, filePath: string, staged = false, commit = ""): GitDiffTab => ({
+  id: `${GIT_DIFF_TAB_PREFIX}:${root}:${filePath}:${commit || (staged ? "staged" : "worktree")}`,
   kind: "git-diff",
-  title: `${filePath}${staged ? " (staged)" : ""}`,
+  title: commit ? `${filePath} @ ${commit.slice(0, 7)}` : `${filePath}${staged ? " (staged)" : ""}`,
   root,
   path: filePath,
   staged,
+  commit: commit || undefined,
 });
 
 export const settingsTab = (): SettingsTab => ({

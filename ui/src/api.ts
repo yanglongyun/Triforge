@@ -44,6 +44,9 @@ export type AppInfo = {
 };
 
 /** 网站收藏:一棵浅树。kind='folder' 的没有 url,别的行 parent_id 指向它。 */
+export type GitCommitInfo = { hash: string; short: string; author: string; date: string; subject: string };
+export type GitCommitFile = { status: string; path: string; oldPath: string | null };
+
 export type Site = {
   id: string;
   title: string;
@@ -298,8 +301,13 @@ export const api = {
   gitDiff: (opts: { root: string; path: string; staged?: boolean }) =>
     request<{ diff: string }>(`/api/git/diff?root=${encodeURIComponent(opts.root)}&path=${encodeURIComponent(opts.path)}${opts.staged ? "&staged=1" : ""}`),
   /** merge 视图用的两份完整内容(unstaged = 暂存区 vs 工作树;staged = HEAD vs 暂存区)。 */
-  gitFilePair: (opts: { root: string; path: string; staged?: boolean }) =>
-    request<{ before: string; after: string; binary: boolean }>(`/api/git/file-pair?root=${encodeURIComponent(opts.root)}&path=${encodeURIComponent(opts.path)}${opts.staged ? "&staged=1" : ""}`),
+  gitFilePair: (opts: { root: string; path: string; staged?: boolean; commit?: string }) =>
+    request<{ before: string; after: string; binary: boolean }>(`/api/git/file-pair?root=${encodeURIComponent(opts.root)}&path=${encodeURIComponent(opts.path)}${opts.staged ? "&staged=1" : ""}${opts.commit ? `&commit=${encodeURIComponent(opts.commit)}` : ""}`),
+  /** 提交历史与单次提交的文件清单。 */
+  gitLog: (root: string, limit = 50) =>
+    request<{ commits: GitCommitInfo[] }>(`/api/git/log?root=${encodeURIComponent(root)}&limit=${limit}`),
+  gitShow: (root: string, hash: string) =>
+    request<{ files: GitCommitFile[] }>(`/api/git/show?root=${encodeURIComponent(root)}&hash=${encodeURIComponent(hash)}`),
   gitBranches: (root: string) =>
     request<GitBranches>(`/api/git/branches?root=${encodeURIComponent(root)}`),
   gitStage: (opts: { root: string; path?: string; all?: boolean }) =>

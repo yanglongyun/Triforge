@@ -24,10 +24,13 @@ export function GitDiffPanel({ tab, refreshKey = 0, onChanged }: GitDiffPanelPro
     setLoading(true);
     setError(null);
     try {
-      const result = await api.gitFilePair({ root: tab.root, path: tab.path, staged: tab.staged });
-      const status = await api.gitStatus();
-      const repo = status.repositories.find((item) => item.root === tab.root);
-      const file = repo?.files.find((item) => item.path === tab.path || item.originalPath === tab.path) || null;
+      const result = await api.gitFilePair({ root: tab.root, path: tab.path, staged: tab.staged, commit: tab.commit });
+      let file: GitFileStatus | null = null;
+      if (!tab.commit) {
+        const status = await api.gitStatus();
+        const repo = status.repositories.find((item) => item.root === tab.root);
+        file = repo?.files.find((item) => item.path === tab.path || item.originalPath === tab.path) || null;
+      }
       setPair(result);
       setFileStatus(file);
     } catch (e: any) {
@@ -39,11 +42,11 @@ export function GitDiffPanel({ tab, refreshKey = 0, onChanged }: GitDiffPanelPro
     }
   };
 
-  useEffect(() => { load(); }, [tab.root, tab.path, tab.staged, refreshKey]);
+  useEffect(() => { load(); }, [tab.root, tab.path, tab.staged, tab.commit, refreshKey]);
 
-  const canStage = !tab.staged && fileStatus?.status !== "conflict" && !!(fileStatus?.unstaged || fileStatus?.status === "untracked");
+  const canStage = !tab.commit && !tab.staged && fileStatus?.status !== "conflict" && !!(fileStatus?.unstaged || fileStatus?.status === "untracked");
   const canUnstage = !!tab.staged && !!fileStatus?.staged;
-  const canDiscard = !tab.staged && fileStatus?.status !== "conflict" && !!(fileStatus?.unstaged || fileStatus?.status === "untracked");
+  const canDiscard = !tab.commit && !tab.staged && fileStatus?.status !== "conflict" && !!(fileStatus?.unstaged || fileStatus?.status === "untracked");
   const disabled = loading || !!busy;
 
   const runAction = async (label: string, fn: () => Promise<unknown>) => {

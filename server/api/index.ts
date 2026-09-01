@@ -21,6 +21,8 @@ import {
   gitDiff,
   gitDiscard,
   gitFilePair,
+  gitLog,
+  gitShow,
   gitInit,
   gitRemoteAction,
   gitStage,
@@ -321,7 +323,8 @@ const handleApi = async (req, res) => {
         }),
       });
     }
-    // merge 视图用:两份完整内容(unstaged = 暂存区 vs 工作树;staged = HEAD vs 暂存区)
+    // merge 视图用:两份完整内容(unstaged = 暂存区 vs 工作树;staged = HEAD vs 暂存区;
+    // 带 commit = 历史视图:父提交 vs 该提交)
     if (path === "/api/git/file-pair" && method === "GET") {
       return json(res, 200, {
         ok: true,
@@ -329,8 +332,15 @@ const handleApi = async (req, res) => {
           root: url.searchParams.get("root"),
           filePath: url.searchParams.get("path"),
           staged: url.searchParams.get("staged") === "1",
+          commit: url.searchParams.get("commit") || "",
         }),
       });
+    }
+    if (path === "/api/git/log" && method === "GET") {
+      return json(res, 200, { ok: true, ...gitLog({ root: url.searchParams.get("root"), limit: Number(url.searchParams.get("limit")) || 50 }) });
+    }
+    if (path === "/api/git/show" && method === "GET") {
+      return json(res, 200, { ok: true, ...gitShow({ root: url.searchParams.get("root"), hash: url.searchParams.get("hash") }) });
     }
     if (path === "/api/git/branches" && method === "GET") {
       return json(res, 200, { ok: true, ...gitBranches(url.searchParams.get("root")) });

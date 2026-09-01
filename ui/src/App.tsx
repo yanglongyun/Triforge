@@ -473,7 +473,7 @@ export function App() {
             onOpenAgent: openAgentById,
             onOpenSettings: openSettings,
             onGitChanged: refreshGit,
-            onOpenGitDiff: (root, path, staged) => tabGroups.openGitDiff(root, path, staged),
+            onOpenGitDiff: (root, path, staged, commit) => tabGroups.openGitDiff(root, path, staged, { commit }),
             onOpenUrl: openWebTab,
           }}
           onUpdateWebTab={tabGroups.updateWebTab}

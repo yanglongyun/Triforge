@@ -44,7 +44,7 @@ export function TabContent({
   onOpenSettings: () => void;
   onSettingsSaved?: (settings: Settings) => void;
   onGitChanged?: () => void;
-  onOpenGitDiff: (root: string, path: string, staged?: boolean) => void;
+  onOpenGitDiff: (root: string, path: string, staged?: boolean, commit?: string) => void;
 }) {
   if (!tab) return <EmptyPanel />;
 

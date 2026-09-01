@@ -1,7 +1,7 @@
 import { useEffect, useMemo, useState } from "react";
 import type { ReactNode } from "react";
-import { Check, ChevronRight, Copy, GitBranch, GitCommitHorizontal, GitCompare, GitPullRequest, Minus, Plus, RefreshCw, RotateCcw, UploadCloud } from "lucide-react";
-import { api, type GitBranches, type GitFileStatus, type GitRepositoryStatus } from "../../../api";
+import { Check, ChevronRight, Copy, GitBranch, GitCommitHorizontal, GitCompare, GitPullRequest, History, Minus, Plus, RefreshCw, RotateCcw, UploadCloud } from "lucide-react";
+import { api, type GitBranches, type GitCommitFile, type GitCommitInfo, type GitFileStatus, type GitRepositoryStatus } from "../../../api";
 import { ContextMenu, dialog, type MenuItem } from "../../ui";
 
 const statusText: Record<GitFileStatus["status"], string> = {
@@ -26,7 +26,7 @@ type GitViewProps = {
   repoPath?: string;
   repoTitle?: string;
   refreshKey?: number;
-  onOpenDiff?: (root: string, path: string, staged?: boolean) => void;
+  onOpenDiff?: (root: string, path: string, staged?: boolean, commit?: string) => void;
   onChanged?: () => void;
 };
 
@@ -39,6 +39,38 @@ export function GitView({ repoPath, repoTitle, refreshKey = 0, onOpenDiff, onCha
   const [collapsedByRoot, setCollapsedByRoot] = useState<Record<string, boolean>>({});
   const [error, setError] = useState<string | null>(null);
   const [notice, setNotice] = useState<string | null>(null);
+  // 历史:按仓库懒加载;点提交展开它动过的文件
+  const [historyByRoot, setHistoryByRoot] = useState<Record<string, GitCommitInfo[] | null>>({});
+  const [openCommit, setOpenCommit] = useState<string | null>(null);
+  const [commitFiles, setCommitFiles] = useState<Record<string, GitCommitFile[]>>({});
+
+  const toggleHistory = async (root: string) => {
+    if (historyByRoot[root] !== undefined) {
+      setHistoryByRoot((prev) => { const next = { ...prev }; delete next[root]; return next; });
+      return;
+    }
+    setHistoryByRoot((prev) => ({ ...prev, [root]: null }));
+    try {
+      const { commits } = await api.gitLog(root);
+      setHistoryByRoot((prev) => ({ ...prev, [root]: commits }));
+    } catch (e: any) {
+      setError(e?.message || "读取历史失败");
+      setHistoryByRoot((prev) => { const next = { ...prev }; delete next[root]; return next; });
+    }
+  };
+
+  const toggleCommit = async (root: string, hash: string) => {
+    if (openCommit === hash) { setOpenCommit(null); return; }
+    setOpenCommit(hash);
+    if (!commitFiles[hash]) {
+      try {
+        const { files } = await api.gitShow(root, hash);
+        setCommitFiles((prev) => ({ ...prev, [hash]: files }));
+      } catch (e: any) {
+        setError(e?.message || "读取提交失败");
+      }
+    }
+  };
 
   const load = async () => {
     setLoading(true);
@@ -144,6 +176,11 @@ export function GitView({ repoPath, repoTitle, refreshKey = 0, onOpenDiff, onCha
             onOpenDiff={onOpenDiff}
             onLoadBranches={() => repo.root && loadBranches(repo.root)}
             onRun={run}
+            history={repo.root !== null && repo.root !== undefined ? historyByRoot[repo.root] : undefined}
+            onToggleHistory={() => repo.root && toggleHistory(repo.root)}
+            openCommit={openCommit}
+            commitFiles={commitFiles}
+            onToggleCommit={(hash) => repo.root && toggleCommit(repo.root, hash)}
           />
         ))}
       </div>
@@ -163,6 +200,11 @@ function RepositoryBlock({
   onOpenDiff,
   onLoadBranches,
   onRun,
+  history,
+  onToggleHistory,
+  openCommit,
+  commitFiles,
+  onToggleCommit,
 }: {
   repo: GitRepositoryStatus;
   busy: string | null;
@@ -172,9 +214,15 @@ function RepositoryBlock({
   branches?: GitBranches;
   onToggleExpanded: () => void;
   onMessageChange: (message: string) => void;
-  onOpenDiff?: (root: string, path: string, staged?: boolean) => void;
+  onOpenDiff?: (root: string, path: string, staged?: boolean, commit?: string) => void;
   onLoadBranches: () => void;
   onRun: (label: string, fn: () => Promise<{ repository?: GitRepositoryStatus; output?: string }>) => Promise<void>;
+  /** undefined = 收着;null = 加载中;数组 = 已加载 */
+  history?: GitCommitInfo[] | null;
+  onToggleHistory: () => void;
+  openCommit: string | null;
+  commitFiles: Record<string, GitCommitFile[]>;
+  onToggleCommit: (hash: string) => void;
 }) {
   const root = repo.root || "";
   const [collapsedGroups, setCollapsedGroups] = useState<Record<string, boolean>>({});
@@ -386,6 +434,52 @@ function RepositoryBlock({
           {repo.files.length === 0 && (
             <div className="px-3 py-2 text-[12px] text-text-faint">没有未提交的更改</div>
           )}
+
+          {/* ── 历史:懒加载最近 50 条,点提交看它动过的文件,点文件开该提交的对照视图 ── */}
+          <div className="pb-1 border-t border-border mt-1">
+            <button
+              onClick={onToggleHistory}
+              className="h-7 w-full flex items-center gap-1.5 px-3 text-left text-[11px] font-semibold uppercase text-text-faint hover:bg-bg-hover"
+            >
+              <ChevronRight size={12} className={["transition-transform", history !== undefined ? "rotate-90" : ""].join(" ")} />
+              <History size={11} /> 历史
+            </button>
+            {history === null && <div className="px-3 py-1.5 text-[12px] text-text-faint">读取中…</div>}
+            {Array.isArray(history) && !history.length && (
+              <div className="px-3 py-1.5 text-[12px] text-text-faint">还没有提交</div>
+            )}
+            {Array.isArray(history) && history.map((c) => (
+              <div key={c.hash}>
+                <button
+                  onClick={() => onToggleCommit(c.hash)}
+                  title={`${c.subject}
+${c.author} · ${c.date} · ${c.short}`}
+                  className="w-full flex items-center gap-2 px-3 py-[3px] text-left hover:bg-bg-hover"
+                >
+                  <GitCommitHorizontal size={12} className="shrink-0 text-text-faint" />
+                  <span className="flex-1 min-w-0 truncate text-[12.5px] text-text">{c.subject}</span>
+                  <span className="shrink-0 text-[10.5px] text-text-faint font-mono">{c.short}</span>
+                </button>
+                {openCommit === c.hash && (
+                  <div className="pb-1">
+                    <div className="px-3 pl-8 py-0.5 text-[10.5px] text-text-faint">{c.author} · {c.date}</div>
+                    {(commitFiles[c.hash] || []).map((f) => (
+                      <button
+                        key={f.path}
+                        onClick={() => onOpenDiff?.(root, f.path, false, c.hash)}
+                        title={`查看该提交里 ${f.path} 的改动`}
+                        className="w-full flex items-center gap-2 pl-8 pr-3 py-[2px] text-left hover:bg-bg-hover"
+                      >
+                        <span className={["shrink-0 w-3 text-[10.5px] font-mono", f.status === "A" ? "text-success" : f.status === "D" ? "text-danger" : "text-warning"].join(" ")}>{f.status}</span>
+                        <span className="flex-1 min-w-0 truncate text-[12px] text-text-dim">{f.path}</span>
+                      </button>
+                    ))}
+                    {!commitFiles[c.hash] && <div className="pl-8 py-1 text-[11.5px] text-text-faint">读取中…</div>}
+                  </div>
+                )}
+              </div>
+            ))}
+          </div>
         </>
       )}
       {menu && <ContextMenu x={menu.x} y={menu.y} items={menu.items} onClose={() => setMenu(null)} />}
@@ -423,7 +517,7 @@ function ChangeGroup({
   actionTitle?: string;
   groupAction?: { title: string; onClick: () => void };
   onToggle: () => void;
-  onOpenDiff?: (root: string, path: string, staged?: boolean) => void;
+  onOpenDiff?: (root: string, path: string, staged?: boolean, commit?: string) => void;
   onAction?: (file: GitFileStatus) => void;
   onDiscard?: (file: GitFileStatus) => void;
   onContextMenu?: (e: React.MouseEvent, file: GitFileStatus, staged: boolean) => void;

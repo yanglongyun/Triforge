@@ -188,17 +188,57 @@ const gitDiff = ({ root, filePath, staged = false }) => {
 
 // 两份完整内容(merge 视图用):unstaged 比「暂存区 vs 工作树」,staged 比「HEAD vs 暂存区」。
 // 新文件/未跟踪 → before 为空;删除 → after 为空;含 \0 视为二进制,不出文本。
-const gitFilePair = ({ root, filePath, staged = false }) => {
+const gitFilePair = ({ root, filePath, staged = false, commit = "" }) => {
   const repo = repoByRoot(root);
   const file = ensureRelativePath(filePath);
   const show = (ref) => runGit(repo.root, ["show", `${ref}:${file}`], { allowError: true });
   const readWorktree = () => {
     try { return fs.readFileSync(path.join(repo.root, file), "utf8").replace(/\n$/, ""); } catch { return ""; }
   };
-  const before = staged ? show("HEAD") : show(":0");
-  const after = staged ? show(":0") : readWorktree();
+  // 带 commit = 看历史:父提交 vs 该提交(根提交/新增文件 before 为空)
+  const before = commit ? show(`${ensureHash(commit)}^`) : staged ? show("HEAD") : show(":0");
+  const after = commit ? show(ensureHash(commit)) : staged ? show(":0") : readWorktree();
   if (before.includes("\u0000") || after.includes("\u0000")) return { before: "", after: "", binary: true };
   return { before, after, binary: false };
+};
+
+const SHA = /^[0-9a-f]{7,40}$/i;
+const ensureHash = (value) => {
+  const hash = String(value || "").trim();
+  if (!SHA.test(hash)) throw new Error("invalid commit hash");
+  return hash;
+};
+
+/** 提交历史:最近 N 条。 */
+const gitLog = ({ root, limit = 50 }) => {
+  const repo = repoByRoot(root);
+  const n = Math.max(1, Math.min(Number(limit) || 50, 200));
+  const SEP = "\u001f";
+  const out = runGit(repo.root, [
+    "log", `-${n}`, `--pretty=format:%H${SEP}%h${SEP}%an${SEP}%ad${SEP}%s`, "--date=format:%Y-%m-%d %H:%M",
+  ], { allowError: true });
+  const commits = out
+    ? out.split(/\r?\n/).filter(Boolean).map((line) => {
+        const [hash, short, author, date, ...rest] = line.split(SEP);
+        return { hash, short, author, date, subject: rest.join(SEP) };
+      })
+    : [];
+  return { commits };
+};
+
+/** 一次提交动了哪些文件。 */
+const gitShow = ({ root, hash }) => {
+  const repo = repoByRoot(root);
+  const commit = ensureHash(hash);
+  const out = runGit(repo.root, ["show", commit, "--name-status", "--pretty=format:", "-M"], { allowError: true });
+  const files = out.split(/\r?\n/).filter(Boolean).map((line) => {
+    const parts = line.split("\t");
+    const status = parts[0][0];
+    return status === "R" || status === "C"
+      ? { status, path: parts[2], oldPath: parts[1] }
+      : { status, path: parts[1], oldPath: null };
+  });
+  return { files };
 };
 
 const gitBranches = (root) => {
@@ -250,10 +290,26 @@ const gitRemoteAction = ({ root, action }) => {
     pull: ["pull", "--ff-only"],
     push: ["push"],
   };
-  const args = map[action];
+  let args = map[action];
   if (!args) throw new Error("unknown git remote action");
-  const output = runGitMutation(repo.root, args);
-  return { output, repository: refreshRepo(repo) };
+  if (action === "push") {
+    // 新分支没有上游:git push 裸跑会拒 —— 自动 -u origin <branch>
+    const upstream = runGit(repo.root, ["rev-parse", "--abbrev-ref", "--symbolic-full-name", "@{u}"], { allowError: true });
+    if (!upstream) {
+      const branch = runGit(repo.root, ["branch", "--show-current"], { allowError: true });
+      if (branch) args = ["push", "-u", "origin", branch];
+    }
+  }
+  try {
+    const output = runGitMutation(repo.root, args);
+    return { output, repository: refreshRepo(repo) };
+  } catch (error) {
+    const raw = String(error?.stderr || error?.stdout || error?.message || "").trim();
+    if (action === "pull" && /fast-forward|divergent|diverged/i.test(raw)) {
+      throw new Error("远端历史和本地分叉了,快进不了。到终端(或让 AI)跑 git pull --rebase 处理后再来。");
+    }
+    throw new Error(raw || "git command failed");
+  }
 };
 
 const gitCheckout = ({ root, branch }) => {
@@ -275,6 +331,8 @@ const gitInit = ({ workspacePath }) => {
 
 export {
   gitBranches,
+  gitLog,
+  gitShow,
   gitCheckout,
   gitCommit,
   gitDiff,

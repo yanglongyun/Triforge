@@ -140,8 +140,8 @@ export function useTabGroups({ canCloseTab = () => true, onTabClosed = () => {} 
     openTab(gitTab(root, title), opts);
   }, [openTab]);
 
-  const openGitDiff = useCallback((root: string, filePath: string, staged = false, opts: { groupId?: WorkspaceGroupId; side?: boolean } = {}) => {
-    openTab(gitDiffTab(root, filePath, staged), opts);
+  const openGitDiff = useCallback((root: string, filePath: string, staged = false, opts: { groupId?: WorkspaceGroupId; side?: boolean; commit?: string } = {}) => {
+    openTab(gitDiffTab(root, filePath, staged, opts.commit || ""), opts);
   }, [openTab]);
 
   const openSettings = useCallback((opts: { groupId?: WorkspaceGroupId; side?: boolean } = {}) => {
