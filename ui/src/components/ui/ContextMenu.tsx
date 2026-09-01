@@ -27,15 +27,14 @@ export function ContextMenu({
   const ref = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
-    const onClick = (e: MouseEvent) => {
-      if (!ref.current?.contains(e.target as any)) onClose();
-    };
     const onKey = (e: KeyboardEvent) => { if (e.key === "Escape") onClose(); };
-    document.addEventListener("mousedown", onClick);
+    // 点到 iframe/webview 上宿主收不到任何鼠标事件,但焦点会移走 —— blur 兜底关菜单
+    const onBlur = () => onClose();
     document.addEventListener("keydown", onKey);
+    window.addEventListener("blur", onBlur);
     return () => {
-      document.removeEventListener("mousedown", onClick);
       document.removeEventListener("keydown", onKey);
+      window.removeEventListener("blur", onBlur);
     };
   }, [onClose]);
 
@@ -46,6 +45,13 @@ export function ContextMenu({
   const safeY = Math.min(y, viewportH - items.length * 30 - 16);
 
   return (
+    <>
+    {/* 透明遮罩铺满全窗、盖在 iframe 之上:点哪里都先落在它身上 → 关菜单。右键同理。 */}
+    <div
+      className="fixed inset-0 z-50"
+      onMouseDown={onClose}
+      onContextMenu={(e) => { e.preventDefault(); onClose(); }}
+    />
     <div
       ref={ref}
       className="fixed z-50 min-w-[180px] rounded-md border border-border bg-surface shadow-[0_6px_20px_rgba(15,15,15,0.12),0_2px_4px_rgba(15,15,15,0.08)] py-1"
@@ -81,5 +87,6 @@ export function ContextMenu({
         );
       })}
     </div>
+    </>
   );
 }
