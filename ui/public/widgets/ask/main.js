@@ -1,3 +1,5 @@
+import { mdToHtml } from "./md.js";
+
 const post = (path, body) =>
   fetch(path, { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify(body) })
     .then((r) => r.json());
@@ -16,7 +18,7 @@ const ask = async () => {
     system: "你在一个侧栏小组件里回答一次性的小问题。用中文,直接给答案,简短、准确;代码或命令用行内形式;不要开场白、不要追问。",
     prompt: q,
   }).catch((e) => ({ ok: false, error: String(e) }));
-  if (r.ok) { ans.className = "ans"; ans.textContent = r.text; copy.hidden = false; }
+  if (r.ok) { ans.className = "ans md"; ans.innerHTML = mdToHtml(r.text); ans.dataset.raw = r.text; copy.hidden = false; }
   else { ans.className = "ans err"; ans.textContent = `出错了:${r.error}`; }
   busy = false; send.disabled = false;
   clear.hidden = false;
@@ -28,7 +30,7 @@ text.onkeydown = (e) => {
 };
 
 copy.onclick = async () => {
-  await navigator.clipboard.writeText(ans.textContent);
+  await navigator.clipboard.writeText(ans.dataset.raw || ans.textContent);
   copy.textContent = "已复制";
   setTimeout(() => { copy.textContent = "复制"; }, 1200);
 };

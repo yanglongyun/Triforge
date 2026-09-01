@@ -271,10 +271,11 @@ export function App() {
   useEffect(() => {
     const onNewTab = () => tabGroups.openLauncher();
     const onLaunch = (e: Event) => {
-      const { tabId, groupId, value } = ((e as CustomEvent).detail || {}) as { tabId?: string; groupId?: WorkspaceGroupId; value?: string };
+      const { tabId, groupId, value, kind } = ((e as CustomEvent).detail || {}) as { tabId?: string; groupId?: WorkspaceGroupId; value?: string; kind?: "chat" | "web" };
       if (!tabId || !groupId) return;
       const input = String(value || "").trim();
-      if (input && looksLikeUrl(input)) {
+      if (kind === "web") {
+        if (!input) return;
         const url = normalizeUrl(input);
         const existing = tabGroups.findWebTab(url);
         if (existing) {
@@ -286,6 +287,7 @@ export function App() {
         }
         return;
       }
+      // kind === "chat":整句就是消息,永不当网址
       void (async () => {
         try {
           const r = await api.createChat({ title: "", workdir: createParentIdRef.current() || undefined });
@@ -301,6 +303,18 @@ export function App() {
     const onLaunchClose = (e: Event) => {
       const { tabId, groupId } = ((e as CustomEvent).detail || {}) as { tabId?: string; groupId?: WorkspaceGroupId };
       if (tabId && groupId) tabGroups.closeTab(groupId, tabId);
+    };
+    const onLaunchOpen = (e: Event) => {
+      const { tabId, groupId, node } = ((e as CustomEvent).detail || {}) as { tabId?: string; groupId?: WorkspaceGroupId; node?: Node };
+      if (!tabId || !groupId || !node) return;
+      setSelectedNode(node);
+      tabGroups.replaceTab(groupId, tabId, node);
+    };
+    const onLaunchApp = (e: Event) => {
+      const { tabId, groupId, appId, name } = ((e as CustomEvent).detail || {}) as { tabId?: string; groupId?: WorkspaceGroupId; appId?: string; name?: string };
+      if (!tabId || !groupId || !appId) return;
+      tabGroups.closeTab(groupId, tabId);
+      openApp(appId, name || appId);
     };
     const onLaunchCreate = (e: Event) => {
       const { tabId, groupId, kind } = ((e as CustomEvent).detail || {}) as { tabId?: string; groupId?: WorkspaceGroupId; kind?: string };
@@ -318,11 +332,15 @@ export function App() {
     window.addEventListener("workbench:launch", onLaunch);
     window.addEventListener("workbench:launch-close", onLaunchClose);
     window.addEventListener("workbench:launch-create", onLaunchCreate);
+    window.addEventListener("workbench:launch-open", onLaunchOpen);
+    window.addEventListener("workbench:launch-app", onLaunchApp);
     return () => {
       window.removeEventListener("workbench:new-tab", onNewTab);
       window.removeEventListener("workbench:launch", onLaunch);
       window.removeEventListener("workbench:launch-close", onLaunchClose);
       window.removeEventListener("workbench:launch-create", onLaunchCreate);
+      window.removeEventListener("workbench:launch-open", onLaunchOpen);
+      window.removeEventListener("workbench:launch-app", onLaunchApp);
     };
   });
 
