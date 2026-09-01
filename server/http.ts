@@ -3,7 +3,7 @@ import { handleApi } from "./api/index.js";
 import { attachWs } from "./realtime.js";
 import { serve } from "./static.js";
 import { startWatcher } from "./host/watcher.js";
-import { isTrustedOrigin } from "./origin.js";
+import { isTrustedHost, isTrustedOrigin } from "./origin.js";
 import { track } from "./telemetry.js";
 import { seedPresetWidgets, sweepTrash } from "./service/widgets.js";
 import { startWidgetSiteSweeper } from "./service/widgetsite.js";
@@ -13,8 +13,14 @@ import { startAlwaysApps, stopAllApps } from "./host/appSupervisor.js";
 const startServer = async (port = 9506) =>
   new Promise((resolve, reject) => {
     const server = http.createServer(async (req, res) => {
-      // 同源门卫:带副作用的方法(非 GET/HEAD)必须来自应用自身,挡住恶意网页的跨源写。
-      // GET/HEAD 放行(<img>/webview 拉资源不带同源保证,且它们没有副作用)。
+      // 第一道闸:Host 必须是回环。防 DNS rebinding —— 挡住把域名重绑到 127.0.0.1 后
+      // 用 GET 读走对话/文件的恶意网页(对所有方法生效,含 GET)。
+      if (!isTrustedHost(req.headers.host)) {
+        res.writeHead(403, { "Content-Type": "application/json; charset=utf-8" });
+        res.end(JSON.stringify({ ok: false, error: "forbidden host" }));
+        return;
+      }
+      // 第二道闸:带副作用的方法(非 GET/HEAD)必须来自应用自身,挡住恶意网页的跨源写。
       const method = String(req.method || "GET").toUpperCase();
       if (method !== "GET" && method !== "HEAD" && !isTrustedOrigin(req.headers.origin, port)) {
         res.writeHead(403, { "Content-Type": "application/json; charset=utf-8" });

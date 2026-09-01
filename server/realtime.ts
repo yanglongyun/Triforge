@@ -14,7 +14,7 @@ import { emit } from "./bus.js";
 import { resizeTerminal, startTerminal, stopAllTerminals, stopTerminal, writeTerminal } from "./host/terminals.js";
 import { registerHost, registerTab, resolveBrowserResult, unregisterClient, unregisterTab, updateTab } from "./host/browserHost.js";
 import { normalizeMany as normalizeAttachments } from "./host/files.js";
-import { isTrustedOrigin } from "./origin.js";
+import { isTrustedHost, isTrustedOrigin } from "./origin.js";
 
 const clients = new Set();
 
@@ -103,7 +103,7 @@ const attachWs = (server, port) => {
     if (url.pathname !== "/api/ws") { socket.destroy(); return; }
     // ws 是执行 bash / 读写磁盘的通道 —— 恶意网页能 new WebSocket 到本机端口,
     // 必须校验 Origin,只放行应用自身(浏览器发起的跨源升级一定带 Origin)。
-    if (!isTrustedOrigin(req.headers.origin, port)) {
+    if (!isTrustedHost(req.headers.host) || !isTrustedOrigin(req.headers.origin, port)) {
       socket.write("HTTP/1.1 403 Forbidden\r\n\r\n");
       socket.destroy();
       return;

@@ -16,6 +16,22 @@ const LOOPBACK_HOSTS = new Set(["127.0.0.1", "localhost", "[::1]", "::1"]);
 const isLoopbackHost = (host: string) =>
   LOOPBACK_HOSTS.has(host) || host === "0.0.0.0" || host.endsWith(".localhost");
 
+/**
+ * 请求的 Host 头是否是回环 —— 防 DNS rebinding 的关键闸,且对 GET 也生效。
+ *
+ * Origin 门只挡跨源写;但 GET 不带同源保证,恶意网页可以把自己的域名 DNS 重绑到
+ * 127.0.0.1,再用普通 fetch GET 读走对话/文件——那时 Host 头是攻击者的域名(evil.com:9506),
+ * 而应用自己发的请求 Host 必是 127.0.0.1 / localhost。卡住 Host = 回环,这条路就断了。
+ */
+export const isTrustedHost = (host: unknown) => {
+  const value = String(host || "").trim().toLowerCase();
+  if (!value) return false; // 合法请求一定带 Host
+  const hostname = value.startsWith("[")
+    ? value.slice(0, value.indexOf("]") + 1)      // [::1]:9506 → [::1]
+    : value.split(":")[0];                        // 127.0.0.1:9506 → 127.0.0.1
+  return isLoopbackHost(hostname);
+};
+
 /** 请求的 Origin 是否可信(port 保留参数,当前策略只认「回环主机」不卡端口)。 */
 export const isTrustedOrigin = (origin: unknown, _port?: number) => {
   const value = String(origin || "").trim();
