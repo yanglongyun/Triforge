@@ -16,6 +16,10 @@ const greeting = () => {
   return "晚上好";
 };
 
+/** 预览行是给人扫一眼的,把 Markdown 记号剥干净。 */
+const plainPreview = (text: string) =>
+  text.replace(/```[\s\S]*?```/g, " ").replace(/[#*`>|_-]+/g, " ").replace(/\s+/g, " ").trim();
+
 const dateLine = () => {
   const now = new Date();
   return `${now.getMonth() + 1} 月 ${now.getDate()} 日 周${"日一二三四五六"[now.getDay()]}`;
@@ -46,16 +50,16 @@ export function LauncherPanel({ tab, groupId }: { tab: LauncherTab; groupId: Wor
 
   return (
     <div className="flex-1 min-h-0 overflow-y-auto bg-bg">
-      <div className="max-w-[820px] mx-auto px-8 py-10 flex flex-col gap-6">
+      <div className="max-w-[640px] mx-auto px-8 py-10 flex flex-col gap-6">
         {/* 问候 */}
         <div>
           <div className="text-[21px] font-semibold tracking-tight text-text">{greeting()}</div>
           <div className="text-[12.5px] text-text-faint mt-0.5">{dateLine()}</div>
         </div>
 
-        {/* 输入:对话大框 + 网址窄框,各管各的 */}
-        <div className="flex gap-2.5">
-          <div className="flex-1 flex items-center gap-2.5 bg-surface border border-border-strong rounded-xl px-4 py-2.5 transition-colors focus-within:border-accent">
+        {/* 输入:对话大框在上,网址一整行在下,各管各的 */}
+        <div className="flex flex-col gap-2.5">
+          <div className="flex items-center gap-2.5 bg-surface border border-border-strong rounded-xl px-4 py-3 transition-colors focus-within:border-accent">
             <Bot size={16} className="shrink-0 text-text-faint" />
             <input
               ref={chatRef}
@@ -69,7 +73,7 @@ export function LauncherPanel({ tab, groupId }: { tab: LauncherTab; groupId: Wor
             />
             <span className="shrink-0 text-[11px] rounded px-1.5 py-0.5 select-none text-text-faint bg-bg-inset">↩ 对话</span>
           </div>
-          <div className="w-[220px] shrink-0 flex items-center gap-2 bg-surface border border-border rounded-xl px-3.5 py-2.5 transition-colors focus-within:border-accent">
+          <div className="flex items-center gap-2 bg-surface border border-border rounded-xl px-4 py-2 transition-colors focus-within:border-accent">
             <Globe size={15} className="shrink-0 text-text-faint" />
             <input
               value={urlValue}
@@ -83,9 +87,8 @@ export function LauncherPanel({ tab, groupId }: { tab: LauncherTab; groupId: Wor
           </div>
         </div>
 
-        {/* 继续 + 应用与网站 */}
-        <div className="grid grid-cols-[1.2fr_.8fr] gap-7 max-md:grid-cols-1">
-          <div className="flex flex-col gap-2 min-w-0">
+        {/* 继续:一段 */}
+        <div className="flex flex-col gap-2 min-w-0">
             <div className="text-[11px] text-text-faint tracking-[1.5px] select-none">继续</div>
             {chats.map((c) => (
               <button
@@ -97,22 +100,23 @@ export function LauncherPanel({ tab, groupId }: { tab: LauncherTab; groupId: Wor
                 <span className="min-w-0">
                   <span className="block truncate text-[13px] font-medium text-text leading-[18px]">{c.title || "未命名对话"}</span>
                   {c.last?.text && (
-                    <span className="block truncate text-[11.5px] text-text-faint leading-[16px] mt-0.5">{c.last.text}</span>
+                    <span className="block truncate text-[11.5px] text-text-faint leading-[16px] mt-0.5">{plainPreview(c.last.text)}</span>
                   )}
                 </span>
               </button>
             ))}
             {!chats.length && <div className="text-[12.5px] text-text-faint py-3">还没有对话,上面说一句就开工</div>}
-          </div>
+        </div>
 
-          <div className="flex flex-col gap-2 min-w-0">
+        {/* 应用与网站:一段,一行排开 */}
+        <div className="flex flex-col gap-2 min-w-0">
             <div className="text-[11px] text-text-faint tracking-[1.5px] select-none">应用与网站</div>
-            <div className="grid grid-cols-2 gap-2">
+            <div className="grid grid-cols-6 gap-2 max-md:grid-cols-4">
               {apps.map((a) => (
                 <button
                   key={a.id}
                   onClick={() => fire("workbench:launch-app", { appId: a.id, name: a.name })}
-                  className="flex flex-col items-center gap-1.5 bg-surface border border-border rounded-[10px] px-1.5 py-3 text-[12px] text-text-dim hover:bg-bg-hover hover:border-border-strong transition-colors"
+                  className="flex flex-col items-center gap-1.5 bg-surface border border-border rounded-[10px] px-1 py-2.5 text-[12px] text-text-dim hover:bg-bg-hover hover:border-border-strong transition-colors"
                 >
                   {a.hasIcon
                     ? <img src={`/api/apps/icon?id=${encodeURIComponent(a.id)}`} alt="" className="w-7 h-7 rounded-md" />
@@ -124,14 +128,13 @@ export function LauncherPanel({ tab, groupId }: { tab: LauncherTab; groupId: Wor
                 <button
                   key={s.id}
                   onClick={() => fire("workbench:launch", { value: s.url, kind: "web" })}
-                  className="flex flex-col items-center gap-1.5 bg-surface border border-border rounded-[10px] px-1.5 py-3 text-[12px] text-text-dim hover:bg-bg-hover hover:border-border-strong transition-colors"
+                  className="flex flex-col items-center gap-1.5 bg-surface border border-border rounded-[10px] px-1 py-2.5 text-[12px] text-text-dim hover:bg-bg-hover hover:border-border-strong transition-colors"
                 >
                   <span className="w-7 h-7 rounded-md bg-bg-inset flex items-center justify-center"><Favicon url={s.url} size={16} /></span>
                   <span className="truncate max-w-full">{s.title}</span>
                 </button>
               ))}
             </div>
-          </div>
         </div>
 
         <div className="text-center text-[11.5px] text-text-faint select-none">Esc 关闭此标签</div>
