@@ -14,6 +14,14 @@ const json = (res: ServerResponse, status: number, body: unknown) => {
 };
 
 /** 对外形状:manifest 的事实 + 运行时状态。dir 不外传(界面用不上)。 */
+const readBody = (req: IncomingMessage) =>
+  new Promise<any>((resolve) => {
+    let raw = "";
+    req.on("data", (c) => { raw += c; });
+    req.on("end", () => { try { resolve(JSON.parse(raw || "{}")); } catch { resolve({}); } });
+    req.on("error", () => resolve({}));
+  });
+
 const publicApp = (app: ReturnType<typeof getApp>) => {
   if (!app) return null;
   const { status, error, port } = appStatus(app.id);
@@ -34,6 +42,8 @@ export const handleAppRoutes = async (
   const p = url.pathname;
   if (!p.startsWith("/api/apps")) return false;
   const id = url.searchParams.get("id") || "";
+  /** POST 的 id 在 body 里(前端一直这么发),GET 的在 query —— 两边都认。 */
+  const idFrom = async () => id || String((await readBody(req))?.id || "");
 
   if (p === "/api/apps" && method === "GET") {
     json(res, 200, { apps: listApps().map(publicApp) });
@@ -52,12 +62,16 @@ export const handleAppRoutes = async (
   }
 
   if (p === "/api/apps/stop" && method === "POST") {
-    json(res, 200, { ok: await stopApp(id) });
+    const target = await idFrom();
+    if (!getApp(target)) { json(res, 404, { error: "应用不存在" }); return true; }
+    json(res, 200, { ok: await stopApp(target) });
     return true;
   }
 
   if (p === "/api/apps/restart" && method === "POST") {
-    try { await restartApp(id); json(res, 200, { ok: true }); }
+    const target = await idFrom();
+    if (!getApp(target)) { json(res, 404, { error: "应用不存在" }); return true; }
+    try { await restartApp(target); json(res, 200, { ok: true }); }
     catch (e: any) { json(res, e?.status || 500, { error: String(e?.message || e) }); }
     return true;
   }
