@@ -137,7 +137,6 @@ export function LauncherPanel({ tab, groupId }: { tab: LauncherTab; groupId: Wor
             </div>
         </div>
 
-        <div className="text-center text-[11.5px] text-text-faint select-none">Esc 关闭此标签</div>
       </div>
     </div>
   );
