@@ -52,3 +52,4 @@ textarea { resize: none; }
 .row { display: flex; gap: 8px; }
 .row input { font-size: 12.5px; }
 .err { color: var(--danger); font-size: 12.5px; text-align: center; padding: 14px 0; }
+.stk { cursor: pointer; }

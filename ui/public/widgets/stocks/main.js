@@ -19,14 +19,14 @@ const load = async () => {
     list.innerHTML = codes.map((code) => {
       const f = quotes.get(code);
       if (!f || f.length < 5 || !f[1]) return `
-        <div class="stk"><span class="name">${esc(code)}<small>代码无效</small></span><span></span>
+        <div class="stk" data-code="${esc(code)}"><span class="name">${esc(code)}<small>代码无效</small></span><span></span>
         <span class="pct flat">—</span><button class="iconbtn" data-del="${esc(code)}">×</button></div>`;
       const price = Number(f[3]), prev = Number(f[4]);
       const delta = price - prev, pct = prev ? (delta / prev) * 100 : 0;
       const cls = delta > 0.0001 ? "up" : delta < -0.0001 ? "down" : "flat";
       const sign = delta > 0 ? "+" : "";
       return `
-        <div class="stk">
+        <div class="stk" data-code="${esc(code)}">
           <span class="name">${esc(f[1])}<small>${esc(code.toUpperCase())}</small></span>
           <span class="price">${price ? price.toFixed(2) : "—"}</span>
           <span class="pct ${cls}">${price ? sign + pct.toFixed(2) + "%" : "—"}</span>
@@ -49,9 +49,17 @@ form.onsubmit = (e) => {
 };
 list.onclick = (e) => {
   const del = e.target.closest("[data-del]")?.dataset.del;
-  if (!del) return;
-  codes = codes.filter((c) => c !== del); save();
-  load();
+  if (del) {
+    codes = codes.filter((c) => c !== del); save();
+    load();
+    return;
+  }
+  // 点行 = 在工作台里开这只标的的行情页(雪球代码形如 SH000001 / HK00700 / AAPL)
+  const row = e.target.closest("[data-code]");
+  if (!row) return;
+  const code = row.dataset.code;
+  const symbol = code.startsWith("us") ? code.slice(2) : code.toUpperCase();
+  void post("/_wb/open", { url: `https://xueqiu.com/S/${symbol}` });
 };
 refresh.onclick = load;
 
