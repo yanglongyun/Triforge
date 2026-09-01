@@ -285,14 +285,30 @@ export function FilesPanel({
 
   // ── 文件名筛选(输入即筛,基于全量节点清单的扁平结果)──
   const [filterQ, setFilterQ] = useState("");
-  const [allNodes, setAllNodes] = useState<Node[]>([]);
+  const [allNodes, setAllNodes] = useState<Node[] | null>(null); // null = 还没取回来
   useEffect(() => {
     if (!filterQ.trim()) return;
-    api.listAllNodes().then((r) => setAllNodes(r.nodes || [])).catch(() => {});
+    let gone = false;
+    api.listAllNodes().then((r) => { if (!gone) setAllNodes(r.nodes || []); }).catch(() => { if (!gone) setAllNodes([]); });
+    return () => { gone = true; };
   }, [!!filterQ.trim(), refreshKey]);
-  const filterMatches = filterQ.trim()
-    ? allNodes.filter((n) => n.title.toLowerCase().includes(filterQ.trim().toLowerCase())).slice(0, 100)
+  const FILTER_LIMIT = 100;
+  const filterHits = filterQ.trim() && allNodes
+    ? allNodes.filter((n) => n.title.toLowerCase().includes(filterQ.trim().toLowerCase()))
     : [];
+  const filterMatches = filterHits.slice(0, FILTER_LIMIT);
+  const filterOverflow = filterHits.length - filterMatches.length;
+
+  /** 结果行的路径列:相对所属工作区,而不是甩一整条绝对路径。 */
+  const relDir = (id: string) => {
+    const root = roots
+      .map((r) => r.id)
+      .filter((r) => id === r || id.startsWith(r + "/"))
+      .sort((a, b) => b.length - a.length)[0];
+    const rest = root ? id.slice(root.length + 1) : id;
+    const dir = rest.replace(/\/[^/]*$/, "");
+    return dir === rest ? "" : dir;
+  };
 
   // 每渲染刷新一次的「最新函数」出口,键盘 handler 通过它调用,不吃过期闭包
   const keyApiRef = useRef({ handleSelect: (_n: Node | null) => {}, startRename: (_n: Node) => {}, toggleExpand: (_id: string) => {}, setExpanded: (_id: string, _on: boolean) => {} });
@@ -737,10 +753,14 @@ export function FilesPanel({
               >
                 {(() => { const Icon = iconFor(node.kind, node.title); return <Icon size={14} className={`shrink-0 ${colorFor(node.kind)}`} />; })()}
                 <span className="shrink-0 truncate max-w-[55%] text-[13.5px] text-text">{node.title}</span>
-                <span className="flex-1 min-w-0 truncate text-[11px] text-text-faint font-mono">{node.id.replace(/^.*\/workspaces\//, "").replace(/\/[^/]*$/, "")}</span>
+                <span className="flex-1 min-w-0 truncate text-[11px] text-text-faint font-mono">{relDir(node.id)}</span>
               </div>
             ))}
-            {!filterMatches.length && <div className="px-3 py-6 text-center text-[12.5px] text-text-faint">没有匹配的文件</div>}
+            {!allNodes && <div className="px-3 py-6 text-center text-[12.5px] text-text-faint">读取中…</div>}
+            {allNodes && !filterMatches.length && <div className="px-3 py-6 text-center text-[12.5px] text-text-faint">没有匹配的文件</div>}
+            {filterOverflow > 0 && (
+              <div className="px-3 py-2 text-center text-[11.5px] text-text-faint">还有 {filterOverflow} 个没列出,再输入几个字缩小范围</div>
+            )}
           </div>
         ) : (
         <RootDroppable onContextMenu={onBlankContext} onNativeDragOver={onExternalDragOver} onNativeDrop={onExternalDrop}>
