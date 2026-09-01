@@ -27,7 +27,7 @@ async function generateOne(nodes: NodeRepository, nodeService: NodeService, node
     const prompt = job.kind === 'branch' && job.parent
       ? branchPrompt(job.parent.type, job.parent.content.slice(0, MAX_PARENT_CHARS), type, direction.idea)
       : rootPrompt(direction.idea, type);
-    const raw = await hostComplete(generatorSystem(type), prompt);
+    const raw = await hostComplete(generatorSystem(type), prompt, { title: `生成「${direction.title}」` });
     const content = normalizeContent(raw, type);
     const invalid = contentError(type, content);
     if (invalid) throw new Error(invalid);
@@ -56,7 +56,7 @@ export function dispatchGeneration(nodes: NodeRepository, nodeService: NodeServi
       const plan = await hostComplete(PLAN_SYSTEM, planPrompt({
         kind: job.kind, count: job.count, prompt: job.prompt,
         parentType: job.parent?.type, parentContent: job.parent?.content.slice(0, MAX_PARENT_CHARS),
-      }), DIRECTIONS_SCHEMA);
+      }), { schema: DIRECTIONS_SCHEMA, title: `规划 ${job.count} 个方向:${job.prompt.slice(0, 20)}` });
       directions = parseDirections(plan, job.count);
     } catch (error) {
       const message = error instanceof Error ? error.message : String(error);

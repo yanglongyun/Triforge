@@ -10,7 +10,9 @@ import { getSettings } from "../repo/settings.js";
 import { emit } from "../bus.js";
 import { getApp } from "./apps.js";
 import { identifyApp, touchApp } from "./appSupervisor.js";
-import { runAppTask } from "./appTasks.js";
+import { openTask, recordTaskReply, runAppTask } from "./appTasks.js";
+import { settleTask } from "../repo/tasks.js";
+import { ensureRoot } from "../repo/tree.js";
 
 const json = (res: ServerResponse, status: number, body: unknown) => {
   res.writeHead(status, { "content-type": "application/json; charset=utf-8" });
@@ -85,16 +87,32 @@ export const handleHostRoutes = async (
           ? { chat: { response_format: { type: "json_schema", json_schema: { name, schema: input.schema, strict: true } } } }
           : { text: { format: { type: "json_schema", name, schema: input.schema, strict: true } } };
       }
-      const result: any = await complete({
-        ...base,
-        modelOptions,
-        retry: undefined,
-        errorMaxChars: 4000,
-        signal: undefined,
-        instructions: String(input.instructions || "").slice(0, 4000),
-        input: [{ role: "user", content: prompt.slice(0, 150_000) }],
+      // 补全也是「应用替你干的活」—— 在任务里留一条,一问一答同样进 messages
+      const taskId = openTask({
+        appId: app.id,
+        title: String(input.title || "").trim() || prompt,
+        prompt,
+        cwd: ensureRoot(),
       });
-      json(res, 200, { text: result.text, usage: result.usage });
+      try {
+        const result: any = await complete({
+          ...base,
+          modelOptions,
+          retry: undefined,
+          errorMaxChars: 4000,
+          signal: undefined,
+          instructions: String(input.instructions || "").slice(0, 4000),
+          input: [{ role: "user", content: prompt.slice(0, 150_000) }],
+        });
+        recordTaskReply(taskId, result.text, result.usage || null);
+        settleTask(taskId, "done");
+        emit({ type: "tasks_changed" });
+        json(res, 200, { text: result.text, usage: result.usage });
+      } catch (error: any) {
+        settleTask(taskId, "error", String(error?.message || error).slice(0, 4000));
+        emit({ type: "tasks_changed" });
+        throw error;
+      }
       return true;
     }
 
@@ -122,6 +140,7 @@ export const handleHostRoutes = async (
       await runAppTask({
         appId: app.id,
         appName: app.name,
+        title: String(input.title || "").trim() || prompt,
         prompt,
         workdir: input.workdir ? String(input.workdir) : undefined,
       }, res);

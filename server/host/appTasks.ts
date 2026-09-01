@@ -1,5 +1,8 @@
 // @ts-nocheck
-// 应用触发的 agent 轮次(POST /host/ai/agent)—— 任务机制。
+// 应用触发的活儿 —— 任务机制。两种入口:
+//   /host/ai/agent    完整 agent 轮次(带工具),SSE 流回
+//   /host/ai/complete 单次补全(无工具),一问一答
+// 两者都在「任务」里留一条记录,用户看得见应用替自己干了什么。
 //
 // 过程与用户会话**同规格**:每一步(思考/正文/工具调用/工具结果)逐条落 messages,
 // 任务本身就是一段会话 —— tasks.id 即 chats.id,只是 chats.origin_app 记着是哪个应用开的,
@@ -26,8 +29,26 @@ const ERROR_MAX_CHARS = 4000;
 
 const running = new Map(); // taskId → AbortController
 
+/**
+ * 开一条任务:建会话行(origin_app 标记发起方,据此不进会话列表)+ tasks 行 + 第一条用户消息。
+ * agent 与 complete 共用 —— 从用户视角这两件事没有区别,都是「应用替我干活」。
+ */
+export const openTask = ({ appId, title, prompt, cwd }) => {
+  const chat = createChat({ title: String(title || prompt).slice(0, 24), workdir: cwd, originApp: appId });
+  createTask({ id: chat.id, appId, prompt });
+  appendItem(chat.id, { role: "user", content: prompt }, { meta: { kind: "message" } });
+  emit({ type: "tasks_changed" });
+  return chat.id;
+};
+
+/** 落一条助手消息并广播 —— complete 那条一问一答的「答」。 */
+export const recordTaskReply = (taskId, text, usage = null) => {
+  appendItem(taskId, { type: "message", role: "assistant", content: [{ type: "output_text", text: String(text) }] }, { usage });
+  emit({ type: EVENTS.INPUT, chatId: taskId });
+};
+
 export const runAppTask = async (
-  { appId, appName, prompt, workdir },
+  { appId, appName, title, prompt, workdir },
   res, // ServerResponse:SSE 从这里流出去
 ) => {
   const settings = getSettings();
@@ -38,12 +59,7 @@ export const runAppTask = async (
   }
 
   const cwd = workdir || ensureRoot();
-  // 任务 = 一段会话:过程逐条落 messages,详情页照会话那样回放
-  const chat = createChat({ title: prompt.slice(0, 24), workdir: cwd, originApp: appId });
-  const taskId = chat.id;
-  createTask({ id: taskId, appId, prompt });
-  appendItem(taskId, { role: "user", content: prompt }, { meta: { kind: "message" } });
-  emit({ type: "tasks_changed" });
+  const taskId = openTask({ appId, title, prompt, cwd });
 
   res.writeHead(200, {
     "content-type": "text/event-stream; charset=utf-8",
