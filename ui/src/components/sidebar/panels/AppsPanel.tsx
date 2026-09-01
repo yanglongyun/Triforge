@@ -12,8 +12,8 @@ type Socket = { send: (m: any) => void; on: (t: string, fn: (p: any) => void) =>
 
 /** 没有 icon.svg 就用名字首字 —— 比一个通用占位图标好认。 */
 const Initial = ({ name }: { name: string }) => (
-  <span className="shrink-0 w-[18px] h-[18px] rounded bg-bg-inset text-text-dim
-    flex items-center justify-center text-[10px] font-medium">
+  <span className="shrink-0 w-8 h-8 rounded-lg bg-bg-inset text-text-dim
+    flex items-center justify-center text-[14px] font-medium">
     {Array.from(name)[0] || "?"}
   </span>
 );
@@ -74,21 +74,23 @@ export function AppsPanel({ socket, onOpenApp, onCreate }: {
           onContextMenu={(e) => onContext(e, app)}
           title={app.invalid || `${app.name}${app.description ? `\n${app.description}` : ""}`}
           className={[
-            "group flex items-center gap-2 py-[5px] pl-3 pr-2 select-none",
+            "group flex items-center gap-2.5 py-2 pl-3 pr-2 select-none",
             app.invalid ? "cursor-default text-text-faint" : "cursor-pointer text-text hover:bg-bg-hover",
           ].join(" ")}
         >
           {app.hasIcon
-            ? <img src={`/api/apps/icon?id=${encodeURIComponent(app.id)}`} alt="" className="shrink-0 w-[18px] h-[18px] rounded" />
+            ? <img src={`/api/apps/icon?id=${encodeURIComponent(app.id)}`} alt="" className="shrink-0 w-8 h-8 rounded-lg" />
             : <Initial name={app.name} />}
           <div className="min-w-0 flex-1">
-            <div className="truncate text-[13.5px]">{app.name}</div>
-            {app.invalid && (
+            <div className="truncate text-[13.5px] font-medium leading-[18px]">{app.name}</div>
+            {app.invalid ? (
               <div className="flex items-center gap-1 text-[11px] text-danger">
                 <AlertTriangle size={10} className="shrink-0" />
                 <span className="truncate">{app.invalid}</span>
               </div>
-            )}
+            ) : app.description ? (
+              <div className="truncate text-[11.5px] text-text-faint leading-[15px]">{app.description}</div>
+            ) : null}
           </div>
           {!app.invalid && DOT[app.status] && (
             <span className={`shrink-0 w-1.5 h-1.5 rounded-full ${DOT[app.status]}`}
