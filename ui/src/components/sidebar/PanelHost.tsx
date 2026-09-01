@@ -370,7 +370,7 @@ export function PanelHost({
       ].join(" ")}
     >
       {/* ── 活动栏:52px 竖排,三段 ── */}
-      <div className="w-[52px] shrink-0 flex flex-col items-center pt-2 pb-1.5 border-r border-border">
+      <div className="w-[52px] shrink-0 flex flex-col items-center pt-2 pb-1.5">
         <div className="shrink-0 w-full flex flex-col items-center gap-0.5">
           {NATIVE_PANELS.map((p) => (
             <RailButton
@@ -450,7 +450,7 @@ export function PanelHost({
       <div
         style={{ width: `min(${sidebarWidth}px, calc(100vw - 84px))` }}
         className={[
-          "relative flex flex-col min-w-0",
+          "relative flex flex-col min-w-0 border-l border-border",
           desktopOpen ? "" : "md:hidden",
         ].join(" ")}
       >
