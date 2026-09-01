@@ -1,18 +1,18 @@
-import { isArtifactType } from '../../shared/types.js';
+// 生成入口:校验占位节点 → 202 → 后台流水线(计划 + 逐卡补全)。
 import { readJsonBody } from '../http/body.js';
 import { HttpError } from '../http/errors.js';
-import { Router } from '../http/router.js';
+import type { Router } from '../http/router.js';
 import { sendJson } from '../http/response.js';
-import { NodeRepository } from '../nodes/node.repository.js';
-import { NodeService } from '../nodes/node.service.js';
-import { ProjectRepository } from '../projects/project.repository.js';
-import { dispatchAgentTurn, hostAgentAvailable } from './host-agent.js';
-import { buildBranchPrompt, buildGeneratePrompt, resolveOrigin } from './prompt.js';
+import type { NodeRepository } from '../nodes/node.repository.js';
+import type { NodeService } from '../nodes/node.service.js';
+import type { ProjectRepository } from '../projects/project.repository.js';
+import { hostAiAvailable } from './host-ai.js';
+import { dispatchGeneration } from './run.js';
 
-const UNAVAILABLE_MESSAGE = '生成需要在 agent 宿主里运行（未配置 HOST_URL / APP_TOKEN）';
+const UNAVAILABLE_MESSAGE = '生成需要在契约宿主里运行（未配置 HOST_URL / APP_TOKEN）';
 
-function requireHostAgent(): void {
-  if (!hostAgentAvailable()) throw new HttpError(501, UNAVAILABLE_MESSAGE, 'HOST_AGENT_UNAVAILABLE');
+function requireHostAi(): void {
+  if (!hostAiAvailable()) throw new HttpError(501, UNAVAILABLE_MESSAGE, 'HOST_AI_UNAVAILABLE');
 }
 
 function parsePrompt(value: unknown): string {
@@ -35,22 +35,9 @@ function parseNodeIds(value: unknown, count: number): string[] {
   return value as string[];
 }
 
-/** 生成结束后,把仍处于「占位」状态(artifact 节点、content 仍为 null)的节点标记失败,避免永远转圈。 */
-function settlePendingPlaceholders(nodes: NodeRepository, nodeService: NodeService, nodeIds: string[], ok: boolean, message: string): void {
-  for (const nodeId of nodeIds) {
-    const node = nodes.find(nodeId);
-    if (!node || !isArtifactType(node.type) || node.content) continue;
-    try {
-      nodeService.markArtifactError(nodeId, { error: ok ? '生成结束，但该节点未被完成' : `生成失败：${message}` });
-    } catch (error) {
-      console.error('[agent]', 'failed to mark placeholder as failed', nodeId, error);
-    }
-  }
-}
-
-export function registerAgentRoutes(router: Router, projects: ProjectRepository, nodes: NodeRepository, nodeService: NodeService): void {
+export function registerGenerationRoutes(router: Router, projects: ProjectRepository, nodes: NodeRepository, nodeService: NodeService): void {
   router.post('/api/projects/:projectId/generate', async ({ req, res, params }) => {
-    requireHostAgent();
+    requireHostAi();
     const project = projects.find(params.projectId);
     if (!project) throw new HttpError(404, 'project not found', 'PROJECT_NOT_FOUND');
 
@@ -62,13 +49,12 @@ export function registerAgentRoutes(router: Router, projects: ProjectRepository,
       if (!nodes.findInProject(nodeId, params.projectId)) throw new HttpError(404, `node ${nodeId} not found in project`, 'NODE_NOT_FOUND');
     }
 
-    const instruction = buildGeneratePrompt({ origin: resolveOrigin(), projectId: params.projectId, prompt, count, nodeIds });
-    dispatchAgentTurn(instruction, (ok, message) => settlePendingPlaceholders(nodes, nodeService, nodeIds, ok, message));
+    dispatchGeneration(nodes, nodeService, { kind: 'root', prompt, count, nodeIds });
     sendJson(res, 202, { accepted: true, nodeIds });
   });
 
   router.post('/api/nodes/:nodeId/branch', async ({ req, res, params }) => {
-    requireHostAgent();
+    requireHostAi();
     const parent = nodes.find(params.nodeId);
     if (!parent) throw new HttpError(404, 'node not found', 'NODE_NOT_FOUND');
 
@@ -80,10 +66,15 @@ export function registerAgentRoutes(router: Router, projects: ProjectRepository,
       if (!nodes.findInProject(nodeId, parent.project_id)) throw new HttpError(404, `node ${nodeId} not found in project`, 'NODE_NOT_FOUND');
     }
 
-    const instruction = buildBranchPrompt({
-      origin: resolveOrigin(), projectId: parent.project_id, nodeId: parent.id, nodeTitle: parent.title, prompt, count, nodeIds,
+    // 父级上下文:有 artifact 就带完整源码,纯文本节点带正文
+    let parentContent = '';
+    try { parentContent = String((nodeService.artifactSource(parent.id) as any)?.source ?? ''); }
+    catch { parentContent = String(parent.content || ''); }
+
+    dispatchGeneration(nodes, nodeService, {
+      kind: 'branch', prompt, count, nodeIds,
+      parent: { type: parent.type, content: parentContent },
     });
-    dispatchAgentTurn(instruction, (ok, message) => settlePendingPlaceholders(nodes, nodeService, nodeIds, ok, message));
     sendJson(res, 202, { accepted: true, nodeIds });
   });
 }

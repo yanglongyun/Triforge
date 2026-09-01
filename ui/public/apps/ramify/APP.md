@@ -20,8 +20,8 @@
   Ramify 目前总是允许被回收，不会推迟。
 - 环境变量：`PORT`、`HOST`（未设时回落 `127.0.0.1`）、`APP_DATA_DIR`（数据目录，优先于仓库自带的
   `RAMIFY_DATA_DIR` 及各平台默认路径）。`APP_ID` 当前实现未使用。`HOST_URL` / `APP_TOKEN` 用于调
-  `POST /host/ai/agent`（见下面「画布内直接生成」一节），`manifest.json` 的 `permissions` 声明为
-  `["ai.agent"]`。两者任一缺失时，画布仍然完整可用（建项目、看树、CLI、直接写 artifact 都不受影响），
+  `POST /host/ai/complete`（见下面「画布内直接生成」一节），`manifest.json` 的 `permissions` 声明为
+  `["ai.complete"]`。两者任一缺失时，画布仍然完整可用（建项目、看树、CLI、直接写 artifact 都不受影响），
   只有「生成」「继续发散」这两个动作会收到 `501 HOST_AGENT_UNAVAILABLE`。
 - `SIGTERM` / `SIGINT` 触发干净退出：停止接受新连接、关闭 SQLite 连接、最多等待 3 秒后强制退出。
 - 这是**自运行**形态（有 `run`），不是宿主代管的静态 app：整站（页面、静态资源、API）都由这一个
@@ -68,29 +68,23 @@ Base URL 用宿主传入的 `PORT`/`HOST` 现拼，不要缓存。JSON body 限 
 ## 画布内直接生成
 
 画布首页的创作票据（输入 + 数量）和节点上的发散按钮，都是先用上面的普通 API 建好项目/占位节点
-（画布秒开、不等生成），再调 `POST /api/projects/:id/generate` 或 `POST /api/nodes/:id/branch` 把
-「递交给 agent」这一跳交给服务端：
+（画布秒开、不等生成），再调 `POST /api/projects/:id/generate` 或 `POST /api/nodes/:id/branch` 启动
+生成流水线。**全程没有 agent、没有工具**，只有两级普通补全：
 
-1. 服务端校验 `project`/`node` 与 `nodeIds` 都存在，拼一段中文指令文本（内容含完整需求、占位节点 id
-   列表、以及**用 curl 写入这些节点的精确端点和 JSON 形状**——因为宿主那一侧接住这段指令的子 agent
-   只有 bash/curl，没有任何注册工具，指令文本本身就是它的 SDK），然后**不等结果**、立即给客户端回
-   `202 {accepted, nodeIds}`。
-2. 服务端在后台用 `Authorization: Bearer $APP_TOKEN` 调 `${HOST_URL}/host/ai/agent`，静默消费返回的
-   SSE（`message`/`reasoning`/`function_call`/`function_call_output`/`done`/`error`，见应用契约「宿主
-   能力」一节），不转发给前端。
-3. 那次 agent 轮次里，子 agent 直接 `curl -X PUT /api/nodes/:id/artifact` 把内容写回这个进程——写入路径
-   和人在 CLI/GUI 里操作完全一样，走的还是本文档最上面那张 API 表，没有另开一条特权通道。
-4. 轮次的 SSE 收到 `error` 事件，或者流结束（`done`）时，仍有传入的 `nodeIds` 还处于占位状态
-   （artifact 类型节点、`content` 仍是 `null`），服务端会调已有的 `PUT /api/nodes/:id/artifact/error`
-   把它标记失败，不会让占位节点永远转圈。宿主没有为 `/host/ai/agent` 规定轮次超时，所以这里自己兜了
-   一个 10 分钟的安全上限（超时同样按失败处理）。
-5. 画布该看什么就看什么：前端不知道也不需要知道生成是怎么发生的，只是照常轮询 `version` 端点、看到
-   占位节点的 `content` 或 `type` 变了就刷新——这条路径复用的是已有的协同机制，不是另一套。
+1. 服务端校验 `project`/`node` 与 `nodeIds` 都存在，立即回 `202 {accepted, nodeIds}`，流水线转后台。
+2. **计划**：一次 `POST ${HOST_URL}/host/ai/complete`（`Authorization: Bearer $APP_TOKEN`），system 是
+   创意总监提示词，要求只输出 JSON：`{"directions":[{"title","type":"html|markdown|svg","idea"}]}`。
+   解析后逐个占位节点认领一个方向；方向数不足用最后一个补齐，完全解析不出则全部标失败。
+3. **生成**：每个节点一次 `/host/ai/complete`，system 按 type 选（网页工程师 / 写作者 / 插画师），
+   prompt 是该方向的 idea（分支时附父节点完整源码）。产出要求单文件、无外部资源;剥掉围栏后按
+   type 校验（html 必须是完整文档、svg 不得带 script），合格就 `updateArtifact` 写入并把节点标题改成
+   方向 title，不合格 / 补全失败则 `PUT /api/nodes/:id/artifact/error` 标记失败，不让占位节点转圈。
+   并发上限 3;补全自带 8 分钟超时。
+4. 画布照常轮询 `version` 端点看到内容变化 —— 前端不知道也不需要知道生成是怎么发生的。
 
-`manifest.json` 的 `permissions` 声明为 `["ai.agent"]`。没有 `HOST_URL`/`APP_TOKEN`（用户在契约宿主外
-独立跑 Ramify）时，这两个端点直接返回 `501 HOST_AGENT_UNAVAILABLE`，错误信息里写明原因；建项目、
-看树、CLI、直接用 API/CLI/SQL/文件写 artifact 等既有能力完全不受影响——画布内生成是唯一依赖宿主能力
-的功能。
+`manifest.json` 的 `permissions` 声明为 `["ai.complete"]`。没有 `HOST_URL`/`APP_TOKEN`（在契约宿主外
+独立跑 Ramify）时，这两个端点直接返回 `501 HOST_AI_UNAVAILABLE`；建项目、看树、CLI、直接用
+API/CLI/SQL/文件写 artifact 等既有能力完全不受影响——画布内生成是唯一依赖宿主能力的功能。
 
 ## CLI
 

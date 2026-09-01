@@ -12,6 +12,6 @@
         "mode": "on-demand"
     },
     "permissions": [
-        "ai.agent"
+        "ai.complete"
     ]
 }

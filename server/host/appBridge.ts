@@ -84,7 +84,7 @@ export const handleHostRoutes = async (
         errorMaxChars: 4000,
         signal: undefined,
         instructions: String(input.instructions || "").slice(0, 4000),
-        input: [{ role: "user", content: prompt.slice(0, 20_000) }],
+        input: [{ role: "user", content: prompt.slice(0, 150_000) }],
       });
       json(res, 200, { text: result.text, usage: result.usage });
       return true;

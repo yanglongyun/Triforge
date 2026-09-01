@@ -13,8 +13,8 @@ import { startChangeWatcher } from './change-watcher.js';
 import { ArtifactStore } from './artifacts/artifact.store.js';
 import { registerSettingsRoutes } from './settings/settings.routes.js';
 import { SettingsStore } from './settings/settings.store.js';
-import { registerAgentRoutes } from './agent/agent.routes.js';
-import { hostAgentAvailable } from './agent/host-agent.js';
+import { registerGenerationRoutes } from './generation/generation.routes.js';
+import { hostAiAvailable } from './generation/host-ai.js';
 
 export function createRequestHandler() {
   const projects = new ProjectRepository();
@@ -33,13 +33,13 @@ export function createRequestHandler() {
     capabilities: [
       'batch-nodes', 'optimistic-concurrency', 'server-seq', 'direct-sql', 'direct-artifacts',
       'external-change-events', 'theme-settings', 'locale-settings',
-      ...(hostAgentAvailable() ? ['agent-generate'] : []),
+      ...(hostAiAvailable() ? ['ai-generate'] : []),
     ],
   }));
   registerSettingsRoutes(router, settings);
   registerProjectRoutes(router, new ProjectService(projects, nodes, artifacts));
   registerNodeRoutes(router, nodeService);
-  registerAgentRoutes(router, projects, nodes, nodeService);
+  registerGenerationRoutes(router, projects, nodes, nodeService);
 
   return async function handleRequest(req: IncomingMessage, res: ServerResponse) {
     const path = new URL(req.url || '/', 'http://localhost').pathname;
