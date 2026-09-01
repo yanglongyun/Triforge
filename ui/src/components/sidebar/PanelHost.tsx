@@ -455,7 +455,8 @@ export function PanelHost({
         ].join(" ")}
       >
         {/* 面板头:一行搞定 —— 当前面板叫什么 + 右侧收起(移动端 X 关抽屉),没有品牌行 */}
-        <div className="shrink-0 h-10 flex items-center gap-2 px-3.5 border-b border-border">
+        {/* 高度与标签栏对齐(两边各让一半:40 / 44 → 42) */}
+        <div className="shrink-0 h-[42px] flex items-center gap-2 px-3.5 border-b border-border">
           {activeWidget
             ? <span className="text-[14px] leading-none">{activeWidget.icon}</span>
             : activePanelId === "tasks"

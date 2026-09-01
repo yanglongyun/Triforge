@@ -217,7 +217,7 @@ export function TabBar({
     <div
       data-tab-drop-group={groupId}
       data-tab-count={tabs.length}
-      className="flex items-stretch h-11 bg-bg-raised border-b border-border shrink-0"
+      className="flex items-stretch h-[42px] bg-bg-raised border-b border-border shrink-0"
     >
       {/* 侧边栏开关:侧栏展开时汉堡在侧栏头部,这里只在收起(或移动端)时出现 */}
       {onOpenNav && (
