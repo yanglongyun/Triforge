@@ -8,9 +8,9 @@
 import { useEffect, useState } from "react";
 import { api, type GitRepositoryStatus, type Node } from "../../api";
 import { ContextMenu, dialog, type MenuItem } from "../ui";
-import { LayoutGrid, PanelLeft, Plus, Settings, Sparkles, X } from "lucide-react";
+import { PanelLeft, Plus, Settings, Trash2, X } from "lucide-react";
 import { beginGlobalDrag, endGlobalDrag } from "../../lib/drag";
-import { CREATE_WIDGET_EVENT, dropPin, movePin, togglePin as togglePinId, useWidgetPins } from "../../lib/widgetPins";
+import { CREATE_WIDGET_EVENT, applyOrder, dropFromOrder, useWidgetOrder, writeOrder } from "../../lib/widgetOrder";
 import { EVENTS } from "../../../../server/shared/events";
 import { NATIVE_PANELS, type WidgetDef } from "./registry";
 import { ChatRail } from "./panels/ChatRail";
@@ -84,7 +84,6 @@ export function PanelHost({
   refreshKey,
   settingsActive,
   onOpenSettings,
-  onOpenWidgets,
   mobileOpen = false,
   desktopOpen = true,
   onCloseMobile,
@@ -107,29 +106,34 @@ export function PanelHost({
   settingsActive: boolean;
   onOpenSettings: () => void;
   /** 打开「组件」管理标签页(管理是摊开来看的事,不塞侧栏)。 */
-  onOpenWidgets?: () => void;
   mobileOpen?: boolean;
   desktopOpen?: boolean;
   onCloseMobile?: () => void;
   onChanged?: () => void;
 }) {
   // ── 组件:全部来自组件的家(<家>/widgets/<id>/),目录即安装 ──
-  const pinned = useWidgetPins();
+  const order = useWidgetOrder();
   const [widgets, setWidgets] = useState<WidgetDef[]>([]);
   const reloadWidgets = () => api.listWidgets()
     .then((list) => setWidgets(list as WidgetDef[]))
     .catch(() => {});
   useEffect(() => { void reloadWidgets(); }, [refreshKey]);
-  const pinnedWidgets = pinned
-    .map((id) => widgets.find((w) => w.id === id))
-    .filter((w): w is WidgetDef => !!w);
+  // 装了就上活动栏,没有钉选;顺序 = 用户拖出来的顺序,新装的垫后
+  const railWidgets = applyOrder(widgets);
+  void order; // 订阅它只为拖拽后重排
 
   const [sideTab, setSideTab] = useState<string>(() => localStorage.getItem("workbench.sideTab") || "agents");
   // 活动栏组件段的拖拽排序:dragId = 手里拿着谁;dropAt = 松手会插到谁前面(null = 段尾)
   const [dragId, setDragId] = useState<string | null>(null);
   const [dropAt, setDropAt] = useState<string | null | undefined>(undefined);
+  const reorder = (id: string, beforeId: string | null) => {
+    const ids = railWidgets.map((w) => w.id).filter((x) => x !== id);
+    const at = beforeId == null ? ids.length : ids.indexOf(beforeId);
+    ids.splice(at < 0 ? ids.length : at, 0, id);
+    writeOrder(ids);
+  };
   const nativeIds = NATIVE_PANELS.map((p) => p.id as string);
-  const activePanelId = nativeIds.includes(sideTab) || pinnedWidgets.some((w) => w.id === sideTab)
+  const activePanelId = nativeIds.includes(sideTab) || railWidgets.some((w) => w.id === sideTab)
     ? sideTab : "agents";
   const switchTab = (tab: string) => {
     setSideTab(tab);
@@ -179,10 +183,6 @@ export function PanelHost({
     return "";
   };
 
-  const togglePin = (widget: WidgetDef) => {
-    togglePinId(widget.id);
-    if (sideTab === widget.id) switchTab("agents"); // 取下的正是当前面板,回会话
-  };
   const removeWidget = async (widget: WidgetDef) => {
     const ok = await dialog.confirm(
       `删除组件「${widget.name}」?\n目录 widgets/${widget.id}/(含数据 data.db)会移进回收站,30 天后清除。`,
@@ -191,7 +191,7 @@ export function PanelHost({
     if (!ok) return;
     try { await api.removeWidget(widget.id); } catch (e: any) { void dialog.alert(e?.message || "删除失败"); return; }
     void reloadWidgets();
-    dropPin(widget.id);
+    dropFromOrder(widget.id);
     if (sideTab === widget.id) switchTab("agents");
   };
 
@@ -268,37 +268,13 @@ export function PanelHost({
     window.addEventListener("pointerup", onUp);
   };
 
-  // ── 加号菜单:勾选哪些组件上活动栏(仿 VS Code),外加创建/管理入口 ──
-  // 点完即关 —— 菜单项是打开那一刻的快照,留着不关勾选状态就是假的。
+  // ── 右键菜单(组件图标):删除。加号不再是菜单 —— 点了就是创建 ──
   const [menu, setMenu] = useState<{ x: number; y: number; items: MenuItem[] } | null>(null);
-  const openPlusMenu = (e: React.MouseEvent) => {
-    const r = (e.currentTarget as HTMLElement).getBoundingClientRect();
-    const items: MenuItem[] = widgets.map((w) => {
-      const on = pinned.includes(w.id);
-      return {
-        label: w.name,
-        checked: on,
-        icon: <span className="text-[13px] leading-none">{w.icon}</span>,
-        onClick: () => {
-          togglePin(w);
-          if (!on) { switchTab(w.id); onSetDesktopOpen?.(true); } // 刚勾上就切过去,省一次点击
-        },
-      };
-    });
-    if (!widgets.length) {
-      items.push({ label: "还没有组件", disabled: true, onClick: () => {} });
-    }
-    items.push("divider");
-    items.push({ label: "创建组件…", icon: <Sparkles size={13} />, onClick: createWidgetWithAI });
-    items.push({ label: "管理组件…", icon: <LayoutGrid size={13} />, onClick: () => onOpenWidgets?.() });
-    // 挂在活动栏右侧、与按钮同高;越界翻转交给 ContextMenu 自己
-    setMenu({ x: r.right + 6, y: r.top, items });
-  };
   const onWidgetContext = (e: React.MouseEvent, widget: WidgetDef) => {
     e.preventDefault();
     setMenu({
       x: e.clientX, y: e.clientY,
-      items: [{ label: `从活动栏隐藏「${widget.name}」`, icon: <X size={13} />, onClick: () => togglePin(widget) }],
+      items: [{ label: `删除组件「${widget.name}」`, icon: <Trash2 size={13} />, danger: true, onClick: () => void removeWidget(widget) }],
     });
   };
 
@@ -312,7 +288,7 @@ export function PanelHost({
     if (mobileOpen) onCloseMobile?.();
   };
 
-  const activeWidget = pinnedWidgets.find((w) => w.id === activePanelId) || null;
+  const activeWidget = railWidgets.find((w) => w.id === activePanelId) || null;
   const activeNative = NATIVE_PANELS.find((p) => p.id === activePanelId) || null;
 
   return (
@@ -345,9 +321,9 @@ export function PanelHost({
         <div
           className="flex-1 min-h-0 w-full overflow-y-auto no-scrollbar flex flex-col items-center gap-0.5"
           onDragOver={(e) => { if (dragId) { e.preventDefault(); setDropAt(null); } }}
-          onDrop={(e) => { if (dragId) { e.preventDefault(); movePin(dragId, null); } }}
+          onDrop={(e) => { if (dragId) { e.preventDefault(); reorder(dragId, null); } }}
         >
-          {pinnedWidgets.map((w) => (
+          {railWidgets.map((w) => (
             <div
               key={w.id}
               draggable
@@ -367,7 +343,7 @@ export function PanelHost({
                 if (!dragId || dragId === w.id) return;
                 e.preventDefault();
                 e.stopPropagation();
-                movePin(dragId, w.id);
+                reorder(dragId, w.id);
               }}
               className={[
                 "relative",
@@ -377,7 +353,7 @@ export function PanelHost({
               ].join(" ")}
             >
               <RailButton
-                title={`${w.name}(组件,可拖动排序,右键可从活动栏隐藏)`}
+                title={`${w.name}(组件,可拖动排序,右键删除)`}
                 active={activePanelId === w.id && !settingsActive}
                 onClick={() => onRailClick(w.id)}
                 onContextMenu={(e) => onWidgetContext(e, w)}
@@ -389,7 +365,7 @@ export function PanelHost({
         </div>
         <div className="shrink-0 w-full flex flex-col items-center gap-0.5 pt-1">
           <div className="w-7 h-px bg-border mb-1" />
-          <RailButton title="组件:选择、创建、管理" active={false} onClick={openPlusMenu}>
+          <RailButton title="创建组件" active={false} onClick={createWidgetWithAI}>
             <Plus size={18} />
           </RailButton>
           <RailButton title="设置" active={settingsActive} onClick={handleToggleSettings}>

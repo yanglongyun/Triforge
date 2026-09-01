@@ -3,8 +3,8 @@
 import { useEffect, useState } from "react";
 import { LayoutGrid, Sparkles, Trash2 } from "lucide-react";
 import { api } from "../../api";
-import { dialog, Switch } from "../ui";
-import { dropPin, requestCreateWidget, togglePin, useWidgetPins } from "../../lib/widgetPins";
+import { dialog } from "../ui";
+import { dropFromOrder, requestCreateWidget } from "../../lib/widgetOrder";
 import type { WidgetDef } from "../sidebar/registry";
 
 const PERMISSION_LABEL: Record<string, string> = {
@@ -15,7 +15,6 @@ const PERMISSION_LABEL: Record<string, string> = {
 };
 
 export function WidgetsManager() {
-  const pinnedIds = useWidgetPins();
   const [widgets, setWidgets] = useState<WidgetDef[]>([]);
   const [loading, setLoading] = useState(true);
 
@@ -34,7 +33,7 @@ export function WidgetsManager() {
     );
     if (!ok) return;
     try { await api.removeWidget(widget.id); } catch (e: any) { void dialog.alert(e?.message || "删除失败"); return; }
-    dropPin(widget.id);
+    dropFromOrder(widget.id);
     void reload();
   };
 
@@ -69,23 +68,17 @@ export function WidgetsManager() {
         ) : (
           <div className="mt-4 grid gap-3 sm:grid-cols-2">
             {widgets.map((widget) => {
-              const shown = pinnedIds.includes(widget.id);
               return (
                 <div
                   key={widget.id}
                   className="group flex flex-col p-3.5 rounded-lg border border-border bg-surface hover:border-accent/40 transition-colors"
                 >
-                  {/* 顶行:图标 + 名字 + 显示开关。开关是这张卡最主要的动作 —— 一眼看清开着还是关着 */}
+                  {/* 顶行:图标 + 名字。装了就在活动栏上,没有显示开关 */}
                   <div className="flex items-center gap-3">
                     <span className="shrink-0 w-9 h-9 rounded-md bg-bg-panel flex items-center justify-center text-[19px] leading-none">
                       {widget.icon}
                     </span>
                     <span className="min-w-0 flex-1 truncate text-[14px] font-medium text-text">{widget.name}</span>
-                    <Switch
-                      on={shown}
-                      onChange={() => togglePin(widget.id)}
-                      label={shown ? `在侧边栏显示「${widget.name}」:开` : `在侧边栏显示「${widget.name}」:关`}
-                    />
                   </div>
 
                   {widget.description && (
