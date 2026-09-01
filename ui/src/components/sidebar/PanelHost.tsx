@@ -69,6 +69,52 @@ widget.json:
 
 写完告诉我组件名,以及在「组件」标签页里怎么打开它的显示开关。`;
 
+/** 「让 AI 造一个应用」的开工指令:自包含的契约速查表(见 AGENT 仓库 SPEC.md)。 */
+const buildAppPrompt = (desc: string) => `请为我造一个应用:${desc.trim()}
+
+应用 = 应用的家里的一个目录,**一个有自己 origin 的本地网站**。
+宿主把它跑起来、摆进「应用」面板、介绍给 AI:
+
+<应用的家>/apps/<id>/
+  manifest.json   声明:是什么、怎么跑、要什么
+  APP.md          文档:API 表 / 什么时候用 / 数据 —— 给模型读
+  icon.svg        可选
+  (实现)          随便什么语言、框架、构建方式,契约不管
+
+先用 bash 查出应用的家:它是默认工作区根下的 apps/ 目录(与 widgets/ 并列)。
+
+manifest.json:
+{ "id": "notes", "name": "便签", "version": "0.1.0",
+  "description": "一句话说清是什么、什么时候用 —— 这行会常驻 AI 的提示词",
+  "run": { "command": "node", "args": ["server.js"], "health": "/health", "mode": "on-demand" },
+  "permissions": ["ai.complete"] }     ← ai.complete / notify,不写就没有
+
+生命周期,这几条必须守:
+1. **监听 process.env.PORT,绑定 process.env.HOST**(别写死 127.0.0.1 ——
+   绑哪个地址是宿主决定的);
+2. **整站自己应答**:页面、静态资源、API 全从这个端口出,GUI 在 / 上;
+3. **health 是三态的**:2xx = 就绪;其它 HTTP 应答(如 503)= 活着但还在初始化,
+   宿主会继续等;连不上 = 没起来。启动慢就先答 503,起好了再答 200;
+4. 数据写 process.env.APP_DATA_DIR(宿主已建好),别写进 app 目录;
+5. on-demand 的应用闲置会被回收。**浏览器直连你的 origin,那些流量宿主看不见** ——
+   有长任务就在 health 里应答 {"busy": true},或者把状态落盘、随时可恢复;
+6. run.args 原样传给进程,不经 shell、不做变量展开 —— 要用 PORT 就在程序里读环境变量。
+
+宿主能力(要用才声明,带 Authorization: Bearer \${process.env.APP_TOKEN}):
+  POST \${process.env.HOST_URL}/host/ai/complete   { prompt, instructions? } → { text }
+  POST \${process.env.HOST_URL}/host/notify        { text, kind?: "toast"|"badge" }
+文件、网络、进程你本来就有,不需要宿主转手。
+
+**人机协同是重点:状态只有一份真相,在你的 server 侧。**
+人在界面上改、AI 调你的 API 改,改的是同一份状态;而且经 API 发生的变更
+必须反映到正在看的界面上(SSE / WebSocket / 轮询都行)——
+否则 AI 改了内容而用户在屏幕上看不见,协同就是背对背各改各的。
+
+最后写 APP.md:API 表(方法/路径/参数/返回,AI 照着 curl 你)、什么时候用、
+数据结构、以及不可逆的端点必须写明「此操作不可逆」。
+
+写完告诉我应用名,以及怎么在「应用」面板里打开它。`;
+
 export function PanelHost({
   selectedId,
   onSelect,
@@ -268,6 +314,24 @@ export function PanelHost({
     window.addEventListener("pointerup", onUp);
   };
 
+  // 让 AI 造一个应用:与造组件同一条路,只是给的契约不同
+  const createAppWithAI = async () => {
+    const desc = await dialog.prompt("", {
+      title: "让 AI 创建应用",
+      placeholder: "描述应用功能,例如:看板,任务可拖动改变状态",
+      confirmText: "开工",
+    });
+    if (!desc || !desc.trim()) return;
+    try {
+      const r = await api.createChat({ title: "", workdir: createParentId || undefined });
+      onSelect(r.node);
+      socket.send({ type: "send", chatId: r.node.id, prompt: buildAppPrompt(desc) });
+      switchTab("agents");
+    } catch (e: any) {
+      void dialog.alert(e?.message || "创建失败");
+    }
+  };
+
   // ── 右键菜单(组件图标):删除。加号不再是菜单 —— 点了就是创建 ──
   const [menu, setMenu] = useState<{ x: number; y: number; items: MenuItem[] } | null>(null);
   const onWidgetContext = (e: React.MouseEvent, widget: WidgetDef) => {
@@ -434,7 +498,7 @@ export function PanelHost({
         />
         {activePanelId === "sites" && <SitesPanel onOpenUrl={onOpenUrl} socket={socket} />}
         {activePanelId === "apps" && (
-          <AppsPanel socket={socket} onOpenApp={(app) => onOpenApp(app.id, app.name)} />
+          <AppsPanel socket={socket} onOpenApp={(app) => onOpenApp(app.id, app.name)} onCreate={createAppWithAI} />
         )}
         {activeWidget && <WidgetFrame key={activeWidget.id} widget={activeWidget} />}
 
