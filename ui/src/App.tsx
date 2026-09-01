@@ -395,6 +395,7 @@ export function App() {
         onOpenUrl={openWebTab}
         onOpenApp={openApp}
         onToggleNav={toggleNav}
+        onSetDesktopOpen={setDesktopNavOpen}
         onOpenSide={(n) => openNode(n, { groupId: "side" })}
         onOpenTerminal={openTerminal}
         onOpenGit={openGit}
