@@ -2,52 +2,40 @@ const post = (path, body) =>
   fetch(path, { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify(body) })
     .then((r) => r.json());
 
-const msgs = []; // { role: "user"|"ai", text }
 let busy = false;
 
-const bubble = (cls, content) => {
-  const el = document.createElement("div");
-  el.className = `msg ${cls}`;
-  el.textContent = content;
-  log.append(el);
-  log.scrollTop = log.scrollHeight;
-  return el;
-};
-
-const send = async () => {
+const ask = async () => {
   const q = text.value.trim();
   if (!q || busy) return;
-  if (!msgs.length) log.innerHTML = "";
-  text.value = ""; autosize();
-  msgs.push({ role: "user", text: q });
-  bubble("user", q);
-  clear.hidden = false;
-  busy = true;
-  const wait = bubble("wait", "");
-  wait.innerHTML = "<i>·</i><i>·</i><i>·</i>";
-  // 最近 8 轮拼进 prompt —— /_wb/ai 是无状态的,上下文由组件自己带
-  const transcript = msgs.slice(-16).map((m) => `${m.role === "user" ? "用户" : "助手"}:${m.text}`).join("\n");
+  busy = true; send.disabled = true;
+  anscard.hidden = false; copy.hidden = true;
+  ans.className = "ans waiting";
+  ans.innerHTML = "<i>·</i><i>·</i><i>·</i>";
   const r = await post("/_wb/ai", {
     summary: "快速问答:" + q.slice(0, 60),
-    system: "你在一个很窄的侧栏小组件里回答小问题。用中文,直接给答案,尽量三五句话说完;代码或命令用行内形式;不要开场白和总结。",
-    prompt: transcript,
+    system: "你在一个侧栏小组件里回答一次性的小问题。用中文,直接给答案,简短、准确;代码或命令用行内形式;不要开场白、不要追问。",
+    prompt: q,
   }).catch((e) => ({ ok: false, error: String(e) }));
-  wait.remove();
-  if (r.ok) { msgs.push({ role: "ai", text: r.text }); bubble("ai", r.text); }
-  else bubble("err", `出错了:${r.error}`);
-  busy = false;
-  text.focus();
+  if (r.ok) { ans.className = "ans"; ans.textContent = r.text; copy.hidden = false; }
+  else { ans.className = "ans err"; ans.textContent = `出错了:${r.error}`; }
+  busy = false; send.disabled = false;
+  clear.hidden = false;
 };
 
-form.onsubmit = (e) => { e.preventDefault(); send(); };
+form.onsubmit = (e) => { e.preventDefault(); ask(); };
 text.onkeydown = (e) => {
-  if (e.key === "Enter" && !e.shiftKey && !e.isComposing) { e.preventDefault(); send(); }
+  if (e.key === "Enter" && !e.shiftKey && !e.isComposing) { e.preventDefault(); ask(); }
 };
-const autosize = () => { text.style.height = "auto"; text.style.height = Math.min(text.scrollHeight, 120) + "px"; };
-text.oninput = autosize;
+
+copy.onclick = async () => {
+  await navigator.clipboard.writeText(ans.textContent);
+  copy.textContent = "已复制";
+  setTimeout(() => { copy.textContent = "复制"; }, 1200);
+};
 
 clear.onclick = () => {
-  msgs.length = 0;
-  log.innerHTML = '<div class="empty">例如:cron 的五个位置什么意思?</div>';
+  text.value = "";
+  anscard.hidden = true;
   clear.hidden = true;
+  text.focus();
 };

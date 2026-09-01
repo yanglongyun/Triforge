@@ -1,7 +1,7 @@
 {
   "name": "快速问答",
   "icon": "💬",
-  "description": "小面板里问小问题,直接得到简短回答,不开正式会话",
+  "description": "上面提问下面答,一问一答,不留会话",
   "permissions": [
     "ai"
   ],
