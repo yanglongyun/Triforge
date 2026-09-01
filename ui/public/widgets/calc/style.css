@@ -30,16 +30,16 @@ textarea { resize: none; }
 ::-webkit-scrollbar-track { background: transparent; }
 
 
-.wrap { height: 100vh; }
 .screen { padding: 12px 14px; text-align: right; display: flex; flex-direction: column; gap: 2px; }
 .expr { min-height: 18px; font-size: 12.5px; color: var(--text-dim); font-variant-numeric: tabular-nums;
   overflow-wrap: anywhere; }
 .display { font-size: 30px; font-weight: 700; letter-spacing: -.5px; font-variant-numeric: tabular-nums;
   overflow-wrap: anywhere; line-height: 1.2; }
 .display.err { color: var(--danger); font-size: 18px; }
-.pad { flex: 1; display: grid; grid-template-columns: repeat(4, 1fr); grid-auto-rows: 1fr; gap: 7px; }
+/* 按内容排,不撑满面板 —— 撑满会把按钮拉成大竖条 */
+.pad { display: grid; grid-template-columns: repeat(4, 1fr); grid-auto-rows: 46px; gap: 7px; }
 .pad button { border: 1px solid var(--border); border-radius: 10px; background: var(--bg-raised);
-  color: var(--text); font-size: 17px; cursor: pointer; min-height: 40px; transition: all .1s; }
+  color: var(--text); font-size: 17px; cursor: pointer; transition: all .1s; }
 .pad button:hover { background: var(--bg-hover); }
 .pad button:active { transform: scale(.96); }
 .pad .fn { color: var(--text-dim); }
