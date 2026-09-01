@@ -41,3 +41,11 @@ clear.onclick = () => {
   clear.hidden = true;
   text.focus();
 };
+
+// 答案里的链接开进工作台标签(/_wb/open),不去系统浏览器
+ans.onclick = (e) => {
+  const a = e.target.closest("a[href]");
+  if (!a) return;
+  e.preventDefault();
+  void post("/_wb/open", { url: a.getAttribute("href") });
+};

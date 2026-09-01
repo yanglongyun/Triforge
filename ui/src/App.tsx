@@ -7,7 +7,7 @@ import { QuickOpen, CommandPalette, type Command } from "./components/command";
 import { PanelHost } from "./components/sidebar";
 import { WorkspaceLayout, isSettingsTab, isNodeTab, useTabGroups, webTab, type TabActions, type WorkspaceGroupId } from "./components/workspace";
 import { looksLikeUrl, normalizeUrl } from "./lib/urls";
-import { BrowsingPrompts, DialogHost, ContextMenu, dialog, SystemNotices, ToastHost, type MenuItem } from "./components/ui";
+import { BrowsingPrompts, DialogHost, ContextMenu, dialog, showToast, SystemNotices, ToastHost, type MenuItem } from "./components/ui";
 import { FileText, Folder, FolderPlus, Bot, Globe, LayoutGrid, Search, Settings as SettingsIcon, Terminal, X, PanelRight } from "lucide-react";
 
 export function App() {
@@ -102,6 +102,14 @@ export function App() {
     syncTitles();
     const offs = [
       socket.on("widget_open_url", (p: any) => { if (p?.url) openWebTab(String(p.url)); }),
+      socket.on("widget_toast", (p: any) => { if (p?.message) showToast(String(p.message)); }),
+      socket.on("widget_confirm", (p: any) => {
+        if (!p?.requestId || !p?.message) return;
+        void dialog.confirm(String(p.message)).then((ok) =>
+          api.widgetConfirmResult(String(p.requestId), ok).catch(() => {}));
+      }),
+      // 应用的 /host/notify:此前后端 emit 了没人接,通知消失于无形
+      socket.on("app_notify", (p: any) => { if (p?.text) showToast(`${p.appName || p.appId || "应用"}:${p.text}`); }),
       socket.on("chats_changed", syncTitles),
       socket.on(EVENTS.START, (p: any) => set(p.chatId, { status: "running" })),
       socket.on(EVENTS.DONE, (p: any) => set(p.chatId, { status: "idle" })),

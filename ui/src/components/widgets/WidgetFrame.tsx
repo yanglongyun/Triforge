@@ -32,6 +32,9 @@ export function WidgetFrame({ widget }: { widget: WidgetDef }) {
     <iframe
       src={src}
       title={widget.name}
+      // 组件是跨源 iframe(自己的端口 = 自己的 origin),不显式授权的话
+      // navigator.clipboard.writeText 会被权限策略拒 —— 复制按钮全部哑掉
+      allow="clipboard-write"
       className="flex-1 min-h-0 w-full border-0 bg-bg"
     />
   );

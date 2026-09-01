@@ -13,6 +13,16 @@ import { getWidget, widgetFile, listWidgets } from "./widgets.js";
 import { batchWidgetSql, execWidgetSql } from "./widgetdb.js";
 import { runWidgetAi } from "./widgetai.js";
 import { emit } from "../bus.js";
+
+// /_wb/confirm 的往返:emit 出去,等界面把用户的选择送回来(/api/widgets/confirm-result)
+const pendingConfirms = new Map<string, (ok: boolean) => void>();
+export const resolveWidgetConfirm = (requestId: string, ok: boolean) => {
+  const resolve = pendingConfirms.get(String(requestId));
+  if (!resolve) return false;
+  pendingConfirms.delete(String(requestId));
+  resolve(ok);
+  return true;
+};
 import { fetchForWidget } from "./widgetnet.js";
 
 type Site = { port: number; server: http.Server; lastHit: number };
@@ -91,6 +101,29 @@ const hostApi = async (id: string, rel: string, req: http.IncomingMessage, res: 
       const body = await readBody(req);
       const { results } = batchWidgetSql(id, Array.isArray(body?.statements) ? body.statements : []);
       return json(res, 200, { ok: true, results });
+    }
+    if (rel === "/toast" && method === "POST") {
+      // ui 类,免申请:右下角轻提示
+      const body = await readBody(req);
+      const message = String(body?.message || "").trim().slice(0, 200);
+      if (!message) return json(res, 400, { ok: false, error: "message 不能为空" });
+      const widget = getWidget(id);
+      emit({ type: "widget_toast", widgetId: id, message: `${widget?.name || id}:${message}` });
+      return json(res, 200, { ok: true });
+    }
+    if (rel === "/confirm" && method === "POST") {
+      // ui 类,免申请:全局确认框,阻塞到用户选择(2 分钟没人理 = 取消)
+      const body = await readBody(req);
+      const message = String(body?.message || "").trim().slice(0, 500);
+      if (!message) return json(res, 400, { ok: false, error: "message 不能为空" });
+      const widget = getWidget(id);
+      const requestId = crypto.randomUUID();
+      const ok = await new Promise<boolean>((resolve) => {
+        pendingConfirms.set(requestId, resolve);
+        emit({ type: "widget_confirm", widgetId: id, requestId, message: `「${widget?.name || id}」组件问:\n${message}` });
+        setTimeout(() => { if (pendingConfirms.delete(requestId)) resolve(false); }, 120_000).unref?.();
+      });
+      return json(res, 200, { ok: true, confirmed: ok });
     }
     if (rel === "/open" && method === "POST") {
       // ui 类能力,免申请:把一个链接开进工作台的网页标签(而不是被 Electron 丢去系统浏览器)

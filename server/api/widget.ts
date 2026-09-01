@@ -3,7 +3,7 @@
 import http from "http";
 import { getWidget, listWidgets, trashWidget } from "../service/widgets.js";
 import { closeWidgetDb } from "../service/widgetdb.js";
-import { closeWidgetSite, listWidgetSites, widgetSitePort } from "../service/widgetsite.js";
+import { closeWidgetSite, listWidgetSites, resolveWidgetConfirm, widgetSitePort } from "../service/widgetsite.js";
 import { emit } from "../bus.js";
 
 const json = (res: http.ServerResponse, code: number, body: unknown) => {
@@ -38,6 +38,14 @@ export const handleWidgetRoutes = async (
     const port = await widgetSitePort(id);
     if (!port) { json(res, 503, { ok: false, error: "组件站点起不来(端口分配失败)" }); return true; }
     json(res, 200, { ok: true, url: `http://127.0.0.1:${port}/` });
+    return true;
+  }
+
+  /** 组件 confirm 的回执:界面把用户的选择送回来。 */
+  if (url.pathname === "/api/widgets/confirm-result" && method === "POST") {
+    const body = await readBody(req);
+    const found = resolveWidgetConfirm(String(body?.requestId || ""), Boolean(body?.ok));
+    json(res, found ? 200 : 404, { ok: found });
     return true;
   }
 

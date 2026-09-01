@@ -6,7 +6,7 @@ const inline = (s) => esc(s)
   .replace(/`([^`]+)`/g, "<code>$1</code>")
   .replace(/\*\*([^*]+)\*\*/g, "<strong>$1</strong>")
   .replace(/(^|[^*])\*([^*]+)\*/g, "$1<em>$2</em>")
-  .replace(/\[([^\]]+)\]\((https?:[^)\s]+)\)/g, '<a href="$2" target="_blank" rel="noreferrer">$1</a>');
+  .replace(/\[([^\]]+)\]\((https?:[^)\s]+)\)/g, '<a href="$2">$1</a>');
 
 export function mdToHtml(md) {
   const lines = String(md || "").replace(/\r/g, "").split("\n");

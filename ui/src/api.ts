@@ -225,6 +225,9 @@ export const api = {
   /** 组件的地址:http://127.0.0.1:<组件专属端口>/ —— 真 origin,不是路径前缀。 */
   widgetUrl: (id: string) =>
     request<{ url: string }>(`/api/widgets/url?id=${encodeURIComponent(id)}`).then((r) => r.url),
+  /** 组件 confirm 的回执。 */
+  widgetConfirmResult: (requestId: string, ok: boolean) =>
+    request<{ ok: boolean }>("/api/widgets/confirm-result", { method: "POST", ...jsonBody({ requestId, ok }) }),
   /** 卸载 = 挪进回收站(保留 30 天)。 */
   removeWidget: (id: string) =>
     request<{ ok: boolean; trashed: string }>("/api/widgets/remove", { method: "POST", ...jsonBody({ id }) }),
