@@ -20,6 +20,7 @@ import {
   gitCommit,
   gitDiff,
   gitDiscard,
+  gitFilePair,
   gitInit,
   gitRemoteAction,
   gitStage,
