@@ -1,6 +1,6 @@
 {
   "name": "workbench",
-  "version": "1.1.0",
+  "version": "1.2.0",
   "private": true,
   "type": "module",
   "description": "Workbench — 对话即智能体,树形组织的本地多智能体工作台",
