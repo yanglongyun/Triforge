@@ -5,7 +5,7 @@ import { api, type GitRepositoryStatus, type Node } from "./api";
 import { EVENTS } from "../../server/shared/events";
 import { QuickOpen, CommandPalette, type Command } from "./components/command";
 import { PanelHost } from "./components/sidebar";
-import { WorkspaceLayout, isSettingsTab, isNodeTab, useTabGroups, webTab, type TabActions, type WorkspaceGroupId } from "./components/workspace";
+import { WorkspaceLayout, isAppTab, isSettingsTab, isNodeTab, useTabGroups, webTab, type TabActions, type WorkspaceGroupId } from "./components/workspace";
 import { looksLikeUrl, normalizeUrl } from "./lib/urls";
 import { BrowsingPrompts, DialogHost, ContextMenu, dialog, showToast, SystemNotices, ToastHost, type MenuItem } from "./components/ui";
 import { FileText, Folder, FolderPlus, Bot, Globe, LayoutGrid, Search, Settings as SettingsIcon, Terminal, X, PanelRight } from "lucide-react";
@@ -109,6 +109,15 @@ export function App() {
           api.widgetConfirmResult(String(p.requestId), ok).catch(() => {}));
       }),
       // 应用的 /host/notify:此前后端 emit 了没人接,通知消失于无形
+      // 用户按了「停止」:那张应用标签留着也是个死壳,直接关掉(闲置回收不关)
+      socket.on("app_status", (p: any) => {
+        if (p?.status !== "stopped" || p?.reason !== "manual") return;
+        for (const group of tabGroups.allGroups) {
+          for (const tab of group.tabs) {
+            if (isAppTab(tab) && tab.appId === String(p.appId)) tabGroups.closeTab(group.id, tab.id);
+          }
+        }
+      }),
       socket.on("app_notify", (p: any) => { if (p?.text) showToast(`${p.appName || p.appId || "应用"}:${p.text}`); }),
       socket.on("chats_changed", syncTitles),
       socket.on(EVENTS.START, (p: any) => set(p.chatId, { status: "running" })),

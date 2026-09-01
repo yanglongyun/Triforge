@@ -79,10 +79,11 @@ const recordFor = (id: string): Record_ => {
   return record;
 };
 
-const setStatus = (record: Record_, status: Status, error = "") => {
+const setStatus = (record: Record_, status: Status, error = "", reason = "") => {
   record.status = status;
   record.error = error;
-  emit({ type: "app_status", appId: record.id, status, error, port: record.port });
+  // reason:"manual" = 用户按了停止(界面据此关掉那张标签);"idle" = 闲置回收(标签留着)
+  emit({ type: "app_status", appId: record.id, status, error, port: record.port, reason });
 };
 
 const log = (record: Record_, stream: LogLine["stream"], chunk: unknown) => {
@@ -220,14 +221,14 @@ const onExit = async (app: AppDef, record: Record_, code: number | null, signal:
   await record.starting.catch(() => { /* launch 里已记状态 */ });
 };
 
-export const stopApp = async (id: string) => {
+export const stopApp = async (id: string, reason: "manual" | "idle" = "manual") => {
   const record = records.get(id);
-  if (!record?.proc) { if (record) setStatus(record, "stopped"); return false; }
+  if (!record?.proc) { if (record) setStatus(record, "stopped", "", reason); return false; }
   record.intentional = true;
   if (record.kind === "static") {
     (record.proc as http.Server).close();
     record.proc = null;
-    setStatus(record, "stopped");
+    setStatus(record, "stopped", "", reason);
     return true;
   }
   const child = record.proc as ChildProcess;
@@ -235,7 +236,7 @@ export const stopApp = async (id: string) => {
   const deadline = Date.now() + KILL_GRACE_MS;
   while (record.proc && Date.now() < deadline) await sleep(100);
   if (record.proc) child.kill("SIGKILL");
-  setStatus(record, "stopped");
+  setStatus(record, "stopped", "", reason);
   return true;
 };
 
@@ -255,7 +256,7 @@ export const ensureApp = async (id: string): Promise<Record_> => {
   return record.starting;
 };
 
-export const restartApp = async (id: string) => { await stopApp(id); return ensureApp(id); };
+export const restartApp = async (id: string) => { await stopApp(id, "idle"); return ensureApp(id); };
 export const touchApp = (id: string) => { const r = records.get(id); if (r) r.lastUsed = Date.now(); };
 export const appLogs = (id: string) => records.get(id)?.logs || [];
 
@@ -294,7 +295,7 @@ const recycle = async (record: Record_, app: AppDef) => {
       if (body?.busy === true) { record.lastUsed = Date.now(); return; }
     }
   } catch { /* 连 health 都不应答了,回收没商量 */ }
-  await stopApp(record.id);
+  await stopApp(record.id, "idle");
 };
 
 // 空闲回收:只回收 on-demand 的进程。always 与静态服务不回收

@@ -13,11 +13,13 @@ type Socket = { send: (m: any) => void; on: (t: string, fn: (p: any) => void) =>
 export function AppPanel({ tab, socket }: { tab: AppTab; socket: Socket }) {
   const [origin, setOrigin] = useState<string | null>(null);
   const [error, setError] = useState<string>("");
+  const [stopped, setStopped] = useState(false);
   // 重启后要换掉 iframe:同一个 src 不会自己重载,而端口很可能已经变了
   const [nonce, setNonce] = useState(0);
 
   const resolve = useCallback(() => {
     setError("");
+    setStopped(false);
     setOrigin(null);
     api.appAddress(tab.appId)
       .then((url) => { setOrigin(url); setNonce((n) => n + 1); })
@@ -32,6 +34,7 @@ export function AppPanel({ tab, socket }: { tab: AppTab; socket: Socket }) {
     if (p.status === "stopped" || p.status === "failed") {
       setOrigin(null);
       setError(p.status === "failed" ? String(p.error || "应用启动失败") : "");
+      setStopped(p.status === "stopped");
     }
   }), [socket, tab.appId]);
 
@@ -46,6 +49,22 @@ export function AppPanel({ tab, socket }: { tab: AppTab; socket: Socket }) {
           className="mt-1 inline-flex items-center gap-1.5 px-3 py-1.5 rounded-md bg-accent text-white text-[13px] hover:opacity-90 transition-opacity"
         >
           <RotateCw size={13} /> 重试
+        </button>
+      </div>
+    );
+  }
+
+  // 闲置回收后停在这儿 —— 说实话,并给一个再起来的入口(手动停止的那张标签已经被关掉了)
+  if (stopped) {
+    return (
+      <div className="flex-1 min-h-0 flex flex-col items-center justify-center gap-3 bg-bg px-6 text-center">
+        <div className="text-[14px] text-text">{tab.title} 已停止</div>
+        <div className="text-[12px] text-text-faint">闲置太久被回收了,随时可以再起来。</div>
+        <button
+          onClick={resolve}
+          className="mt-1 inline-flex items-center gap-1.5 px-3 py-1.5 rounded-md bg-accent text-white text-[13px] hover:opacity-90 transition-opacity"
+        >
+          <RotateCw size={13} /> 启动
         </button>
       </div>
     );
