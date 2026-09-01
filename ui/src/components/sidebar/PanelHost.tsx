@@ -10,7 +10,7 @@ import { api, type GitRepositoryStatus, type Node } from "../../api";
 import { ContextMenu, dialog, type MenuItem } from "../ui";
 import { LayoutGrid, PanelLeft, Plus, Settings, Sparkles, X } from "lucide-react";
 import { beginGlobalDrag, endGlobalDrag } from "../../lib/drag";
-import { CREATE_WIDGET_EVENT, dropPin, togglePin as togglePinId, useWidgetPins } from "../../lib/widgetPins";
+import { CREATE_WIDGET_EVENT, dropPin, movePin, togglePin as togglePinId, useWidgetPins } from "../../lib/widgetPins";
 import { EVENTS } from "../../../../server/shared/events";
 import { NATIVE_PANELS, type WidgetDef } from "./registry";
 import { ChatRail } from "./panels/ChatRail";
@@ -125,6 +125,9 @@ export function PanelHost({
     .filter((w): w is WidgetDef => !!w);
 
   const [sideTab, setSideTab] = useState<string>(() => localStorage.getItem("workbench.sideTab") || "agents");
+  // 活动栏组件段的拖拽排序:dragId = 手里拿着谁;dropAt = 松手会插到谁前面(null = 段尾)
+  const [dragId, setDragId] = useState<string | null>(null);
+  const [dropAt, setDropAt] = useState<string | null | undefined>(undefined);
   const nativeIds = NATIVE_PANELS.map((p) => p.id as string);
   const activePanelId = nativeIds.includes(sideTab) || pinnedWidgets.some((w) => w.id === sideTab)
     ? sideTab : "agents";
@@ -339,17 +342,49 @@ export function PanelHost({
         </div>
         <div className="shrink-0 w-7 h-px bg-border my-1.5" />
         {/* 组件段:唯一允许滚动的一段 —— 组件再多,原生四件和底部加号/设置也永远钉住 */}
-        <div className="flex-1 min-h-0 w-full overflow-y-auto no-scrollbar flex flex-col items-center gap-0.5">
+        <div
+          className="flex-1 min-h-0 w-full overflow-y-auto no-scrollbar flex flex-col items-center gap-0.5"
+          onDragOver={(e) => { if (dragId) { e.preventDefault(); setDropAt(null); } }}
+          onDrop={(e) => { if (dragId) { e.preventDefault(); movePin(dragId, null); } }}
+        >
           {pinnedWidgets.map((w) => (
-            <RailButton
+            <div
               key={w.id}
-              title={`${w.name}(组件,右键可从活动栏隐藏)`}
-              active={activePanelId === w.id && !settingsActive}
-              onClick={() => onRailClick(w.id)}
-              onContextMenu={(e) => onWidgetContext(e, w)}
+              draggable
+              onDragStart={(e) => {
+                e.dataTransfer.effectAllowed = "move";
+                setDragId(w.id);
+                beginGlobalDrag();
+              }}
+              onDragEnd={() => { setDragId(null); setDropAt(undefined); endGlobalDrag(); }}
+              onDragOver={(e) => {
+                if (!dragId || dragId === w.id) return;
+                e.preventDefault();
+                e.stopPropagation();
+                setDropAt(w.id);
+              }}
+              onDrop={(e) => {
+                if (!dragId || dragId === w.id) return;
+                e.preventDefault();
+                e.stopPropagation();
+                movePin(dragId, w.id);
+              }}
+              className={[
+                "relative",
+                dragId === w.id ? "opacity-40" : "",
+                // 插入指示线:落点上方一条 accent 短线
+                dropAt === w.id ? "before:content-[''] before:absolute before:-top-[3px] before:left-1 before:right-1 before:h-[2px] before:rounded before:bg-accent" : "",
+              ].join(" ")}
             >
-              <span className="text-[16px] leading-none">{w.icon}</span>
-            </RailButton>
+              <RailButton
+                title={`${w.name}(组件,可拖动排序,右键可从活动栏隐藏)`}
+                active={activePanelId === w.id && !settingsActive}
+                onClick={() => onRailClick(w.id)}
+                onContextMenu={(e) => onWidgetContext(e, w)}
+              >
+                <span className="text-[16px] leading-none">{w.icon}</span>
+              </RailButton>
+            </div>
           ))}
         </div>
         <div className="shrink-0 w-full flex flex-col items-center gap-0.5 pt-1">

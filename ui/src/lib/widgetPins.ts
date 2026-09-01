@@ -29,6 +29,16 @@ export const togglePin = (id: string): string[] => {
   return next;
 };
 
+/** 拖拽排序:把 id 挪到 beforeId 之前(beforeId 为 null = 挪到最后)。 */
+export const movePin = (id: string, beforeId: string | null) => {
+  const current = readPins();
+  if (!current.includes(id) || id === beforeId) return;
+  const rest = current.filter((x) => x !== id);
+  const at = beforeId == null ? rest.length : rest.indexOf(beforeId);
+  rest.splice(at < 0 ? rest.length : at, 0, id);
+  writePins(rest);
+};
+
 /** 组件被删掉时清掉它的钉。 */
 export const dropPin = (id: string) => {
   const current = readPins();
