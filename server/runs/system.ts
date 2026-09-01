@@ -1,7 +1,7 @@
 // system prompt 拼装:身份 + 工作目录 + 该文件夹的约定与技能 + 工具规则。
 // 每次运行现拼,不落库 —— 目录、文档、技能都可能变。
 import path from "path";
-import { appsHome, listApps } from "../host/apps.js";
+import { appDataHome, appsHome, listApps } from "../host/apps.js";
 import { listRules } from "../repo/rules.js";
 import { injection } from "../permission/rules.js";
 import { agentContext, ensureRoot } from "../repo/tree.js";
@@ -34,6 +34,13 @@ ${lines.join("\n")}
 调用方式:先取址 \`curl 'http://127.0.0.1:${process.env.WORKBENCH_PORT || "<宿主端口>"}/api/apps/address?id=<id>'\`
 (顺手把没起的应用拉起,返回 { origin }),再对着 origin 调 APP.md 里写的接口。
 **地址每次现取,不要缓存端口。**
+
+**应用的数据由宿主指定位置**:每个 app 的数据目录是 \`${appDataHome()}/<id>\`,
+宿主启动它时以 \`APP_DATA_DIR\` 注入。所以:
+- 优先走 HTTP API —— 服务端已经拿着正确的数据目录,不会错;
+- 万一要用应用自带的 CLI,**必须自己把这个变量带上**:
+  \`APP_DATA_DIR='${appDataHome()}/<id>' node <app>/scripts/xxx.mjs …\`
+  不带就会写进 CLI 自己的默认目录 —— 你以为成了,用户在界面上什么都看不到。
 
 新建应用:在 ${appsHome()}/<id>/ 下按契约建目录,最小只要 manifest.json
 和一个监听 $PORT 的 server;写完自动出现在列表里。
