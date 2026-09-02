@@ -3,7 +3,7 @@ import type { GitRepositoryStatus, Node } from "../../../api";
 import { api } from "../../../api";
 import { NodeRow, InlineCreateRow, iconFor, colorFor, type TreeControls } from "./NodeRow";
 import { ContextMenu, dialog, type MenuItem } from "../../ui";
-import { Folder, FolderPlus, FolderOpen, FileText, FilePlus, Bot, Trash2, Pencil, X, Copy, PanelRight, Terminal, GitBranch, Scissors, ClipboardPaste, FoldVertical } from "lucide-react";
+import { Folder, FolderPlus, FolderOpen, FileText, Bot, Trash2, Pencil, Copy, PanelRight, Terminal, GitBranch, Scissors, ClipboardPaste, Plus } from "lucide-react";
 
 const REVEAL_LABEL = /Mac/i.test(navigator.platform) ? "在 Finder 中显示"
   : /Win/i.test(navigator.platform) ? "在资源管理器中显示" : "在文件管理器中显示";
@@ -283,32 +283,8 @@ export function FilesPanel({
     return () => { stale = true; };
   }, [refreshKey, active]);
 
-  // ── 文件名筛选(输入即筛,基于全量节点清单的扁平结果)──
-  const [filterQ, setFilterQ] = useState("");
-  const [allNodes, setAllNodes] = useState<Node[] | null>(null); // null = 还没取回来
-  useEffect(() => {
-    if (!filterQ.trim()) return;
-    let gone = false;
-    api.listAllNodes().then((r) => { if (!gone) setAllNodes(r.nodes || []); }).catch(() => { if (!gone) setAllNodes([]); });
-    return () => { gone = true; };
-  }, [!!filterQ.trim(), refreshKey]);
-  const FILTER_LIMIT = 100;
-  const filterHits = filterQ.trim() && allNodes
-    ? allNodes.filter((n) => n.title.toLowerCase().includes(filterQ.trim().toLowerCase()))
-    : [];
-  const filterMatches = filterHits.slice(0, FILTER_LIMIT);
-  const filterOverflow = filterHits.length - filterMatches.length;
 
   /** 结果行的路径列:相对所属工作区,而不是甩一整条绝对路径。 */
-  const relDir = (id: string) => {
-    const root = roots
-      .map((r) => r.id)
-      .filter((r) => id === r || id.startsWith(r + "/"))
-      .sort((a, b) => b.length - a.length)[0];
-    const rest = root ? id.slice(root.length + 1) : id;
-    const dir = rest.replace(/\/[^/]*$/, "");
-    return dir === rest ? "" : dir;
-  };
 
   // 每渲染刷新一次的「最新函数」出口,键盘 handler 通过它调用,不吃过期闭包
   const keyApiRef = useRef({ handleSelect: (_n: Node | null) => {}, startRename: (_n: Node) => {}, toggleExpand: (_id: string) => {}, setExpanded: (_id: string, _on: boolean) => {} });
@@ -465,7 +441,6 @@ export function FilesPanel({
     setDraftTitle("");
     if (parentId) setExpanded(parentId, true);
   };
-  const currentCreateParentId = () => createParentId || roots[0]?.id || null;
   const commitCreate = async () => {
     const title = draftTitle.trim();
     if (creatingUnder === null) return;
@@ -697,72 +672,17 @@ export function FilesPanel({
     <DndContext sensors={sensors} {...dndHandlers}>
       {/* 身体:未激活仅隐藏 —— 展开集/多选/键盘锚点等重状态跨面板切换保活 */}
       <div className={active ? "flex flex-col flex-1 min-h-0" : "hidden"}>
-        {/* 筛选 + 折叠全部 */}
-        <div className="shrink-0 flex items-center gap-1 px-2 py-1.5 border-b border-border">
-          <input
-            value={filterQ}
-            onChange={(e) => setFilterQ(e.target.value)}
-            onKeyDown={(e) => { if (e.key === "Escape") { setFilterQ(""); (e.target as HTMLInputElement).blur(); } }}
-            placeholder="筛选文件名…"
-            spellCheck={false}
-            className="flex-1 min-w-0 h-6 px-2 rounded bg-bg-inset text-[12px] text-text placeholder:text-text-faint outline-none focus:ring-1 ring-accent/40"
-          />
-          {filterQ && (
-            <button onClick={() => setFilterQ("")} title="清除筛选"
-              className="w-5 h-5 rounded flex items-center justify-center text-text-faint hover:text-text hover:bg-bg-hover">
-              <X size={12} />
-            </button>
-          )}
-          {/* 面板内部的创建入口(顶部 + 已让位给「添加面板」) */}
-          <button
-            onClick={() => startCreate(currentCreateParentId(), "file")}
-            title="新建文件"
-            className="w-5 h-5 rounded flex items-center justify-center text-text-faint hover:text-text hover:bg-bg-hover"
+        {/* 面板内部的入口:添加工作区(样式同对话面板的「新建对话」);一个都没有时由下面的空状态承担 */}
+        {roots.length > 0 && (
+          <div
+            onClick={openAddWorkspace}
+            className="flex items-center gap-1.5 py-[4px] pl-3 pr-2 cursor-pointer select-none text-text hover:bg-bg-hover"
           >
-            <FilePlus size={13} />
-          </button>
-          <button
-            onClick={() => startCreate(currentCreateParentId(), "space")}
-            title="新建文件夹"
-            className="w-5 h-5 rounded flex items-center justify-center text-text-faint hover:text-text hover:bg-bg-hover"
-          >
-            <FolderPlus size={13} />
-          </button>
-          <button
-            onClick={() => setExpandedIds(new Set())}
-            title="折叠全部"
-            className="w-5 h-5 rounded flex items-center justify-center text-text-faint hover:text-text hover:bg-bg-hover"
-          >
-            <FoldVertical size={13} />
-          </button>
-        </div>
-
-        {filterQ.trim() ? (
-          <div className="flex-1 overflow-y-auto py-1">
-            {filterMatches.map((node) => (
-              <div
-                key={node.id}
-                onClick={() => {
-                  if (node.kind === "space") {
-                    setFilterQ("");
-                    window.dispatchEvent(new CustomEvent("worktop:reveal-path", { detail: { path: node.id } }));
-                  } else handleSelect(node);
-                }}
-                className="flex items-center gap-1.5 py-[3px] px-2 cursor-pointer select-none hover:bg-bg-hover"
-                title={node.id}
-              >
-                {(() => { const Icon = iconFor(node.kind, node.title); return <Icon size={14} className={`shrink-0 ${colorFor(node.kind)}`} />; })()}
-                <span className="shrink-0 truncate max-w-[55%] text-[13.5px] text-text">{node.title}</span>
-                <span className="flex-1 min-w-0 truncate text-[11px] text-text-faint font-mono">{relDir(node.id)}</span>
-              </div>
-            ))}
-            {!allNodes && <div className="px-3 py-6 text-center text-[12.5px] text-text-faint">读取中…</div>}
-            {allNodes && !filterMatches.length && <div className="px-3 py-6 text-center text-[12.5px] text-text-faint">没有匹配的文件</div>}
-            {filterOverflow > 0 && (
-              <div className="px-3 py-2 text-center text-[11.5px] text-text-faint">还有 {filterOverflow} 个没列出,再输入几个字缩小范围</div>
-            )}
+            <Plus size={14} className="shrink-0" />
+            <span className="text-[13.5px]">添加工作区</span>
           </div>
-        ) : (
+        )}
+
         <RootDroppable onContextMenu={onBlankContext} onNativeDragOver={onExternalDragOver} onNativeDrop={onExternalDrop}>
           {creatingUnder === "" && <InlineCreateRow depth={0} controls={controls} />}
 
@@ -793,7 +713,6 @@ export function FilesPanel({
           ))}
 
         </RootDroppable>
-        )}
       </div>
 
       {/* 菜单与对话框放隐藏容器之外:面板未激活时(如命令面板发起「添加工作区」)也可见 */}
