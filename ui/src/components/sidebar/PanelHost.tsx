@@ -18,6 +18,7 @@ import { FilesPanel } from "./panels/FilesPanel";
 import { SitesPanel } from "./panels/SitesPanel";
 import { AppsPanel } from "./panels/AppsPanel";
 import { TasksPanel } from "./panels/TasksPanel";
+import { SkillsPanel } from "./panels/SkillsPanel";
 import { WidgetFrame } from "../widgets/WidgetFrame";
 
 type Socket = { send: (m: any) => void; on: (t: string, fn: (p: any) => void) => () => void };
@@ -80,6 +81,7 @@ export function PanelHost({
   onOpenUrl,
   onOpenApp,
   onOpenTask,
+  onOpenSkill,
   onToggleNav,
   onSetDesktopOpen,
   onOpenSide,
@@ -102,6 +104,7 @@ export function PanelHost({
   onOpenApp: (appId: string, name: string) => void;
   /** 打开一条任务的详情标签。 */
   onOpenTask: (taskId: string, title: string) => void;
+  onOpenSkill: (skillId: string, title: string) => void;
   onToggleNav?: () => void;
   /** 直接设定内容面板开合(点当前图标收起、点别的图标展开都要一个确定态,toggle 不够)。 */
   onSetDesktopOpen?: (open: boolean) => void;
@@ -465,6 +468,7 @@ export function PanelHost({
           onChanged={onChanged}
         />
         {activePanelId === "sites" && <SitesPanel onOpenUrl={onOpenUrl} socket={socket} />}
+        {activePanelId === "skills" && <SkillsPanel onOpenSkill={onOpenSkill} />}
         {activePanelId === "apps" && (
           <AppsPanel socket={socket} onOpenApp={(app) => onOpenApp(app.id, app.name)} onCreate={createAppWithAI} />
         )}

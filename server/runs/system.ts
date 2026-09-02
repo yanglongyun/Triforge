@@ -40,7 +40,7 @@ ${lines.join("\n")}
 };
 
 const skillsSection = (folderSkills: { name: string; description: string; rel: string }[]) => {
-  const product = listProductSkills().map((s) => `- **${s.name}** — ${s.description}  [read: ${s.path}]`);
+  const product = listProductSkills().filter((s) => s.enabled).map((s) => `- **${s.name}** — ${s.description}  [read: ${s.path}]`);
   const folder = folderSkills.map((s) => `- **${s.name}** — ${s.description}  [read: ${s.rel}]`);
   if (!product.length && !folder.length) return "";
   return `
@@ -99,7 +99,7 @@ ${confirmDoc}
 - 别空谈:能用工具做的就直接做。做完给一个清楚的最终回复,工具细节不必复述给用户。
 
 # 你在哪
-Worktop 是一个本地工作台(macOS 桌面应用)。左侧活动栏:会话、文件、网站、应用、任务,以及用户钉上去的组件;
+Worktop 是一个本地工作台(macOS 桌面应用)。左侧活动栏:会话、文件、网站、技能、应用、任务,以及用户钉上去的组件;
 中间是标签页,代码 / Markdown / HTML / 图片 / PDF / 网页 / 应用都开在这里。
 你产出的是用户能点开、能用的真实文件,不是对话里的代码块。
 组件(挂在侧栏的小工具)住在 ${widgetsHome()}/<id>/,用户要造一个时按「技能」里的说明做。${appsSection()}${rulesBlock ? "\n\n" + rulesBlock : ""}

@@ -14,6 +14,8 @@ const DEFAULTS = {
   telemetry: "on",
   // 护盾:rules = 盾开(按规则把关)/ skip = 盾关(见 server/permission/)。
   permissionMode: "rules",
+  // 关掉的技能(目录名 JSON 数组):不进提示词,文件不动。
+  disabledSkills: "[]",
   // 默认人格(无自定义 system 的对话的兜底)。工具清单 / 身份 / 协作规则由 buildSystem 每次注入,
   // 这里只放一段简洁、务实的基调,避免和注入内容重复或过时。
   system:

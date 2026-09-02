@@ -47,6 +47,15 @@ export type WidgetsTab = {
 };
 
 export const TASK_TAB_PREFIX = "__task__";
+export const SKILL_TAB_PREFIX = "__skill__";
+
+/** 技能详情:渲染 ~/.worktop/skills/<id>/SKILL.md。 */
+export type SkillTab = {
+  id: string;
+  kind: "skill";
+  title: string;
+  skillId: string;
+};
 export const APP_TAB_PREFIX = "__app__";
 
 /** 应用标签:一个 iframe 指向 app 自己的 origin(每个 app 一个真端口)。
@@ -95,7 +104,7 @@ export type TaskTab = {
   taskId: string;
 };
 
-export type WorkspaceTab = Node | TerminalTab | GitTab | GitDiffTab | SettingsTab | WidgetsTab | AppTab | WebTab | LauncherTab | TaskTab;
+export type WorkspaceTab = Node | TerminalTab | GitTab | GitDiffTab | SettingsTab | WidgetsTab | AppTab | WebTab | LauncherTab | TaskTab | SkillTab;
 export type WorkspaceGroupId = "main" | "side";
 
 export type WorkspaceGroupState = {
@@ -151,6 +160,13 @@ export const settingsTab = (): SettingsTab => ({
   title: "设置",
 });
 
+export const skillTab = (skillId: string, title: string): SkillTab => ({
+  id: `${SKILL_TAB_PREFIX}:${skillId}`,
+  kind: "skill",
+  title,
+  skillId,
+});
+
 export const taskTab = (taskId: string, title: string): TaskTab => ({
   id: `${TASK_TAB_PREFIX}:${taskId}`,
   kind: "task",
@@ -204,6 +220,9 @@ export const isWidgetsTab = (tab: WorkspaceTab | null | undefined): tab is Widge
 
 export const isTaskTab = (tab: WorkspaceTab | null | undefined): tab is TaskTab =>
   tab?.kind === "task";
+
+export const isSkillTab = (tab: WorkspaceTab | null | undefined): tab is SkillTab =>
+  tab?.kind === "skill";
 
 export const isAppTab = (tab: WorkspaceTab | null | undefined): tab is AppTab =>
   tab?.kind === "app";

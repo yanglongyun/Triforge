@@ -9,6 +9,7 @@ import * as sites from "../service/sites.js";
 import * as history from "../service/history.js";
 import { handleWidgetRoutes } from "./widget.js";
 import { handleAppRoutes } from "./app.js";
+import { handleSkillRoutes } from "./skill.js";
 import { handlePermissionRoutes } from "./permission.js";
 import { handleHostRoutes } from "../host/appBridge.js";
 import { listRows } from "../repo/messages.js";
@@ -80,6 +81,7 @@ const handleApi = async (req, res) => {
 
     // 应用:界面用的路由面 + app 自己调的宿主能力面(/host/*,token 即身份)
     if (await handleAppRoutes(req, res, url, String(method || "GET").toUpperCase())) return true;
+    if (await handleSkillRoutes(req, res, url, String(method || "GET").toUpperCase())) return true;
     if (await handleHostRoutes(req, res, path)) return true;
 
     // 权限:规则 CRUD + 审批表态

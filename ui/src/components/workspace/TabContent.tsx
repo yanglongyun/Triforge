@@ -3,8 +3,8 @@ import { ChatPanel } from "../chat";
 import { FilePanel } from "../files";
 import { SettingsPanel } from "../settings";
 import { WidgetsManager } from "../widgets/WidgetsManager";
-import { AppPanel, EmptyPanel, GitDiffPanel, GitView, LauncherPanel, TaskPanel } from "./panels";
-import { isAppTab, isGitDiffTab, isGitTab, isLauncherTab, isSettingsTab, isTaskTab, isWidgetsTab, isNodeTab, type WorkspaceGroupId, type WorkspaceTab } from "./types";
+import { AppPanel, EmptyPanel, GitDiffPanel, GitView, LauncherPanel, SkillPanel, TaskPanel } from "./panels";
+import { isAppTab, isGitDiffTab, isGitTab, isLauncherTab, isSettingsTab, isSkillTab, isTaskTab, isWidgetsTab, isNodeTab, type WorkspaceGroupId, type WorkspaceTab } from "./types";
 
 type Socket = {
   send: (m: any) => void;
@@ -80,6 +80,10 @@ export function TabContent({
 
   if (isTaskTab(tab)) {
     return <TaskPanel tab={tab} socket={socket} />;
+  }
+
+  if (isSkillTab(tab)) {
+    return <SkillPanel tab={tab} />;
   }
 
   if (isWidgetsTab(tab)) {

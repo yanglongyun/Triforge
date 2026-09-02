@@ -72,6 +72,9 @@ export type Site = {
 /** 浏览记录:一个 url 一行,重复访问只抬时间与次数。 */
 export type HistoryEntry = { url: string; title: string; visits: number; visited_at: string };
 
+/** 技能:~/.worktop/skills/<id>/SKILL.md;enabled=false 不进提示词。 */
+export type SkillInfo = { id: string; name: string; description: string; path: string; enabled: boolean };
+
 /** 组件:目录即安装,manifest = 权限清单(契约见出厂技能 skills/widget)。 */
 export type WidgetInfo = {
   id: string;
@@ -248,6 +251,12 @@ export const api = {
   /** 卸载 = 挪进回收站(保留 30 天)。 */
   removeWidget: (id: string) =>
     request<{ ok: boolean; trashed: string }>("/api/widgets/remove", { method: "POST", ...jsonBody({ id }) }),
+
+  // ── 技能(产品家目录 ~/.worktop/skills,出厂的 + 用户放的)──
+  listSkills: () => request<{ skills: SkillInfo[] }>("/api/skills").then((r) => r.skills || []),
+  toggleSkill: (id: string, enabled: boolean) =>
+    request<{ ok: boolean }>("/api/skills/toggle", { method: "POST", ...jsonBody({ id, enabled }) }),
+  skillDoc: (id: string) => request<{ id: string; content: string }>(`/api/skills/doc?id=${encodeURIComponent(id)}`),
 
   // ── 应用(apps:跨宿主的公共契约,见仓库根 APP.md)──
   listApps: () => request<{ apps: AppInfo[] }>("/api/apps").then((r) => r.apps || []),

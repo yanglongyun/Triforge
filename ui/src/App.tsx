@@ -431,6 +431,7 @@ export function App() {
         onOpenUrl={openWebTab}
         onOpenApp={openApp}
         onOpenTask={(taskId, title) => tabGroups.openTask(taskId, title)}
+        onOpenSkill={(skillId, title) => tabGroups.openSkill(skillId, title)}
         onToggleNav={toggleNav}
         onSetDesktopOpen={setDesktopNavOpen}
         onOpenSide={(n) => openNode(n, { groupId: "side" })}
