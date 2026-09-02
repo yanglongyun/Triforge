@@ -25,14 +25,14 @@ let child = null;
 let quitting = false;
 let hostContents = null; // 宿主界面那层 webContents,导航护栏只认它
 
-/** 开发态:仓库就是家。打包态:代码在只读资源区,数据在 userData。 */
+/** 开发态:代码在仓库,数据由服务端自己落到 Application Support/Worktop Dev。打包态:代码在只读资源区,数据在 userData。 */
 const layout = () => {
   if (!app.isPackaged) {
     return {
       nodeBin: "node",
       serverEntry: join(ROOT, "dist/server.mjs"),
       cwd: ROOT,
-      env: { WORKTOP_HOME: ROOT },
+      env: {},
     };
   }
   const res = process.resourcesPath;

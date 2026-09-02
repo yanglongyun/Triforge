@@ -53,7 +53,7 @@
         "to": "core/ui"
       },
       {
-        "from": "build/node-runtime",
+        "from": "dist/node-runtime",
         "to": "core/bin"
       },
       {

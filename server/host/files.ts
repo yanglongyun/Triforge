@@ -1,3 +1,4 @@
+import { DATA_HOME } from "../home.js";
 // 附件:图片与文件上传的整套数据链路(与 AGENT 0.0.4 同源,按 worktop 结构落位)。
 //
 //   - 上传内容按 SHA-256 存入 $WORKTOP_HOME/files;消息与 SQLite 只存元数据
@@ -10,7 +11,6 @@ import { createHash } from "crypto";
 import { mkdirSync, readFileSync, statSync, writeFileSync } from "fs";
 import type { ServerResponse } from "http";
 import { basename, dirname, extname, join } from "path";
-import { fileURLToPath } from "url";
 
 /** 附件元数据:落库与随消息传的就是这一份,不含字节。 */
 export type Attachment = {
@@ -22,9 +22,7 @@ export type Attachment = {
   url: string;
 };
 
-const __dirname = dirname(fileURLToPath(import.meta.url));
-const HOME = process.env.WORKTOP_HOME || join(__dirname, "..");
-const ROOT = join(HOME, "files");
+const ROOT = join(DATA_HOME, "files");
 
 export const MAX_BYTES = 8 * 1024 * 1024;
 export const MAX_PER_MESSAGE = 10;

@@ -1,0 +1,19 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<plist version="1.0">
+<dict>
+  <!-- Electron/V8 需要 JIT 与可写可执行内存(Hardened Runtime 下必须显式豁免) -->
+  <key>com.apple.security.cs.allow-jit</key>
+  <true/>
+  <key>com.apple.security.cs.allow-unsigned-executable-memory</key>
+  <true/>
+  <key>com.apple.security.cs.disable-library-validation</key>
+  <true/>
+  <!-- 随包的系统 node(sidecar)是被 fork/exec 的可执行:允许加载环境变量注入 -->
+  <key>com.apple.security.cs.allow-dyld-environment-variables</key>
+  <true/>
+  <!-- 开发工具属性:用户在工作区里跑命令、编译、访问真实文件树 -->
+  <key>com.apple.security.inherit</key>
+  <true/>
+</dict>
+</plist>

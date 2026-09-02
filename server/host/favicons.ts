@@ -1,3 +1,4 @@
+import { DATA_HOME } from "../home.js";
 // 网站图标:抓取 + 磁盘缓存 + 回源代理。只直连站点自身,不依赖任何第三方图标服务。
 //   1) 先试 <origin>/favicon.ico;2) 不行就取页面 HTML 里的 <link rel*="icon">。
 // 命中落盘 $WORKTOP_HOME/favicons/<host>.<ext>,未命中记内存负缓存 1 小时。
@@ -5,11 +6,8 @@
 import fs from "fs";
 import path from "path";
 import type { ServerResponse } from "http";
-import { fileURLToPath } from "url";
 
-const __dirname = path.dirname(fileURLToPath(import.meta.url));
-const HOME = process.env.WORKTOP_HOME || path.join(__dirname, "..");
-const DIR = path.join(HOME, "favicons");
+const DIR = path.join(DATA_HOME, "favicons");
 
 const EXTS = ["png", "ico", "svg", "jpg", "gif", "webp"];
 const TYPE_BY_EXT: Record<string, string> = {

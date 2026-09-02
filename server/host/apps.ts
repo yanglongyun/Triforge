@@ -1,3 +1,4 @@
+import { REPO_ROOT } from "../home.js";
 // 应用注册表:app = 应用的家里的一个目录(契约见仓库根 APP.md)。
 //
 //   <家>/apps/<id>/
@@ -52,7 +53,7 @@ export const appsHome = () => path.join(productHome(), "apps");
 
 /** 随包的出厂应用(和预装组件同一套路:UI_DIST 旁边)。 */
 const presetDir = () =>
-  path.join(process.env.WORKTOP_UI_DIST || path.join(process.env.WORKTOP_HOME || process.cwd(), "ui/dist"), "apps");
+  path.join(process.env.WORKTOP_UI_DIST || path.join(REPO_ROOT, "ui/dist"), "apps");
 
 /** 出厂应用落地:复制进应用的家,之后就是用户自己的 app(可改可删)。
  *  目录已存在就整个跳过 —— 绝不覆盖用户改过的代码,更不覆盖它的数据。 */

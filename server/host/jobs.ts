@@ -1,3 +1,4 @@
+import { DATA_HOME } from "../home.js";
 // 后台任务注册表:`bash` 工具 background:true 时,进程交给这里托管 ——
 // 立即返回 id/pid/日志路径,之后可查状态、读日志、停止。
 //
@@ -11,7 +12,6 @@ import { spawn, type ChildProcess } from "child_process";
 import { randomUUID } from "crypto";
 import { createWriteStream, existsSync, mkdirSync } from "fs";
 import { dirname, join } from "path";
-import { fileURLToPath } from "url";
 import type { WriteStream } from "fs";
 import { emit } from "../bus.js";
 
@@ -41,9 +41,7 @@ const DEFAULT_TAIL = 40_000;
 
 // 日志同时落文件:bash background 启动后,模型用 read/tail 日志文件看输出,
 // 不需要专门的「读进程日志」工具(6 工具体系的闭环)。
-const __dirname = dirname(fileURLToPath(import.meta.url));
-const HOME = process.env.WORKTOP_HOME || join(__dirname, "..");
-const LOG_DIR = join(HOME, "logs", "processes");
+const LOG_DIR = join(DATA_HOME, "logs", "processes");
 
 const SHELL_CANDIDATES = [process.env.SHELL, "/bin/zsh", "/bin/bash", "/bin/sh"];
 const resolveShell = () => {

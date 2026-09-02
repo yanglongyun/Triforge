@@ -1,14 +1,9 @@
+import { REPO_ROOT } from "./home.js";
 import fs from "fs";
 import path from "path";
-import { fileURLToPath } from "url";
 
-const __dirname = path.dirname(fileURLToPath(import.meta.url));
-// WORKTOP_UI_DIST:打包 app 里前端在只读资源区,与数据根(WORKTOP_HOME)分离;
-// 开发态两者同在仓库根,不传即可。
-const DIST = path.resolve(
-  process.env.WORKTOP_UI_DIST
-  || path.join(process.env.WORKTOP_HOME || path.join(__dirname, ".."), "ui/dist"),
-);
+// WORKTOP_UI_DIST:打包 app 里前端在只读资源区;开发态就在仓库根的 ui/dist。
+const DIST = path.resolve(process.env.WORKTOP_UI_DIST || path.join(REPO_ROOT, "ui/dist"));
 
 const MIME: Record<string, string> = {
   ".html": "text/html; charset=utf-8",

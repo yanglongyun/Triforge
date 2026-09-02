@@ -5,7 +5,6 @@ node_modules/
 # ─── 构建产物 ───
 ui/dist/
 dist/
-build/
 release/
 *.tsbuildinfo
 
@@ -15,7 +14,6 @@ release/
 *.db-*
 *.sqlite
 *.sqlite-*
-database/
 data/
 
 # ─── 运行时 ───
@@ -53,7 +51,6 @@ coverage/
 *.bak
 
 # agent 工作区(app 托管的真实目录)
-workspaces/
 .claude/launch.json
 
 # esbuild 产物(build:updater)

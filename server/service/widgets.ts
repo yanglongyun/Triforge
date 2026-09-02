@@ -1,3 +1,4 @@
+import { REPO_ROOT } from "../home.js";
 // 组件注册表:组件 = 组件的家里的一个目录(见 WIDGET.md)。
 //
 //   <家>/widgets/<id>/
@@ -13,9 +14,7 @@ import path from "path";
 import { fileURLToPath } from "url";
 import { productHome } from "../repo/tree.js";
 
-const __dirname = path.dirname(fileURLToPath(import.meta.url));
-const HOME = process.env.WORKTOP_HOME || path.join(__dirname, "../..");
-const UI_DIST = process.env.WORKTOP_UI_DIST || path.join(HOME, "ui/dist");
+const UI_DIST = process.env.WORKTOP_UI_DIST || path.join(REPO_ROOT, "ui/dist");
 
 const WIDGET_ID = /^[a-z0-9][a-z0-9-]{0,63}$/;
 export const PERMISSIONS = ["sql", "fs", "ai", "net"] as const; // ui 免申请

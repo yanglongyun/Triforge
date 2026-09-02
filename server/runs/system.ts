@@ -1,3 +1,4 @@
+import { REPO_ROOT } from "../home.js";
 // system prompt 拼装:身份 + 工作目录 + 该文件夹的约定与技能 + 工具规则。
 // 每次运行现拼,不落库 —— 目录、文档、技能都可能变。
 import path from "path";
@@ -51,8 +52,7 @@ ${lines.join("\n")}
 
 /** 随包的组件契约正典(WIDGET.md):开发态在仓库根,打包态在只读资源区。 */
 const widgetDoc = () =>
-  process.env.WORKTOP_WIDGET_DOC ||
-  path.join(process.env.WORKTOP_HOME || process.cwd(), "WIDGET.md");
+  process.env.WORKTOP_WIDGET_DOC || path.join(REPO_ROOT, "WIDGET.md");
 
 export const buildSystem = (
   chat: { id: string; system?: string | null; workdir?: string | null },
