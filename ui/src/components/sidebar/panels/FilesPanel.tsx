@@ -146,7 +146,7 @@ export function FilesPanel({
     if (!ids.length) return;
     const workspaces = ids.filter((id) => rootsRef.current.some((r) => r.id === id && r.workspace));
     const normal = ids.filter((id) => !workspaces.includes(id));
-    const hint = workspaces.length ? `\n其中 ${workspaces.length} 个是添加进来的文件夹:只从列表移除,不删磁盘文件。` : "";
+    const hint = workspaces.length ? `\n其中 ${workspaces.length} 个是工作区:只从工作区列表移除,不删磁盘文件。` : "";
     const label = rawIds.length === 1
       ? `「${nodesRef.current.get(rawIds[0])?.title || rawIds[0].split("/").pop()}」`
       : `选中的 ${rawIds.length} 项`;
@@ -503,7 +503,7 @@ export function FilesPanel({
       setWorkspacePathDraft("");
       refresh();
     } catch (e: any) {
-      setWorkspaceError(e.message || "添加文件夹失败");
+      setWorkspaceError(e.message || "添加工作区失败");
     } finally {
       setAddingWorkspace(false);
     }
@@ -648,10 +648,10 @@ export function FilesPanel({
       );
     }
     items.push(
-      { label: node.workspace ? "从列表移除" : "删除", icon: <Trash2 size={13} />, danger: true,
+      { label: node.workspace ? "移除工作区" : "删除", icon: <Trash2 size={13} />, danger: true,
         onClick: async () => {
           if (node.workspace) {
-            if (!(await dialog.confirm(`把「${node.title}」从列表移除?\n不会删除磁盘文件。`, { danger: true, confirmText: "移除" }))) return;
+            if (!(await dialog.confirm(`移除工作区「${node.title}」?\n不会删除磁盘文件。`, { danger: true, confirmText: "移除" }))) return;
             await api.removeWorkspace(node.id);
           } else {
             if (!(await dialog.confirm(`删除「${node.title}」?${node.kind === "space" ? "\n里面所有内容也会一起删除。" : ""}`, { danger: true, confirmText: "删除" }))) return;
@@ -670,7 +670,7 @@ export function FilesPanel({
     setMenu({
       x: e.clientX, y: e.clientY,
       items: [
-        { label: "添加文件夹", icon: <FolderPlus size={13} className="text-accent" />, onClick: openAddWorkspace },
+        { label: "添加工作区", icon: <FolderPlus size={13} className="text-accent" />, onClick: openAddWorkspace },
       ],
     });
   };
@@ -766,16 +766,16 @@ export function FilesPanel({
         <RootDroppable onContextMenu={onBlankContext} onNativeDragOver={onExternalDragOver} onNativeDrop={onExternalDrop}>
           {creatingUnder === "" && <InlineCreateRow depth={0} controls={controls} />}
 
-          {/* 默认一个文件夹都没有:说清楚,给一个入口,不留一片空白 */}
+          {/* 默认一个工作区都没有:说清楚,给唯一的入口 —— 添加工作区 */}
           {!roots.length && creatingUnder !== "" && (
             <div className="px-4 py-10 flex flex-col items-center text-center">
-              <div className="text-[13px] text-text-dim">还没有文件夹</div>
-              <div className="mt-1 text-[11.5px] text-text-faint leading-relaxed">把要一起干活的文件夹加进来,可以加多个,会记住。</div>
+              <div className="text-[13px] text-text-dim">还没有工作区</div>
+              <div className="mt-1 text-[11.5px] text-text-faint leading-relaxed">把要一起干活的文件夹添加为工作区,可以加多个,会记住。</div>
               <button
                 onClick={openAddWorkspace}
                 className="mt-3 inline-flex items-center gap-1.5 px-3 py-1.5 rounded-md bg-accent text-white text-[13px] hover:opacity-90 transition-opacity"
               >
-                <FolderPlus size={13} /> 添加文件夹
+                <FolderPlus size={13} /> 添加工作区
               </button>
             </div>
           )}
@@ -792,20 +792,6 @@ export function FilesPanel({
             />
           ))}
 
-          {roots.length === 0 && creatingUnder !== "" && (
-            <div className="flex flex-col items-center gap-3 px-6 py-16 text-center">
-              <div className="text-3xl opacity-80">🌱</div>
-              <div className="text-[13px] text-text-faint leading-relaxed">
-    还没有内容
-              </div>
-              <button
-                onClick={() => startCreate(null, "space")}
-                className="mt-1 inline-flex items-center gap-1.5 px-3 py-1.5 rounded-md bg-accent text-white text-[13px] hover:opacity-90 transition-opacity"
-              >
-                <Folder size={13} /> 新建文件夹
-              </button>
-            </div>
-          )}
         </RootDroppable>
         )}
       </div>

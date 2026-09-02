@@ -341,7 +341,7 @@ export function App() {
       if (kind === "terminal") {
         void (async () => {
           const pid = createParentIdRef.current() || (await api.listRoots().catch(() => ({ nodes: [] as Node[] }))).nodes[0]?.id;
-          if (!pid) { void dialog.alert("请先添加文件夹,终端需要一个目录。"); return; }
+          if (!pid) { void dialog.alert("请先添加工作区,终端需要一个目录。"); return; }
           tabGroups.openTerminal(pid, `Terminal: ${pid.split("/").filter(Boolean).pop() || "workspace"}`);
         })();
       }
@@ -370,7 +370,7 @@ export function App() {
     } },
     { id: "new-space", label: "新建文件夹", icon: <Folder size={14} />, run: () => createAtCurrentTarget("space") },
     { id: "new-file", label: "新建文件", icon: <FileText size={14} />, run: () => createAtCurrentTarget("file") },
-    { id: "add-workspace", label: "添加文件夹", icon: <FolderPlus size={14} />, run: addWorkspace },
+    { id: "add-workspace", label: "添加工作区", icon: <FolderPlus size={14} />, run: addWorkspace },
     { id: "quick-open", label: "快速打开…", hint: "⌘P", icon: <Search size={14} />, run: () => setQuickOpen(true) },
     {
       id: "move-tab-side",
