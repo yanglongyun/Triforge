@@ -24,13 +24,14 @@ const pick = (options, keys) => Object.fromEntries(
 /* ---------------- 进程 ---------------- */
 
 async function start(_p, options) {
-  const existing = runningInstance();
-  if (existing) return { text: existing.url, json: existing };
+  // --foreground 是宿主托管:宿主指定了 PORT,要的就是这个进程 —— 不能因为别处还有个实例在跑就借它的地址退出
   if (options.foreground) {
     const { url } = await startServer({ port: options.port ? int(options.port, '--port') : undefined });
     console.log(url);
     return { silent: true, keepAlive: true };
   }
+  const existing = runningInstance();
+  if (existing) return { text: existing.url, json: existing };
   // 默认后台常驻:关掉终端也还在,和 mindmap 的习惯一致
   const child = spawn(process.execPath, [join(ROOT, 'bin', 'board.mjs'), 'start', '--foreground',
     ...(options.port ? ['--port', String(options.port)] : [])], {
