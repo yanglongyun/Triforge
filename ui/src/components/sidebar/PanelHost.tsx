@@ -4,7 +4,7 @@
 //   原生四件(会话/文件/网站/应用,焊死)钉顶 → 钉住的组件(唯一可滚动段)→ 加号/设置钉底。
 // 组件再多也挤不走原生入口;状态点(会话未读/运行、应用在跑)上浮到图标上,面板关着也看得见。
 // 「收起侧栏」只收内容面板,活动栏常驻;点当前图标一下 = 收起(VS Code 的肌肉记忆)。
-// 组件的身体是 iframe,指向组件自己的 origin,契约见 WIDGET.md。
+// 组件的身体是 iframe,指向组件自己的 origin;契约是出厂技能 skills/widget。
 import { useEffect, useState } from "react";
 import { api, type GitRepositoryStatus, type Node } from "../../api";
 import { ContextMenu, dialog, type MenuItem } from "../ui";
@@ -25,50 +25,7 @@ type Socket = { send: (m: any) => void; on: (t: string, fn: (p: any) => void) =>
 /** 「让 AI 造一个组件」的开工指令:自包含的契约速查表(全写进提示词,不指望 AI 去翻文档)。 */
 const buildWidgetPrompt = (desc: string) => `请为我造一个组件:${desc.trim()}
 
-组件 = 组件的家里的一个目录,**零构建**(浏览器直接吃,不打包、不装依赖),
-写出目录即安装,自动出现在「组件」面板里:
-
-<组件的家>/widgets/<id>/
-  widget.json   manifest
-  index.html    入口(必需)
-  main.js       随便几个 js/css,用 ES module 互相 import
-  style.css
-  data.db       组件的数据(宿主自动创建,别手建、别读写它)
-
-先用 bash 查出组件的家:它是默认工作区根下的 widgets/ 目录。
-
-widget.json:
-{ "name": "习惯打卡", "icon": "✅",
-  "description": "一句话说明这个组件干什么(以后 AI 靠它判断该不该复用)",
-  "permissions": ["sql"] }        ← sql / ai / fs,不写就没有
-
-宿主 API = **同源 HTTP**,不需要引入任何 SDK,直接 fetch:
-
-  // 数据(权限 sql):组件有自己独立的 SQLite,表结构你自己定
-  const sql = (sql, params = []) =>
-    fetch("/_wt/sql", { method: "POST", headers: { "content-type": "application/json" },
-      body: JSON.stringify({ sql, params }) }).then((r) => r.json());
-
-  await sql("CREATE TABLE IF NOT EXISTS items (id INTEGER PRIMARY KEY AUTOINCREMENT, text TEXT)");
-  await sql("INSERT INTO items (text) VALUES (?)", ["买牛奶"]);
-  const { rows } = await sql("SELECT * FROM items ORDER BY id DESC");
-
-  // 其它端点
-  POST /_wt/sql/batch   { statements: [{sql, params}] }   一个事务
-  POST /_wt/ai          { summary, system, prompt }       调 AI(权限 ai,summary 必填)
-  GET  /_wt/context                                        组件自身信息
-
-硬性要求:
-1. **零构建**:只能用浏览器直接能跑的东西 —— ES module、原生 CSS。
-   不要 JSX / TypeScript / SCSS / 打包器,也不要任何外部 CDN(组件被 CSP 断网,连不出去);
-2. **相对路径**:<script type="module" src="./main.js">、href="./style.css";
-3. **主题变量**:颜色一律用 var(--bg) / var(--bg-raised) / var(--text) / var(--text-dim) /
-   var(--border) / var(--accent) / var(--danger),宿主已自动注入,明暗主题会跟着走。
-   **不要写死背景色和文字色**;
-4. **窄**:它挂在侧栏面板里,最窄 240px 也要能用;
-5. 建表用 CREATE TABLE IF NOT EXISTS,放在启动时跑一次。
-
-写完告诉我组件名,以及在「组件」标签页里怎么打开它的显示开关。`;
+按「技能」里的 widget 做。写完告诉我组件名,以及在「组件」面板里怎么把它钉到活动栏。`;
 
 /** 「让 AI 造一个应用」的开工指令:自包含的契约速查表(见 AGENT 仓库 SPEC.md)。 */
 const buildAppPrompt = (desc: string) => `请为我造一个应用:${desc.trim()}
@@ -82,13 +39,13 @@ const buildAppPrompt = (desc: string) => `请为我造一个应用:${desc.trim()
   icon.svg        可选
   (实现)          随便什么语言、框架、构建方式,契约不管
 
-先用 bash 查出应用的家:它是默认工作区根下的 apps/ 目录(与 widgets/ 并列)。
+应用的家是 ~/.worktop/apps/(不是工作目录,不是工作区)。
 
 manifest.json:
 { "id": "notes", "name": "便签", "version": "0.1.0",
   "description": "一句话说清是什么、什么时候用 —— 这行会常驻 AI 的提示词",
   "run": { "command": "node", "args": ["server.js"], "health": "/health", "mode": "on-demand" },
-  "permissions": ["ai.complete"] }     ← ai.complete / notify,不写就没有
+  "permissions": ["ai.complete"] }     ← ai.complete / ai.agent / notify,不写就没有
 
 生命周期,这几条必须守:
 1. **监听 process.env.PORT,绑定 process.env.HOST**(别写死 127.0.0.1 ——

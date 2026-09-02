@@ -45,8 +45,6 @@ const layout = () => {
       WORKTOP_VERSION: app.getVersion(),
       WORKTOP_HOME: app.getPath("userData"), // database/ 落在这里(macOS 惯例:应用数据进 Application Support)
       WORKTOP_UI_DIST: join(res, "core/ui"),
-      // 组件契约正典:system prompt 把这个路径给智能体,让它动手前先 read
-      WORKTOP_WIDGET_DOC: join(res, "core/WIDGET.md"),
     },
   };
 };

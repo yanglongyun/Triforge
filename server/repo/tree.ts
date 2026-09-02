@@ -157,7 +157,11 @@ const agentContext = (startDir) => {
   for (const nm of CONTEXT_DOC_NAMES) {
     const p = path.join(dir, nm);
     try {
-      if (fs.statSync(p).isFile()) docs.push({ name: nm, rel: nm, content: fs.readFileSync(p, "utf8").slice(0, 6000) });
+      if (fs.statSync(p).isFile()) {
+        const full = fs.readFileSync(p, "utf8");
+        const content = full.length > 6000 ? full.slice(0, 6000) + `\n\n[……此文件共 ${full.length} 字,这里只给了前 6000 字;需要全文就 read ${nm}]` : full;
+        docs.push({ name: nm, rel: nm, content });
+      }
     } catch {}
   }
   const skillsDir = path.join(dir, "skills");
@@ -461,7 +465,7 @@ const removeWorkspace = (idOrPath) => {
 const listWorkspaces = () => workspaceRows();
 
 export {
-  productHome, defaultDir, IGNORE_DIRS, isBundle, isAllowedPath,
+  productHome, defaultDir, IGNORE_DIRS, isBundle, isAllowedPath, parseSkill,
   listChildren, listAll, getItem, createItem, updateItem, deleteItem, moveItem, copyItem, importFile, ancestry,
   resolveFileAbs, pathForId, agentContext,
   listWorkspaces, addWorkspace, removeWorkspace, isWorkspaceRoot, terminalCwd,

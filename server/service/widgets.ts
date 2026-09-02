@@ -1,5 +1,5 @@
 import { REPO_ROOT } from "../home.js";
-// 组件注册表:组件 = 组件的家里的一个目录(见 WIDGET.md)。
+// 组件注册表:组件 = 组件的家里的一个目录。契约是出厂技能 skills/widget/SKILL.md(ui/public/skills)。
 //
 //   <家>/widgets/<id>/
 //     widget.json   manifest(名字/图标/权限)

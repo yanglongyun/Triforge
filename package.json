@@ -63,10 +63,6 @@
       {
         "from": "node_modules/node-addon-api",
         "to": "core/node_modules/node-addon-api"
-      },
-      {
-        "from": "WIDGET.md",
-        "to": "core/WIDGET.md"
       }
     ],
     "mac": {

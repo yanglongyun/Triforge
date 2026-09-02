@@ -57,7 +57,7 @@ const autoTitle = async (chatId, rows, finalText, settings) => {
       apiKey: settings.apiKey,
       model: settings.model,
       errorMaxChars: ERROR_MAX_CHARS,
-      instructions: "为这段对话起一个不超过 16 个字的标题,概括用户想做的事。只输出标题本身,不要引号和句号。",
+      instructions: "为这段对话起一个简短标题(中文不超过 16 字,英文不超过 6 个词),用对话本身的语言,概括用户想做的事。只输出标题本身,不要引号和句号。",
       input: [{ role: "user", content: `用户:${ask.slice(0, 1200)}\n\n助手:${String(finalText || "").slice(0, 1200)}` }],
     });
     title = String(result.text).replace(/\s+/g, " ").trim().slice(0, 32);

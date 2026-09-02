@@ -18,7 +18,7 @@ const MATERIAL_MIN_CHARS = 1_500;
 
 const DEFAULT_COMPACT_PROMPT =
   "你负责压缩一段对话上下文,供后续模型继续工作时使用。" +
-  "保留目标、限制、关键事实、工具结果、已做决定和未完成事项。删除寒暄和重复内容。输出中文摘要,避免编造。";
+  "保留目标、限制、关键事实、工具结果、已做决定和未完成事项。删除寒暄和重复内容。用对话本身的语言写摘要,避免编造。";
 
 const totalTokensOf = (usage) => {
   if (!usage) return 0;

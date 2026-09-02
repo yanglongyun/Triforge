@@ -72,7 +72,7 @@ export type Site = {
 /** 浏览记录:一个 url 一行,重复访问只抬时间与次数。 */
 export type HistoryEntry = { url: string; title: string; visits: number; visited_at: string };
 
-/** 组件:目录即安装,manifest = 权限清单(见 WIDGET.md)。 */
+/** 组件:目录即安装,manifest = 权限清单(契约见出厂技能 skills/widget)。 */
 export type WidgetInfo = {
   id: string;
   name: string;
@@ -235,7 +235,7 @@ export const api = {
   // ── 附件上传 ──
   uploadFile: (opts: { name: string; mimeType: string; dataBase64: string }) =>
     request<{ attachment: Attachment }>("/api/upload", { method: "POST", ...jsonBody(opts) }),
-  // ── 组件(widgets):目录即安装,每组件一个 origin(见 WIDGET.md)──
+  // ── 组件(widgets):目录即安装,每组件一个 origin ──
   listWidgets: () => request<{ widgets: WidgetInfo[] }>("/api/widgets").then((r) => r.widgets || []),
   /** 组件的地址:http://127.0.0.1:<组件专属端口>/ —— 真 origin,不是路径前缀。 */
   widgetUrl: (id: string) =>

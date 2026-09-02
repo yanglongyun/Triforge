@@ -90,7 +90,7 @@ export const runAppTask = async (
       responsesUrl: settings.apiUrl,
       apiKey: settings.apiKey,
       model: settings.model,
-      instructions: buildSystem({ id: `task:${taskId}`, system: null, workdir: cwd }, settings)
+      instructions: buildSystem({ id: `task:${taskId}`, system: null, workdir: cwd }, settings, { rules: false })
         + `\n\n# 本轮是应用触发的任务\n\n发起方:应用「${appName}」(${appId})。没有用户守在旁边,不要提问、不要等确认;`
         + `按提示把事做完,做不了就直说失败原因。`,
       input: [{ role: "user", content: prompt.slice(0, 100_000) }],
