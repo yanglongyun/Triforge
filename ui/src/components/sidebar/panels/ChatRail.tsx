@@ -4,7 +4,7 @@ import { useCallback, useEffect, useState } from "react";
 import type { Node } from "../../../api";
 import { api } from "../../../api";
 import { ContextMenu, dialog, type MenuItem } from "../../ui";
-import { Bot, Copy, Folder, FolderOpen, Pencil, Pin, PinOff, Plus, SlidersHorizontal, Trash2 } from "lucide-react";
+import { Copy, Folder, FolderOpen, Pencil, Pin, PinOff, Plus, SlidersHorizontal, Trash2 } from "lucide-react";
 import { relativeTime, toggleChatRowField, useChatRowFields, type ChatRowFields } from "../../../lib/chatRows";
 
 type Socket = { send: (m: any) => void; on: (t: string, fn: (p: any) => void) => () => void };
@@ -133,7 +133,6 @@ export function ChatRail({
           isSelected && !isRenaming ? "bg-bg-inset" : "hover:bg-bg-hover",
         ].join(" ")}
       >
-        <Bot size={14} className="shrink-0 text-warning mt-[3px]" />
         {isRenaming ? (
           <input
             autoFocus
