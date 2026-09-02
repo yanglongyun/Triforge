@@ -5,7 +5,7 @@
 // (换了 Chrome 账号、cookie 过期,都需要能再导一次)。
 import { api } from "../api";
 
-const STATE_KEY = "triforge.chromeImport.state";
+const STATE_KEY = "worktop.chromeImport.state";
 
 export type ChromeProfile = { dir: string; name: string; email: string };
 export type ImportChoice = { profile: string; cookies: boolean; bookmarks: boolean };

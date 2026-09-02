@@ -79,7 +79,7 @@ const SAME_SITE = { "-1": "unspecified", 0: "no_restriction", 1: "lax", 2: "stri
 
 /** Chrome 运行时抓着库不放,所以连 WAL/SHM 一起拷到临时目录再只读打开。 */
 const readCookies = (source) => {
-  const work = mkdtempSync(join(tmpdir(), "triforge-cookies-"));
+  const work = mkdtempSync(join(tmpdir(), "worktop-cookies-"));
   let db;
   try {
     const copy = join(work, "Cookies");

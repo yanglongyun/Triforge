@@ -13,9 +13,9 @@ export type ChatRowFields = {
   time: boolean;
 };
 
-const KEY = "triforge.chatRows.fields";
+const KEY = "worktop.chatRows.fields";
 const DEFAULTS: ChatRowFields = { dir: false, last: true, time: true };
-const EVENT = "triforge:chat-row-fields";
+const EVENT = "worktop:chat-row-fields";
 
 const read = (): ChatRowFields => {
   try {
