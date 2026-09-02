@@ -7,11 +7,11 @@
 //     data.db       组件自己的数据,和代码做邻居
 //
 // 「安装」= 目录存在(扫描自动注册);「卸载」= 目录挪进 .trash(保留 30 天)。
-// 组件的家是产品自己的地盘(~/Documents/<产品>/widgets),不往用户工作区里塞东西。
+// 组件的家是产品自己的地盘(~/.mainbench/widgets),不往用户的目录里塞东西。
 import fs from "fs";
 import path from "path";
 import { fileURLToPath } from "url";
-import { ensureRoot } from "../repo/tree.js";
+import { productHome } from "../repo/tree.js";
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const HOME = process.env.WORKBENCH_HOME || path.join(__dirname, "../..");
@@ -31,8 +31,8 @@ export type WidgetInfo = {
   dir: string;
 };
 
-/** 组件的家:产品自己的默认工作区根 / widgets。 */
-export const widgetsHome = () => path.join(ensureRoot(), "widgets");
+/** 组件的家:~/.mainbench/widgets。 */
+export const widgetsHome = () => path.join(productHome(), "widgets");
 const trashDir = () => path.join(widgetsHome(), ".trash");
 
 const readManifest = (dir: string): WidgetInfo | null => {

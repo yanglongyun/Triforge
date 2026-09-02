@@ -12,7 +12,7 @@ import { getApp } from "./apps.js";
 import { identifyApp, touchApp } from "./appSupervisor.js";
 import { openTask, recordTaskReply, runAppTask } from "./appTasks.js";
 import { settleTask } from "../repo/tasks.js";
-import { ensureRoot } from "../repo/tree.js";
+import { defaultDir } from "../repo/tree.js";
 
 const json = (res: ServerResponse, status: number, body: unknown) => {
   res.writeHead(status, { "content-type": "application/json; charset=utf-8" });
@@ -92,7 +92,7 @@ export const handleHostRoutes = async (
         appId: app.id,
         title: String(input.title || "").trim() || prompt,
         prompt,
-        cwd: ensureRoot(),
+        cwd: defaultDir(),
       });
       try {
         const result: any = await complete({

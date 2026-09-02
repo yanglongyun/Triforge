@@ -20,7 +20,7 @@ import { createTask, settleTask } from "../repo/tasks.js";
 import { createChat } from "../repo/chats.js";
 import { appendItem } from "../repo/messages.js";
 import { EVENTS } from "../shared/events.js";
-import { ensureRoot } from "../repo/tree.js";
+import { defaultDir } from "../repo/tree.js";
 import { buildSystem } from "../runs/system.js";
 import { emit } from "../bus.js";
 
@@ -58,7 +58,7 @@ export const runAppTask = async (
     return;
   }
 
-  const cwd = workdir || ensureRoot();
+  const cwd = workdir || defaultDir();
   const taskId = openTask({ appId, title, prompt, cwd });
 
   res.writeHead(200, {

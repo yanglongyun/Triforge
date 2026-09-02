@@ -8,7 +8,7 @@ import { PanelHost } from "./components/sidebar";
 import { WorkspaceLayout, isAppTab, isSettingsTab, isNodeTab, useTabGroups, webTab, type TabActions, type WorkspaceGroupId } from "./components/workspace";
 import { looksLikeUrl, normalizeUrl } from "./lib/urls";
 import { BrowsingPrompts, DialogHost, ContextMenu, dialog, showToast, SystemNotices, ToastHost, type MenuItem } from "./components/ui";
-import { FileText, Folder, FolderPlus, Bot, Globe, LayoutGrid, Search, Settings as SettingsIcon, Terminal, X, PanelRight } from "lucide-react";
+import { FileText, Folder, Bot, Globe, LayoutGrid, Search, Settings as SettingsIcon, Terminal, X, PanelRight } from "lucide-react";
 
 export function App() {
   const socket = useSocket();
@@ -75,7 +75,7 @@ export function App() {
   const refreshGit = useCallback(() => setGitRefreshKey((n) => n + 1), []);
   const openGit = (repo: GitRepositoryStatus) => {
     if (!repo.root) return;
-    tabGroups.openGit(repo.root, repo.workspaceTitle || "Git");
+    tabGroups.openGit(repo.root, repo.title || "Git");
   };
 
   // 树相关 WS 事件 → 刷新树/状态点(节流,流式时 message 事件很密)
@@ -275,12 +275,6 @@ export function App() {
     }
   };
 
-  const addWorkspace = async () => {
-    setMobileNavOpen(true);
-    setDesktopNavOpen(true);
-    window.dispatchEvent(new Event("workbench:add-workspace"));
-  };
-
   // 新标签页:+ / ⌘T 打开一个空白页;Enter 后**就地转身** —— 文字变对话
   // (文字即首条消息),网址变网页标签(同站已开则聚焦并退场)。
   // LauncherPanel 只发事件,裁决全在这里 —— 面板不该知道对话是怎么建的。
@@ -342,7 +336,7 @@ export function App() {
         void (async () => {
           const pid = createParentIdRef.current() || (await api.listRoots().catch(() => ({ nodes: [] as Node[] }))).nodes[0]?.id;
           if (!pid) { void dialog.alert("请先添加工作区,终端需要一个目录。"); return; }
-          tabGroups.openTerminal(pid, `Terminal: ${pid.split("/").filter(Boolean).pop() || "workspace"}`);
+          tabGroups.openTerminal(pid, `Terminal: ${pid.split("/").filter(Boolean).pop() || "终端"}`);
         })();
       }
     };
@@ -370,7 +364,6 @@ export function App() {
     } },
     { id: "new-space", label: "新建文件夹", icon: <Folder size={14} />, run: () => createAtCurrentTarget("space") },
     { id: "new-file", label: "新建文件", icon: <FileText size={14} />, run: () => createAtCurrentTarget("file") },
-    { id: "add-workspace", label: "添加工作区", icon: <FolderPlus size={14} />, run: addWorkspace },
     { id: "quick-open", label: "快速打开…", hint: "⌘P", icon: <Search size={14} />, run: () => setQuickOpen(true) },
     {
       id: "move-tab-side",

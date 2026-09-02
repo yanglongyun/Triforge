@@ -20,7 +20,6 @@ export type Node = {
   size?: number;                                                 // 仅 file:字节数
   binary?: boolean;                                              // 仅 file:二进制,无法当文本预览
   tooLarge?: boolean;                                            // 仅 file:超过文本预览上限
-  workspace?: boolean;                                           // node 且 parent_id=null 时表示工作区 root
 };
 
 export type SearchMatch = { line: number; text: string };
@@ -138,15 +137,6 @@ export type Settings = {
 };
 
 
-export type WorkspaceRoot = {
-  id: string;
-  title: string;
-  path: string;
-  enabled: number;
-  created_at: string;
-  last_opened_at: string | null;
-};
-
 export type GitFileStatus = {
   path: string;
   absPath: string;
@@ -160,9 +150,10 @@ export type GitFileStatus = {
 };
 
 export type GitRepositoryStatus = {
-  workspaceId: string;
-  workspaceTitle: string;
-  workspacePath: string;
+  /** 显示名 = 仓库根目录名 */
+  title: string;
+  /** 被查询的目录(仓库根,或非仓库时就是那个目录) */
+  dir: string;
   root: string | null;
   isRepo: boolean;
   branch: string | null;
@@ -288,12 +279,6 @@ export const api = {
   removeSite: (id: string) =>
     request<{ deleted: boolean }>(`/api/sites?id=${encodeURIComponent(id)}`, { method: "DELETE" }),
 
-  listWorkspaces: () => request<{ workspaces: WorkspaceRoot[] }>("/api/workspaces"),
-  pickWorkspaceDirectory: () => request<{ path: string | null }>("/api/workspaces/pick", { method: "POST" }),
-  addWorkspace: (opts: { path: string; title?: string }) =>
-    request<{ item: Node }>("/api/workspaces", { method: "POST", ...jsonBody(opts) }).then(one),
-  removeWorkspace: (id: string) =>
-    request<{ ok: boolean; workspace: WorkspaceRoot | null }>(`/api/workspaces?id=${encodeURIComponent(id)}`, { method: "DELETE" }),
 
   listMessages: (chatId: string) =>
     request<{ rows: MessageRow[] }>(`/api/messages?chatId=${encodeURIComponent(chatId)}`),
@@ -336,7 +321,7 @@ export const api = {
     request<{ output: string; repository: GitRepositoryStatus }>("/api/git/remote", { method: "POST", ...jsonBody(opts) }),
   gitCheckout: (opts: { root: string; branch: string }) =>
     request<{ output: string; repository: GitRepositoryStatus; branches: GitBranches }>("/api/git/checkout", { method: "POST", ...jsonBody(opts) }),
-  gitInit: (opts: { workspacePath: string }) =>
+  gitInit: (opts: { path: string }) =>
     request<{ output: string; repository: GitRepositoryStatus }>("/api/git/init", { method: "POST", ...jsonBody(opts) }),
 
   getSettings: () => request<{ settings: Settings }>("/api/settings"),

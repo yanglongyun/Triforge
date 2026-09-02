@@ -25,7 +25,7 @@ const get = (id: string) => {
 
 const assertWorkdir = (workdir?: string) => {
   if (workdir === undefined) return;
-  if (!isAllowedPath(String(workdir))) throw new Error(`工作目录必须在某个工作区内: ${workdir}`);
+  if (!isAllowedPath(String(workdir))) throw new Error(`工作目录必须在主目录下: ${workdir}`);
 };
 
 const create = ({ title, system = null, workdir }: ChatPatch = {}) => {

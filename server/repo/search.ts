@@ -1,7 +1,7 @@
-// 全局内容搜索:在所有工作区里 grep 真实文件内容,返回按文件分组的命中行。
+// 全局内容搜索:从主目录出发 grep 真实文件内容,返回按文件分组的命中行。
 import fs from "fs";
 import path from "path";
-import { ensureRoot, IGNORE_DIRS, listWorkspaces } from "./tree.js";
+import { IGNORE_DIRS, ROOT, isRootNoise } from "./tree.js";
 
 // 与 repo/tree 同语义:点开头照搜(.dev/.github 里的内容也是内容),只跳系统噪音
 const IGNORE_FILES = new Set([".DS_Store", "Thumbs.db", "desktop.ini"]);
@@ -11,8 +11,6 @@ const searchContent = (
   query: string,
   { maxMatchesPerFile = 50, maxTotal = 1000, maxFileSize = 1_000_000 }: { maxMatchesPerFile?: number; maxTotal?: number; maxFileSize?: number } = {},
 ) => {
-  const roots = listWorkspaces().map((w) => w.path);
-  if (!roots.length) roots.push(ensureRoot());
   const q = String(query || "");
   if (!q) return [];
   const ql = q.toLowerCase();
@@ -20,15 +18,15 @@ const searchContent = (
   const results: { id: string; title: string; matches: { line: number; text: string }[] }[] = [];
   let total = 0;
 
-  const walk = (dir: string) => {
+  const walk = (dir: string, top: boolean) => {
     if (total >= maxTotal) return;
     let entries;
     try { entries = fs.readdirSync(dir, { withFileTypes: true }); } catch { return; }
     for (const e of entries) {
       if (total >= maxTotal) return;
-      if (isHidden(e.name)) continue;
+      if (isHidden(e.name) || (top && isRootNoise(e.name))) continue;
       const abs = path.join(dir, e.name);
-      if (e.isDirectory()) { if (!IGNORE_DIRS.has(e.name)) walk(abs); continue; }
+      if (e.isDirectory()) { if (!IGNORE_DIRS.has(e.name)) walk(abs, false); continue; }
 
       let content;
       try {
@@ -51,7 +49,7 @@ const searchContent = (
     }
   };
 
-  for (const root of roots) walk(root);
+  walk(ROOT, true);
   return results;
 };
 

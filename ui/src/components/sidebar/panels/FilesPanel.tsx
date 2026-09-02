@@ -9,7 +9,6 @@ const REVEAL_LABEL = /Mac/i.test(navigator.platform) ? "在 Finder 中显示"
   : /Win/i.test(navigator.platform) ? "在资源管理器中显示" : "在文件管理器中显示";
 import { DndContext, DragOverlay, useDroppable } from "@dnd-kit/core";
 import { useTreeDnd, ROOT_ID } from "./useTreeDnd";
-import { AddWorkspaceDialog } from "./AddWorkspaceDialog";
 
 // 文件面板:真实文件系统的树。多选/键盘/剪贴板/拖拽/Git 染色/筛选都内聚在此;
 // 宿主(PanelHost)只负责装卸与显隐 —— 本面板常驻挂载,展开集/多选等重状态跨切换保活。
@@ -41,12 +40,8 @@ export function FilesPanel({
   const [roots, setRoots] = useState<Node[]>([]);
   // 文件夹徽标:workdir → 绑定的对话数
   const [agentDirs, setAgentDirs] = useState<Map<string, number>>(new Map());
-  const [addWorkspaceOpen, setAddWorkspaceOpen] = useState(false);
-  const [workspacePathDraft, setWorkspacePathDraft] = useState("");
-  const [workspaceError, setWorkspaceError] = useState<string | null>(null);
-  const [addingWorkspace, setAddingWorkspace] = useState(false);
-  const [pickingWorkspace, setPickingWorkspace] = useState(false);
-  const autoExpandedWorkspaces = useRef<Set<string>>(new Set());
+  // 首次拿到树顶就把桌面摊开 —— 「定位到桌面」就是这一下
+  const desktopExpanded = useRef(false);
 
   // 展开集
   const [expandedIds, setExpandedIds] = useState<Set<string>>(new Set());
@@ -140,28 +135,24 @@ export function FilesPanel({
   const expandedRef = useRef(expandedIds); expandedRef.current = expandedIds;
   const activeRef = useRef(active); activeRef.current = active;
 
-  /** 删除一组 id(菜单与 Delete 键共用):祖先已选剔除后代;工作区走移除。 */
+  /** 删除一组 id(菜单与 Delete 键共用):祖先已选剔除后代;主目录顶层(桌面、文稿…)不删。 */
   const deleteIds = useCallback(async (rawIds: string[]) => {
-    const ids = pruneNested(rawIds.filter(Boolean));
+    const ids = pruneNested(rawIds.filter(Boolean)).filter((id) => !rootsRef.current.some((r) => r.id === id));
     if (!ids.length) return;
-    const workspaces = ids.filter((id) => rootsRef.current.some((r) => r.id === id && r.workspace));
-    const normal = ids.filter((id) => !workspaces.includes(id));
-    const hint = workspaces.length ? `\n其中 ${workspaces.length} 个是工作区:只从工作区列表移除,不删磁盘文件。` : "";
-    const label = rawIds.length === 1
-      ? `「${nodesRef.current.get(rawIds[0])?.title || rawIds[0].split("/").pop()}」`
-      : `选中的 ${rawIds.length} 项`;
-    if (!(await dialog.confirm(`删除${label}?文件夹内的内容会一起删除。${hint}`, { danger: true, confirmText: "删除" }))) return;
-    for (const id of workspaces) await api.removeWorkspace(id).catch(() => {});
-    for (const id of normal) await api.deleteNode(id).catch(() => {});
+    const label = ids.length === 1
+      ? `「${nodesRef.current.get(ids[0])?.title || ids[0].split("/").pop()}」`
+      : `选中的 ${ids.length} 项`;
+    if (!(await dialog.confirm(`删除${label}?文件夹内的内容会一起删除。`, { danger: true, confirmText: "删除" }))) return;
+    for (const id of ids) await api.deleteNode(id).catch(() => {});
     if (rawIds.includes(selectedIdRef.current)) onSelect(null);
     clearMulti();
     refresh();
   }, [clearMulti, onSelect, refresh]);
 
-  /** 复制/剪切当前选择进内部剪贴板(工作区根除外)。 */
+  /** 复制/剪切当前选择进内部剪贴板(主目录顶层除外)。 */
   const copySelection = useCallback((cut: boolean) => {
     const ids = multiSelRef.current.size ? [...multiSelRef.current] : anchorRef.current ? [anchorRef.current] : [];
-    const usable = ids.filter((id) => !rootsRef.current.some((r) => r.id === id && r.workspace));
+    const usable = ids.filter((id) => !rootsRef.current.some((r) => r.id === id));
     if (!usable.length) return;
     clipboardRef.current = { ids: usable, cut };
     setCutIds(cut ? new Set(usable) : new Set());
@@ -275,7 +266,7 @@ export function FilesPanel({
         }
       };
       for (const repository of r.repositories || []) {
-        const base = repository.root || repository.workspacePath;
+        const base = repository.root || repository.dir;
         for (const f of repository.files || []) mark(`${base}/${unquote(f.path)}`, f.status);
       }
       setGitMarks({ files, dirs });
@@ -448,12 +439,13 @@ export function FilesPanel({
   }, [roots]);
 
   useEffect(() => {
-    const nextIds = roots.filter((root) => root.workspace && !autoExpandedWorkspaces.current.has(root.id)).map((root) => root.id);
-    if (!nextIds.length) return;
-    nextIds.forEach((id) => autoExpandedWorkspaces.current.add(id));
+    if (desktopExpanded.current) return;
+    const desktop = roots.find((root) => root.kind === "space" && root.title === "Desktop");
+    if (!desktop) return;
+    desktopExpanded.current = true;
     setExpandedIds((current) => {
       const next = new Set(current);
-      nextIds.forEach((id) => next.add(id));
+      next.add(desktop.id);
       return next;
     });
   }, [roots]);
@@ -479,48 +471,7 @@ export function FilesPanel({
   };
   const cancelCreate = () => { setCreatingUnder(null); setDraftTitle(""); };
 
-  const openAddWorkspace = () => {
-    setWorkspacePathDraft("");
-    setWorkspaceError(null);
-    setAddWorkspaceOpen(true);
-  };
-  useEffect(() => {
-    const open = () => openAddWorkspace();
-    window.addEventListener("workbench:add-workspace", open);
-    return () => window.removeEventListener("workbench:add-workspace", open);
-  }, []);
 
-  const addWorkspace = async () => {
-    const workspacePath = workspacePathDraft.trim();
-    if (!workspacePath) return;
-    setAddingWorkspace(true);
-    setWorkspaceError(null);
-    try {
-      const result = await api.addWorkspace({ path: workspacePath });
-      setExpanded(result.node.id, true);
-      handleSelect(result.node);
-      setAddWorkspaceOpen(false);
-      setWorkspacePathDraft("");
-      refresh();
-    } catch (e: any) {
-      setWorkspaceError(e.message || "添加工作区失败");
-    } finally {
-      setAddingWorkspace(false);
-    }
-  };
-
-  const pickWorkspace = async () => {
-    setPickingWorkspace(true);
-    setWorkspaceError(null);
-    try {
-      const result = await api.pickWorkspaceDirectory();
-      if (result.path) setWorkspacePathDraft(result.path);
-    } catch (e: any) {
-      setWorkspaceError(e.message || "选择目录失败");
-    } finally {
-      setPickingWorkspace(false);
-    }
-  };
 
   // ── 重命名 ──
   const startRename = (n: Node) => { setRenamingId(n.id); setRenameDraft(n.title); };
@@ -559,7 +510,7 @@ export function FilesPanel({
             { label: `剪切(${count} 项)`, icon: <Scissors size={13} />, onClick: () => copySelection(true) },
             { label: `复制路径(${count} 项)`, icon: <Copy size={13} />,
               onClick: async () => {
-                const text = [...multiSel].map((id) => id.replace(/^.*\/workspaces\//, "")).join("\n");
+                const text = [...multiSel].map((id) => id.replace(/^\/Users\/[^/]+\//, "~/")).join("\n");
                 try { await navigator.clipboard.writeText(text); } catch { /* 剪贴板不可用就算了 */ }
               } },
             "divider",
@@ -594,14 +545,15 @@ export function FilesPanel({
         "divider",
       );
     }
-    const copyText = node.id.replace(/^.*\/workspaces\//, "");
+    const copyText = node.id.replace(/^\/Users\/[^/]+\//, "~/");
     if (node.kind !== "space" && onOpenSide) {
       items.push(
         { label: "打开到侧边", icon: <PanelRight size={13} />, onClick: () => onOpenSide(node) },
         "divider",
       );
     }
-    if (!node.workspace) {
+    const topLevel = node.parent_id == null; // 主目录顶层:桌面、文稿… 系统目录,不动它
+    if (!topLevel) {
       items.push(
         { label: "复制", icon: <Copy size={13} />,
           onClick: () => { clipboardRef.current = { ids: [node.id], cut: false }; setCutIds(new Set()); } },
@@ -647,30 +599,31 @@ export function FilesPanel({
         "divider",
       );
     }
-    items.push(
-      { label: node.workspace ? "移除工作区" : "删除", icon: <Trash2 size={13} />, danger: true,
-        onClick: async () => {
-          if (node.workspace) {
-            if (!(await dialog.confirm(`移除工作区「${node.title}」?\n不会删除磁盘文件。`, { danger: true, confirmText: "移除" }))) return;
-            await api.removeWorkspace(node.id);
-          } else {
+    if (!topLevel) {
+      items.push(
+        { label: "删除", icon: <Trash2 size={13} />, danger: true,
+          onClick: async () => {
             if (!(await dialog.confirm(`删除「${node.title}」?${node.kind === "space" ? "\n里面所有内容也会一起删除。" : ""}`, { danger: true, confirmText: "删除" }))) return;
             await api.deleteNode(node.id);
-          }
-          if (selectedId === node.id) onSelect(null);
-          refresh();
+            if (selectedId === node.id) onSelect(null);
+            refresh();
+          },
         },
-      },
-    );
+      );
+    }
     setMenu({ x: e.clientX, y: e.clientY, items });
   };
+
+  /** 桌面的 id(树顶那一行);没桌面就落到树顶(服务端会兜到主目录)。 */
+  const desktopId = () => rootsRef.current.find((r) => r.kind === "space" && r.title === "Desktop")?.id || "";
 
   const onBlankContext = (e: React.MouseEvent) => {
     e.preventDefault();
     setMenu({
       x: e.clientX, y: e.clientY,
       items: [
-        { label: "添加工作区", icon: <FolderPlus size={13} className="text-accent" />, onClick: openAddWorkspace },
+        { label: "新建文件夹", icon: <FolderPlus size={13} />, onClick: () => startCreate(desktopId(), "space") },
+        { label: "新建文件", icon: <FilePlus size={13} />, onClick: () => startCreate(desktopId(), "file") },
       ],
     });
   };
@@ -796,20 +749,8 @@ export function FilesPanel({
         )}
       </div>
 
-      {/* 菜单与对话框放隐藏容器之外:面板未激活时(如命令面板发起「添加工作区」)也可见 */}
+      {/* 菜单放隐藏容器之外:面板未激活时也可见 */}
       {menu && <ContextMenu x={menu.x} y={menu.y} items={menu.items} onClose={() => setMenu(null)} />}
-        {addWorkspaceOpen && (
-          <AddWorkspaceDialog
-            value={workspacePathDraft}
-            error={workspaceError}
-            submitting={addingWorkspace}
-            picking={pickingWorkspace}
-            onChange={(value) => { setWorkspacePathDraft(value); setWorkspaceError(null); }}
-            onPick={pickWorkspace}
-            onSubmit={addWorkspace}
-            onClose={() => { if (!addingWorkspace && !pickingWorkspace) setAddWorkspaceOpen(false); }}
-          />
-        )}
 
       {/* 拖动跟随物:小而不挡视野 —— 单个 = 图标牌,多选 = 第一层数量徽标 */}
       <DragOverlay dropAnimation={null}>

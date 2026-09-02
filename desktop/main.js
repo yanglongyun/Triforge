@@ -4,10 +4,9 @@
 // 的 ABI 编译;塞进 Electron 的 Node 要 electron-rebuild 整一轮。开发期直接用系统
 // node 零 ABI 纠纷;正式打包时再换成随包 node + rebuild(见 dev/ 版本文档)。
 import { app, BrowserWindow, Menu, clipboard, dialog, ipcMain, nativeTheme, session, shell } from "electron";
-import { mkdirSync, readFileSync, writeFileSync } from "node:fs";
+import { readFileSync, writeFileSync } from "node:fs";
 import { spawn } from "node:child_process";
 import { createServer } from "node:net";
-import { homedir } from "node:os";
 import { dirname, join } from "node:path";
 import { fileURLToPath } from "node:url";
 
@@ -21,13 +20,6 @@ const SLUG = "workbench";
 const APP_NAME = "Mainbench";
 // userData 显式钉死:Electron 默认按 productName 取路径,改显示名会让数据"凭空消失"。
 app.setPath("userData", join(app.getPath("appData"), SLUG));
-
-/** 工作区:~/.mainbench/workspaces。不进安装目录,也不埋进 Library。 */
-const workspacesDir = () => {
-  const target = join(homedir(), ".mainbench", "workspaces");
-  mkdirSync(target, { recursive: true });
-  return target;
-};
 
 let child = null;
 let quitting = false;
@@ -52,7 +44,6 @@ const layout = () => {
       WORKBENCH_PACKAGED: "1",                 // 遥测只在打包应用里发,开发态不打点
       WORKBENCH_VERSION: app.getVersion(),
       WORKBENCH_HOME: app.getPath("userData"), // database/ 落在这里(macOS 惯例:应用数据进 Application Support)
-      WORKBENCH_WORKSPACES: workspacesDir(),
       WORKBENCH_UI_DIST: join(res, "core/ui"),
       // 组件契约正典:system prompt 把这个路径给智能体,让它动手前先 read
       WORKBENCH_WIDGET_DOC: join(res, "core/WIDGET.md"),

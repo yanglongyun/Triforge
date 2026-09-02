@@ -5,7 +5,7 @@
 import { randomUUID } from "crypto";
 import fs from "fs";
 import { getDb } from "../db.js";
-import { ensureRoot, listWorkspaces } from "./tree.js";
+import { defaultDir } from "./tree.js";
 
 // 新对话默认叫这个;首条消息跑完后由 runs 层请模型取正式名字
 const DEFAULT_TITLE = "未命名对话";
@@ -81,7 +81,7 @@ const lastMessages = (ids) => {
 
 const createChat = ({ title, system = null, workdir, originApp = null } = {}) => {
   const id = randomUUID();
-  const home = String(workdir || "").trim() || (listWorkspaces()[0]?.path || ensureRoot());
+  const home = String(workdir || "").trim() || defaultDir();
   getDb().prepare(`
     INSERT INTO chats (id, origin_app, title, system, workdir) VALUES (?, ?, ?, ?, ?)
   `).run(id, originApp == null ? null : String(originApp),
@@ -135,11 +135,11 @@ const unreadMap = (ids) => {
   return map;
 };
 
-/** 运行时的家:workdir 没了(被删/盘未挂载)就退回第一个工作区根,任务不至于无处落脚。 */
+/** 运行时的家:workdir 没了(被删/盘未挂载)就退回桌面,任务不至于无处落脚。 */
 const resolveWorkdir = (chat) => {
   const dir = chat?.workdir || "";
   try { if (dir && fs.statSync(dir).isDirectory()) return dir; } catch { /* fallthrough */ }
-  return listWorkspaces()[0]?.path || ensureRoot();
+  return defaultDir();
 };
 
 export {

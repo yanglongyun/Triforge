@@ -4,13 +4,11 @@
 // dev server、git、别的进程改磁盘时没人说话 —— 树就静默过期。VS Code 的资源管理器
 // 之所以"总是新的",是向内核注册文件事件(macOS FSEvents / Win ReadDirectoryChangesW /
 // Linux inotify)。Node 的 fs.watch({recursive}) 在 libuv 底下用的正是同一套内核 API,
-// 零依赖 —— 这里对每个工作区根挂一个递归监听,事件节流后广播 tree_changed。
+// 零依赖 —— 树顶是整个主目录,就对它挂一个递归监听,事件节流后广播 tree_changed。
 import fs from "fs";
 import path from "path";
 import { emit } from "../bus.js";
-import { IGNORE_DIRS, ensureRoot, listWorkspaces } from "../repo/tree.js";
-
-const watchers = new Map(); // root -> fs.FSWatcher
+import { IGNORE_DIRS, ROOT, isRootNoise } from "../repo/tree.js";
 
 // npm install / git checkout 是几千个事件的风暴:节流成每 400ms 至多一次广播。
 // 树的刷新是幂等的整树重拉,合并多少事件都不丢信息。
@@ -29,36 +27,31 @@ const schedule = () => {
   timer = setTimeout(() => { timer = null; fire(); }, wait);
 };
 
-/** 忽略树本来就不显示的目录(node_modules/.git/…)里的抖动,少刷无谓的一轮。 */
+/**
+ * 忽略树本来就不显示的东西里的抖动,少刷无谓的一轮:
+ * - 主目录顶层的配置目录 / Library(缓存、日志,一直在写);
+ * - 任何一级里的 node_modules/.git/…。
+ */
 const ignorable = (filename: string | Buffer | null) => {
   if (!filename) return false; // 拿不到路径就宁可刷一次
-  return String(filename).split(path.sep).some((part) => IGNORE_DIRS.has(part));
+  const parts = String(filename).split(path.sep).filter(Boolean);
+  if (parts.length && isRootNoise(parts[0])) return true;
+  return parts.some((part) => IGNORE_DIRS.has(part));
 };
 
-const watchRoot = (root: string) => {
-  if (watchers.has(root)) return;
+let watcher: fs.FSWatcher | null = null;
+
+const startWatcher = () => {
+  if (watcher) return;
   try {
-    const watcher = fs.watch(root, { recursive: true }, (_event, filename) => {
+    watcher = fs.watch(ROOT, { recursive: true }, (_event, filename) => {
       if (ignorable(filename)) return;
       schedule();
     });
-    // 根被删/权限变化:收掉,等下次 sync 重试
-    watcher.on("error", () => { watcher.close(); watchers.delete(root); });
-    watchers.set(root, watcher);
+    watcher.on("error", () => { watcher?.close(); watcher = null; });
   } catch {
-    // 根暂时不可用(如外置盘未挂载),下次 sync 再试
+    // 主目录都监听不了就算了,树退化成手动刷新
   }
 };
 
-/** 对齐监听集合与当前工作区列表。启动时和工作区增删后各调一次。 */
-const syncWatchers = () => {
-  const roots = new Set([ensureRoot(), ...listWorkspaces().map((row) => row.path)]);
-  for (const [root, watcher] of watchers) {
-    if (!roots.has(root)) { watcher.close(); watchers.delete(root); }
-  }
-  for (const root of roots) watchRoot(root);
-};
-
-const startWatcher = () => syncWatchers();
-
-export { startWatcher, syncWatchers };
+export { startWatcher };

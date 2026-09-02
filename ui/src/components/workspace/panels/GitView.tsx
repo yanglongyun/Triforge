@@ -94,7 +94,7 @@ export function GitView({ repoPath, repoTitle, refreshKey = 0, onOpenDiff, onCha
   useEffect(() => { load(); }, [repoPath, refreshKey]);
 
   const updateRepo = (repo: GitRepositoryStatus) => {
-    setRepositories((current) => current.map((item) => item.root === repo.root || item.workspaceId === repo.workspaceId ? repo : item));
+    setRepositories((current) => current.map((item) => item.root === repo.root ? repo : item));
     onChanged?.();
   };
 
@@ -161,15 +161,15 @@ export function GitView({ repoPath, repoTitle, refreshKey = 0, onOpenDiff, onCha
         )}
         {repos.map((repo) => (
           <RepositoryBlock
-            key={`${repo.workspaceId}:${repo.root}`}
+            key={repo.root || repo.dir}
             repo={repo}
             busy={busy}
             singleRepo={singleRepo}
-            expanded={singleRepo || !collapsedByRoot[repo.root || repo.workspaceId]}
+            expanded={singleRepo || !collapsedByRoot[repo.root || repo.dir]}
             commitMessage={messageByRoot[repo.root || ""] || ""}
             branches={repo.root ? branchByRoot[repo.root] : undefined}
             onToggleExpanded={() => {
-              const key = repo.root || repo.workspaceId;
+              const key = repo.root || repo.dir;
               setCollapsedByRoot((current) => ({ ...current, [key]: !current[key] }));
             }}
             onMessageChange={(message) => setMessageByRoot((current) => ({ ...current, [repo.root || ""]: message }))}
@@ -292,7 +292,7 @@ function RepositoryBlock({
               ].join(" ")}
             />
             <GitBranch size={13} className="text-accent shrink-0" />
-            <span className="flex-1 min-w-0 truncate text-[13px] font-semibold text-text">{repo.workspaceTitle}</span>
+            <span className="flex-1 min-w-0 truncate text-[13px] font-semibold text-text">{repo.title}</span>
             <span className="text-[11px] text-text-faint tabular-nums">{repo.files.length}</span>
           </div>
           <div className="mt-1 flex items-center gap-1.5 text-[11px] text-text-faint min-w-0">
