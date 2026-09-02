@@ -16,13 +16,14 @@ async function nudge() {
 /* ---------------- 进程 ---------------- */
 
 async function start(_p, options) {
-  const existing = runningInstance();
-  if (existing) return { text: existing.url, json: existing };
+  // --foreground 是宿主托管:宿主指定了 PORT,要的就是这个进程 —— 不能因为别处还有个实例在跑就借它的地址退出
   if (options.foreground) {
     const { url } = await startServer({ port: options.port ? int(options.port, '--port') : undefined });
     console.log(url);
     return { silent: true, keepAlive: true };
   }
+  const existing = runningInstance();
+  if (existing) return { text: existing.url, json: existing };
   const child = spawn(process.execPath, [join(ROOT, 'bin', 'notes.mjs'), 'start', '--foreground',
     ...(options.port ? ['--port', String(options.port)] : [])], { detached: true, stdio: 'ignore', env: process.env });
   child.unref();
