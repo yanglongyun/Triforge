@@ -62,9 +62,11 @@ const isHidden = (name) => IGNORE_FILES.has(name) || /\.(db|sqlite)-(wal|shm)$/.
 // 递归(搜索 / 删除子树)时跳过的重目录 —— 跟 VSCode 一样不索引它们,
 // 否则 AI 一 npm install,node_modules 几万文件会拖垮一切。
 const IGNORE_DIRS = new Set([
-  "node_modules", "dist", "build", "out", "target", "vendor",
+  "node_modules", "dist", "build", "release", "out", "target", "vendor",
   ".git", ".next", ".cache", ".turbo", ".gradle", ".venv", "__pycache__",
 ]);
+// macOS 的「包」目录(.app / 照片库 …)里面是成千上万个内部文件,树里当一个整体,不往里走
+const isBundle = (name) => /\.(app|framework|bundle|photoslibrary|musiclibrary|tvlibrary|xcodeproj)$/i.test(name);
 // 允许 .dev 这类点开头的名字;只挡路径分隔符和 "." / ".." 两个特殊目录名
 const sanitize = (title) => {
   const t = String(title || "").trim().replace(/[/\\]/g, "-");
@@ -172,15 +174,20 @@ const agentContext = (startDir) => {
   return { docs, skills };
 };
 
-// 递归列出整棵树所有节点(给 ⌘P 快速打开用),跳过 IGNORE_DIRS / 隐藏。不读文件内容。
+// 递归列出整棵树所有节点(给 ⌘P 快速打开用),跳过 IGNORE_DIRS / 包 / 隐藏。不读文件内容。
+// 这是同步遍历,跑在主线程上:工作区一大(桌面下几个仓库)就是几十万项、几分钟,
+// 期间整个服务端对谁都不应答。所以封顶 —— 筛选够用就行,不追求全量。
+const LIST_ALL_CAP = 20_000;
 const listAll = () => {
   const out = [];
   const walk = (dir) => {
+    if (out.length >= LIST_ALL_CAP) return;
     let entries; try { entries = fs.readdirSync(dir, { withFileTypes: true }); } catch { return; }
     for (const e of entries) {
+      if (out.length >= LIST_ALL_CAP) return;
       if (isHidden(e.name)) continue;
       const abs = path.join(dir, e.name);
-      if (e.isDirectory()) { if (!IGNORE_DIRS.has(e.name)) { out.push(spaceItem(abs)); walk(abs); } }
+      if (e.isDirectory()) { if (!IGNORE_DIRS.has(e.name) && !isBundle(e.name)) { out.push(spaceItem(abs)); walk(abs); } }
       else out.push(fileItem(abs));
     }
   };
@@ -454,7 +461,7 @@ const removeWorkspace = (idOrPath) => {
 const listWorkspaces = () => workspaceRows();
 
 export {
-  productHome, defaultDir, IGNORE_DIRS, isAllowedPath,
+  productHome, defaultDir, IGNORE_DIRS, isBundle, isAllowedPath,
   listChildren, listAll, getItem, createItem, updateItem, deleteItem, moveItem, copyItem, importFile, ancestry,
   resolveFileAbs, pathForId, agentContext,
   listWorkspaces, addWorkspace, removeWorkspace, isWorkspaceRoot, terminalCwd,

@@ -1,6 +1,6 @@
 {
   "name": "worktop",
-  "version": "1.4.0",
+  "version": "1.4.1",
   "private": true,
   "type": "module",
   "description": "Worktop — 本地 AI 工作台:对话绑定真实工作目录,AI 产出真实文件",

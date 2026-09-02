@@ -1,7 +1,7 @@
 // 全局内容搜索:在所有工作区里 grep 真实文件内容,返回按文件分组的命中行。
 import fs from "fs";
 import path from "path";
-import { IGNORE_DIRS, listWorkspaces } from "./tree.js";
+import { IGNORE_DIRS, isBundle, listWorkspaces } from "./tree.js";
 
 // 与 repo/tree 同语义:点开头照搜(.dev/.github 里的内容也是内容),只跳系统噪音
 const IGNORE_FILES = new Set([".DS_Store", "Thumbs.db", "desktop.ini"]);
@@ -27,7 +27,7 @@ const searchContent = (
       if (total >= maxTotal) return;
       if (isHidden(e.name)) continue;
       const abs = path.join(dir, e.name);
-      if (e.isDirectory()) { if (!IGNORE_DIRS.has(e.name)) walk(abs); continue; }
+      if (e.isDirectory()) { if (!IGNORE_DIRS.has(e.name) && !isBundle(e.name)) walk(abs); continue; }
 
       let content;
       try {
