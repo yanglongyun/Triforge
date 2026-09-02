@@ -24,6 +24,9 @@ const DRIVER_OPTIONS = [
   { id: "chat", label: "Chat Completions", urlPlaceholder: "https://open.bigmodel.cn/api/paas/v4/chat/completions" },
 ];
 
+/** iimos 中转站:试水用户拿一把 key 就能用,地址和模型是固定的。 */
+const GATEWAY_PRESET = { driver: "responses", apiUrl: "https://gateway.iimos.ai/v1/responses", model: "deepseek-v4-flash" };
+
 const inputClass =
   "w-full border border-border bg-bg px-3 py-2 text-[13px] text-text outline-none transition-colors focus:border-accent";
 const repositoryUrl = "https://github.com/yanglongyun/Worktop";
@@ -109,6 +112,13 @@ export function SettingsPanel({ onSaved }: { onSaved?: (settings: Settings) => v
                 onChange={(e) => set("apiUrl", e.target.value)}
                 placeholder={(DRIVER_OPTIONS.find((o) => o.id === (form.driver || "responses")) || DRIVER_OPTIONS[0]).urlPlaceholder}
               />
+              <button
+                type="button"
+                className="mt-1.5 text-[12px] text-muted underline-offset-2 hover:text-text hover:underline"
+                onClick={() => setForm((c) => ({ ...c, driver: GATEWAY_PRESET.driver, apiUrl: GATEWAY_PRESET.apiUrl, model: GATEWAY_PRESET.model }))}
+              >
+                用 iimos 中转:填好地址和模型,只需贴上发给你的密钥
+              </button>
             </Field>
 
             <Field label="密钥">
