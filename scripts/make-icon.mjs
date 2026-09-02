@@ -8,7 +8,7 @@ import sharp from "sharp";
 
 const ROOT = join(dirname(fileURLToPath(import.meta.url)), "..");
 const SVG = join(ROOT, "desktop/icon.svg");
-const SET = join(ROOT, "build/icon.iconset");
+const SET = join(ROOT, "dist/icon.iconset");
 
 // iconutil 认的文件名 → 像素尺寸
 const SLOTS = [
