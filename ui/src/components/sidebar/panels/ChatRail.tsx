@@ -4,7 +4,7 @@ import { useCallback, useEffect, useState } from "react";
 import type { Node } from "../../../api";
 import { api } from "../../../api";
 import { ContextMenu, dialog, type MenuItem } from "../../ui";
-import { Copy, Folder, FolderOpen, Pencil, Pin, PinOff, Plus, SlidersHorizontal, Trash2 } from "lucide-react";
+import { Copy, Folder, FolderOpen, MoreVertical, Pencil, Pin, PinOff, Plus, SlidersHorizontal, Trash2 } from "lucide-react";
 import { relativeTime, toggleChatRowField, useChatRowFields, type ChatRowFields } from "../../../lib/chatRows";
 
 type Socket = { send: (m: any) => void; on: (t: string, fn: (p: any) => void) => () => void };
@@ -177,10 +177,10 @@ export function ChatRail({
             : null}
         <button
           onClick={(e) => { e.stopPropagation(); onContext(e, agent); }}
-          className="shrink-0 w-5 h-5 mt-px rounded flex items-center justify-center text-text-faint hover:text-text hover:bg-bg-inset opacity-0 group-hover:opacity-100 max-md:opacity-60"
+          className="shrink-0 self-center w-5 h-5 rounded flex items-center justify-center text-text-faint hover:text-text hover:bg-bg-inset opacity-0 group-hover:opacity-100 max-md:opacity-60"
           title="更多操作"
         >
-          <span className="text-[15px] leading-none -mt-1">⋯</span>
+          <MoreVertical size={14} />
         </button>
       </div>
     );
