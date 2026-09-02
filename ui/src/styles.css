@@ -121,8 +121,8 @@ body {
 /* 拖拽 */
 /* 拖拽进行中(lib/drag.ts 挂类):webview/iframe 会吞掉 pointermove/up,
    造成「松手后还跟手」。拖拽期让它们对指针失明,事件全回宿主。 */
-body.wb-dragging webview,
-body.wb-dragging iframe { pointer-events: none !important; }
+body.wt-dragging webview,
+body.wt-dragging iframe { pointer-events: none !important; }
 .is-dragging { opacity: 0.4; }
 .drop-target {
   background: var(--color-accent-soft) !important;

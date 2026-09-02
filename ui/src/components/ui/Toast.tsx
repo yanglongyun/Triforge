@@ -1,7 +1,7 @@
 // 轻提示:全局一个宿主,showToast 即显 2.4s 自隐。应用的 ui.toast 能力也走这里。
 import { useEffect, useState } from "react";
 
-const EVENT = "workbench:toast";
+const EVENT = "worktop:toast";
 
 export const showToast = (message: string) => {
   window.dispatchEvent(new CustomEvent(EVENT, { detail: { message: String(message).slice(0, 200) } }));

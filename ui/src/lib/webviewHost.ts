@@ -26,15 +26,15 @@ export const wcIdForTab = (tabId: string): number | null => {
 };
 
 /** 服务器重启后注册表清零 —— 广播这个事件让每个 WebPanel 重新注册。 */
-export const RE_REGISTER_EVENT = "workbench:web-reregister";
+export const RE_REGISTER_EVENT = "worktop:web-reregister";
 /** 截图前把目标标签翻到前台(App 监听):隐藏的 <webview> 画不出图,capturePage 会挂起。 */
-export const ACTIVATE_EVENT = "workbench:web-activate";
+export const ACTIVATE_EVENT = "worktop:web-activate";
 
 const wait = (ms: number) => new Promise((resolve) => setTimeout(resolve, ms));
 
 /** 走 CDP(主进程)。<webview> 元素只有渲染层摸得到,debugger 只有主进程摸得到,这一跳绕不开。 */
 const viaCdp = async (wcId: number, op: string, params: unknown) => {
-  const bridge = window.workbenchDesktop;
+  const bridge = window.worktopDesktop;
   if (!bridge?.cdp) throw new Error("需要在桌面应用里使用");
   const result = await bridge.cdp(wcId, op as any, params);
   if (!result.ok) throw new Error(result.error);

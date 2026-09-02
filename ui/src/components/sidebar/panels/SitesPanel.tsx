@@ -14,7 +14,7 @@ import { ContextMenu, dialog, type MenuItem } from "../../ui";
 
 const hostOf = (url: string) => { try { return new URL(url).host; } catch { return url; } };
 
-const OPEN_KEY = "workbench.sites.openFolders";
+const OPEN_KEY = "worktop.sites.openFolders";
 const readOpen = (): string[] => {
   try { return JSON.parse(localStorage.getItem(OPEN_KEY) || "[]"); } catch { return []; }
 };

@@ -26,7 +26,7 @@ const DRIVER_OPTIONS = [
 
 const inputClass =
   "w-full border border-border bg-bg px-3 py-2 text-[13px] text-text outline-none transition-colors focus:border-accent";
-const repositoryUrl = "https://github.com/yanglongyun/Mainbench";
+const repositoryUrl = "https://github.com/yanglongyun/Worktop";
 
 export function SettingsPanel({ onSaved }: { onSaved?: (settings: Settings) => void }) {
   const [form, setForm] = useState<Settings>(emptySettings);
@@ -265,7 +265,7 @@ function BrowserLogins() {
           className={rowBtn}
           disabled={!!busy}
           onClick={() => run("logout", async () => {
-            const r = await window.workbenchDesktop?.clearWebLogins();
+            const r = await window.worktopDesktop?.clearWebLogins();
             if (r && !r.ok) throw new Error(r.error || "清除失败");
             return "已退出所有网站";
           })}
@@ -283,7 +283,7 @@ function BrowserLogins() {
           className={rowBtn}
           disabled={!!busy}
           onClick={() => run("perm", async () => {
-            await window.workbenchDesktop?.forgetWebPermissions();
+            await window.worktopDesktop?.forgetWebPermissions();
             return "已清空,下次访问会重新询问。";
           })}
         >
@@ -300,7 +300,7 @@ function BrowserLogins() {
           className={rowBtn}
           disabled={!!busy}
           onClick={() => run("cache", async () => {
-            const r = await window.workbenchDesktop?.clearWebCache();
+            const r = await window.worktopDesktop?.clearWebCache();
             if (r && !r.ok) throw new Error(r.error || "清除失败");
             return "缓存已清除";
           })}

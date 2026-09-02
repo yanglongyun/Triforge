@@ -443,8 +443,8 @@ export function FilesPanel({
         else if (tries > 12) clearInterval(timer);
       }, 120);
     };
-    window.addEventListener("workbench:reveal-path", onReveal);
-    return () => window.removeEventListener("workbench:reveal-path", onReveal);
+    window.addEventListener("worktop:reveal-path", onReveal);
+    return () => window.removeEventListener("worktop:reveal-path", onReveal);
   }, [roots]);
 
   useEffect(() => {
@@ -486,8 +486,8 @@ export function FilesPanel({
   };
   useEffect(() => {
     const open = () => openAddWorkspace();
-    window.addEventListener("workbench:add-workspace", open);
-    return () => window.removeEventListener("workbench:add-workspace", open);
+    window.addEventListener("worktop:add-workspace", open);
+    return () => window.removeEventListener("worktop:add-workspace", open);
   }, []);
 
   const addWorkspace = async () => {
@@ -745,7 +745,7 @@ export function FilesPanel({
                 onClick={() => {
                   if (node.kind === "space") {
                     setFilterQ("");
-                    window.dispatchEvent(new CustomEvent("workbench:reveal-path", { detail: { path: node.id } }));
+                    window.dispatchEvent(new CustomEvent("worktop:reveal-path", { detail: { path: node.id } }));
                   } else handleSelect(node);
                 }}
                 className="flex items-center gap-1.5 py-[3px] px-2 cursor-pointer select-none hover:bg-bg-hover"

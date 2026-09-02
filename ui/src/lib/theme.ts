@@ -3,9 +3,9 @@
 // index.html 的内联脚本在首帧前先写一次,这里负责运行期切换与跟随系统变化。
 export type ThemePref = "system" | "light" | "dark";
 
-const KEY = "workbench.theme";
+const KEY = "worktop.theme";
 /** 主题实际翻转时广播(CodeMirror 等命令式组件靠它重建配色)。 */
-export const THEME_EVENT = "workbench:theme-changed";
+export const THEME_EVENT = "worktop:theme-changed";
 
 export const getThemePref = (): ThemePref => {
   try {

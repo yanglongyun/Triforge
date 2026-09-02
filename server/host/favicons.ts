@@ -1,6 +1,6 @@
 // 网站图标:抓取 + 磁盘缓存 + 回源代理。只直连站点自身,不依赖任何第三方图标服务。
 //   1) 先试 <origin>/favicon.ico;2) 不行就取页面 HTML 里的 <link rel*="icon">。
-// 命中落盘 $WORKBENCH_HOME/favicons/<host>.<ext>,未命中记内存负缓存 1 小时。
+// 命中落盘 $WORKTOP_HOME/favicons/<host>.<ext>,未命中记内存负缓存 1 小时。
 // 按字节魔数识别真图 —— content-type 说谎(text/plain 的 ico 满街都是)也认得。
 import fs from "fs";
 import path from "path";
@@ -8,7 +8,7 @@ import type { ServerResponse } from "http";
 import { fileURLToPath } from "url";
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
-const HOME = process.env.WORKBENCH_HOME || path.join(__dirname, "..");
+const HOME = process.env.WORKTOP_HOME || path.join(__dirname, "..");
 const DIR = path.join(HOME, "favicons");
 
 const EXTS = ["png", "ico", "svg", "jpg", "gif", "webp"];
@@ -42,7 +42,7 @@ const fetchBytes = async (target: string, maxBytes = 512 * 1024) => {
     const res = await fetch(target, {
       signal: controller.signal,
       redirect: "follow",
-      headers: { "user-agent": "Mozilla/5.0 (Macintosh) Mainbench", accept: "*/*" },
+      headers: { "user-agent": "Mozilla/5.0 (Macintosh) Worktop", accept: "*/*" },
     });
     if (!res.ok) return null;
     const buf = Buffer.from(await res.arrayBuffer());

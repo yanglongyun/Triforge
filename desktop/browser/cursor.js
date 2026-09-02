@@ -16,7 +16,7 @@ let seq = 0;
 const waiters = new Map(); // seq → resolve
 
 export const bindCursor = () => {
-  ipcMain.on("workbench:cursor-arrived", (_event, arrivedSeq) => {
+  ipcMain.on("worktop:cursor-arrived", (_event, arrivedSeq) => {
     const resolve = waiters.get(arrivedSeq);
     if (resolve) { waiters.delete(arrivedSeq); resolve(); }
   });
@@ -32,7 +32,7 @@ export const escortCursor = (target, x, y) => {
   const animate = watched();
   const mySeq = (seq += 1);
   try {
-    target.send("workbench:cursor", { x, y, seq: mySeq, animate });
+    target.send("worktop:cursor", { x, y, seq: mySeq, animate });
   } catch {
     return Promise.resolve(); // 页面没了,别把动作卡住
   }
@@ -45,5 +45,5 @@ export const escortCursor = (target, x, y) => {
 
 /** 落点涟漪:真实动作发生**之后**画。「点了哪里」要看得见,哪怕光标是瞬移过去的。 */
 export const pulseCursor = (target, x, y) => {
-  try { target.send("workbench:cursor-pulse", { x, y }); } catch { /* 页面没了就算了 */ }
+  try { target.send("worktop:cursor-pulse", { x, y }); } catch { /* 页面没了就算了 */ }
 };

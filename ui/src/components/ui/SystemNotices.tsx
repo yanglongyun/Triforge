@@ -1,14 +1,14 @@
 // 右下角系统气泡:两类,同一叠放。
-//   更新就绪 —— 壳广播 workbench:update-ready(electron-updater 下载完),点「重启更新」装上;
-//   官方公告 —— api.mainbench.iimos.ai 的 notices,启动拉一次 + 每 6 小时,看过的 id 记 localStorage。
+//   更新就绪 —— 壳广播 worktop:update-ready(electron-updater 下载完),点「重启更新」装上;
+//   官方公告 —— api.worktop.iimos.ai 的 notices,启动拉一次 + 每 6 小时,看过的 id 记 localStorage。
 // 都拿不到就安静,绝不打扰。
 import { useEffect, useState } from "react";
 import { ArrowUpCircle, Megaphone, X } from "lucide-react";
 
 type Notice = { id: number; title: string; body: string; url: string };
 
-const NOTICES_API = "https://api.mainbench.iimos.ai/notices";
-const SEEN_KEY = "workbench.seenNotices";
+const NOTICES_API = "https://api.worktop.iimos.ai/notices";
+const SEEN_KEY = "worktop.seenNotices";
 
 const seenIds = (): number[] => {
   try { return JSON.parse(localStorage.getItem(SEEN_KEY) || "[]"); } catch { return []; }
@@ -27,8 +27,8 @@ export function SystemNotices() {
       const version = String((e as CustomEvent).detail?.version || "");
       if (version) setUpdateVersion(version);
     };
-    window.addEventListener("workbench:update-ready", onReady);
-    return () => window.removeEventListener("workbench:update-ready", onReady);
+    window.addEventListener("worktop:update-ready", onReady);
+    return () => window.removeEventListener("worktop:update-ready", onReady);
   }, []);
 
   useEffect(() => {
@@ -84,7 +84,7 @@ export function SystemNotices() {
             <ArrowUpCircle size={14} className="shrink-0 text-success" />
             <div className="min-w-0 flex-1 truncate text-[13px] text-text">新版本 v{updateVersion} 已就绪</div>
             <button
-              onClick={() => void window.workbenchDesktop?.installUpdate()}
+              onClick={() => void window.worktopDesktop?.installUpdate()}
               className="h-6 shrink-0 rounded bg-accent px-2.5 text-[12px] text-white hover:opacity-90"
             >
               重启更新

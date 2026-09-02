@@ -9,7 +9,7 @@ type Socket = {
   on: (t: string, fn: (p: any) => void) => () => void;
 };
 
-const SPLIT_STORAGE_KEY = "workbench.workspaceSplitPercent";
+const SPLIT_STORAGE_KEY = "worktop.workspaceSplitPercent";
 const MIN_GROUP_WIDTH = 260;
 
 const clampSplitPercent = (percent: number, width: number) => {

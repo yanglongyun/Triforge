@@ -1,6 +1,6 @@
 // 工具装配:定义表(发给模型)与执行映射(注入内核)在这里合拢。
-// 内核(ai/)只认 tools 数组 + executors Map,不知道 Workbench 是什么;
-// Workbench 的外部能力(文件、进程、浏览器)全部通过 ctx 闭包进执行器。
+// 内核(ai/)只认 tools 数组 + executors Map,不知道 Worktop 是什么;
+// Worktop 的外部能力(文件、进程、浏览器)全部通过 ctx 闭包进执行器。
 //
 // 六个工具:
 //   bash(background?)  — 命令与后台进程(读日志用 read 日志文件,停止用 kill)
@@ -50,10 +50,10 @@ export const truncateToolResult = (text: unknown, maxChars = 30000) => {
 
 /**
  * 按本次运行的 ctx 生成执行映射。
- * 内核每次调用只带 {signal, cwd, env};Workbench 的能力在这里合并进去,
+ * 内核每次调用只带 {signal, cwd, env};Worktop 的能力在这里合并进去,
  * 结果在这里统一截断 —— 截断只写一处,工具实现不用各自操心。
  */
-/** 工具执行上下文:Workbench 的外部能力经此注入,各工具按需取用(刻意宽松)。 */
+/** 工具执行上下文:Worktop 的外部能力经此注入,各工具按需取用(刻意宽松)。 */
 export type ToolCtx = Record<string, any> & { toolResultMaxChars?: number; signal?: AbortSignal };
 
 export const buildExecutors = (ctx: ToolCtx) => {

@@ -17,7 +17,7 @@ export const browserDef = {
   type: "function",
   name: "browser",
   description:
-    "操作工作区里的网页标签(Mainbench 内置真浏览器,带用户的真实登录态)。" +
+    "操作工作区里的网页标签(Worktop 内置真浏览器,带用户的真实登录态)。" +
     "【定位】先 snapshot 拿页面清单:一行一个可交互元素,形如 [n3-12] button \"登录\"。" +
     "之后的操作用 ref 指定目标,并带上 page_version(snapshot 返回的);页面变了 ref 会失效,重新 snapshot。" +
     "【动作】list 列出已开标签(拿 tab_id);open 打开网址成新标签;navigate/back 跳转后退;" +
@@ -65,14 +65,14 @@ export const browser = async ({
 }, ctx) => {
   const act = String(action || "");
   if (!hasHost() && act !== "list") {
-    return "error: browser 不可用 —— 需要在 Workbench 桌面壳(Electron)里运行,当前没有浏览器宿主。";
+    return "error: browser 不可用 —— 需要在 Worktop 桌面壳(Electron)里运行,当前没有浏览器宿主。";
   }
 
   try {
     switch (act) {
       case "list": {
         const rows = listTabs();
-        if (!rows.length) return hasHost() ? "(当前没有打开的网页标签;用 action=open 打开一个)" : "error: browser 不可用 —— 需要在 Workbench 桌面壳(Electron)里运行。";
+        if (!rows.length) return hasHost() ? "(当前没有打开的网页标签;用 action=open 打开一个)" : "error: browser 不可用 —— 需要在 Worktop 桌面壳(Electron)里运行。";
         return rows.map(fmtTab).join("\n");
       }
       case "open": {

@@ -17,7 +17,7 @@ export const fetchForWidget = async (hosts: string[], rawUrl: string) => {
   }
   const res = await fetch(url, {
     signal: AbortSignal.timeout(TIMEOUT_MS),
-    headers: { "user-agent": "Mozilla/5.0 (mainbench-widget)", accept: "*/*" },
+    headers: { "user-agent": "Mozilla/5.0 (worktop-widget)", accept: "*/*" },
   });
   const buf = Buffer.from(await res.arrayBuffer());
   if (buf.length > MAX_BYTES) throw new Error("响应超过 2MB");

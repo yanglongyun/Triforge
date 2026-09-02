@@ -172,8 +172,8 @@ export function WebPanel({ tab, socket, onUpdate }: {
       if (!host || !tab.url.includes(host)) return;
       (viewRef.current as any)?.reload?.();
     };
-    window.addEventListener("workbench:reload-web", onReload);
-    return () => window.removeEventListener("workbench:reload-web", onReload);
+    window.addEventListener("worktop:reload-web", onReload);
+    return () => window.removeEventListener("worktop:reload-web", onReload);
   }, [tab.url]);
 
   // ⌘F 打开页内查找。挂在面板上而不是全局:多个网页标签常驻挂载,
@@ -373,16 +373,16 @@ export function WebPanel({ tab, socket, onUpdate }: {
                       {item.state === "progressing" ? (
                         <button
                           className="shrink-0 text-[11.5px] text-text-faint hover:text-danger transition-colors"
-                          onClick={() => void window.workbenchDesktop?.cancelDownload(item.id)}
+                          onClick={() => void window.worktopDesktop?.cancelDownload(item.id)}
                         >
                           取消
                         </button>
                       ) : item.state === "completed" && (
                         <span className="shrink-0 flex items-center gap-2 text-[11.5px] text-text-faint">
                           <button className="hover:text-text transition-colors"
-                            onClick={() => void window.workbenchDesktop?.openDownload(item.path)}>打开</button>
+                            onClick={() => void window.worktopDesktop?.openDownload(item.path)}>打开</button>
                           <button className="hover:text-text transition-colors"
-                            onClick={() => void window.workbenchDesktop?.revealDownload(item.path)}>显示</button>
+                            onClick={() => void window.worktopDesktop?.revealDownload(item.path)}>显示</button>
                         </span>
                       )}
                     </div>
@@ -515,7 +515,7 @@ export function WebPanel({ tab, socket, onUpdate }: {
         src={tab.url}
         partition={WEB_PARTITION}
         allowpopups={"true" as unknown as boolean}
-        preload={window.workbenchDesktop?.webviewPreload || undefined}
+        preload={window.worktopDesktop?.webviewPreload || undefined}
         allowFullScreen
         className="flex-1 min-h-0"
         style={{ display: "flex" }}

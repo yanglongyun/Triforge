@@ -97,7 +97,7 @@ widgets/<id>/
 
 ```
 面板 iframe ──► 127.0.0.1:<widgetPort>/          静态文件:widgets/<id>/
-                                    /_wb/*       宿主 API(见第 5 节)
+                                    /_wt/*       宿主 API(见第 5 节)
 ```
 
 这不是过度设计,是**用 40 行换掉一整类 bug**:
@@ -105,7 +105,7 @@ widgets/<id>/
 - 组件拿到的是**真正的根**,`<link href="/style.css">` 与 `./style.css` 都对
   —— 路径前缀方案(`/widgets/<id>/…`)会让根绝对路径解析到 origin 根然后 404,这个坑刚踩过;
 - 不同端口 = **不同 origin** → localStorage / cookie 天然互不可见,组件间隔离不用靠 sandbox 兜;
-- 宿主 API 与组件**同源**(`/_wb/*` 由该端口自己应答),组件写 `fetch("/_wb/sql")` 即可,
+- 宿主 API 与组件**同源**(`/_wt/*` 由该端口自己应答),组件写 `fetch("/_wt/sql")` 即可,
   **凭据由宿主在服务端注入,永远不出现在页面里**。
 
 ### 隔离:靠 CSP,不靠自觉
@@ -131,11 +131,11 @@ Content-Security-Policy: default-src 'self'; connect-src 'self'; img-src 'self' 
 
 | 权限 | 能力 | 备注 |
 |---|---|---|
-| `sql` | `/_wb/sql`、`/_wb/sql/batch` | 只能碰自己的库,物理隔离 |
-| `ui` | `/_wb/toast`、`/_wb/confirm`、`/_wb/open` | 免申请,三个都已实现;`open` 把链接开进工作台网页标签 |
-| `fs` | `/_wb/fs/*` 读写工作区文件 | **首次使用弹用户授权**,不能靠 manifest 一次性拿到 |
-| `ai` | `/_wb/ai` 无状态补全 | 每次调用必带 `summary`,打进服务端控制台 |
-| `net` | `/_wb/http` 宿主代理 GET | 只放行 manifest `hosts` 里声明的域名;CSP 断网不变,出口只有这一个 |
+| `sql` | `/_wt/sql`、`/_wt/sql/batch` | 只能碰自己的库,物理隔离 |
+| `ui` | `/_wt/toast`、`/_wt/confirm`、`/_wt/open` | 免申请,三个都已实现;`open` 把链接开进工作台网页标签 |
+| `fs` | `/_wt/fs/*` 读写工作区文件 | **首次使用弹用户授权**,不能靠 manifest 一次性拿到 |
+| `ai` | `/_wt/ai` 无状态补全 | 每次调用必带 `summary`,打进服务端控制台 |
+| `net` | `/_wt/http` 宿主代理 GET | 只放行 manifest `hosts` 里声明的域名;CSP 断网不变,出口只有这一个 |
 
 原则:
 - **能力即知情同意** —— 声明是给用户看的,不是给系统看的;
@@ -146,7 +146,7 @@ Content-Security-Policy: default-src 'self'; connect-src 'self'; img-src 'self' 
 
 ## 5. 宿主 API:同源 HTTP,没有 SDK
 
-组件不需要引入任何脚本。所有能力都是 `/_wb/*` 下的同源 HTTP 端点,用标准 `fetch` 调。
+组件不需要引入任何脚本。所有能力都是 `/_wt/*` 下的同源 HTTP 端点,用标准 `fetch` 调。
 
 > **为什么不给 SDK 对象**:上一轮的教训是,宿主能力一旦做成「前端能调的宿主对象」
 > (iframe → 父窗口 postMessage),它就被 DOM 拓扑绑架了 —— 换个挂载方式当场失效。
@@ -155,7 +155,7 @@ Content-Security-Policy: default-src 'self'; connect-src 'self'; img-src 'self' 
 ### 5.1 SQL(权限 `sql`)
 
 ```js
-const res = await fetch("/_wb/sql", {
+const res = await fetch("/_wt/sql", {
   method: "POST",
   headers: { "content-type": "application/json" },
   body: JSON.stringify({
@@ -170,20 +170,20 @@ const res = await fetch("/_wb/sql", {
 - **一组件一个 SQLite 文件**,物理隔离 —— 所以「AI 随便写 SQL」是安全的,
   不需要解析 SQL 判断它碰了哪张表(那条路走不通,永远有绕过)。
 - 建表就是普通 SQL,组件自己负责:`CREATE TABLE IF NOT EXISTS …`,通常在启动时跑一次。
-- `/_wb/sql/batch` 接受语句数组,**在一个事务里跑完**。
+- `/_wt/sql/batch` 接受语句数组,**在一个事务里跑完**。
 - 硬性限制:拦 `ATTACH`(否则可跨库)、单库上限(建议 50MB)、单次结果行数上限。
 
 ### 5.2 其余端点(草案)
 
 | 端点 | 方法 | 说明 |
 |---|---|---|
-| `/_wb/context` | GET | 组件自身信息:`{ id, name, theme, locale }` |
-| `/_wb/toast` | POST | `{ message }` → `{ ok }`,右下角轻提示,自动带组件名前缀 |
-| `/_wb/confirm` | POST | `{ message }` → `{ ok, confirmed }`,阻塞到用户选择;2 分钟没人理按取消 |
-| `/_wb/open` | POST | `{ url }` → `{ ok }`;在工作台里开网页标签(组件里 `target="_blank"` 会被桌面壳丢去系统浏览器,别用) |
-| `/_wb/ai` | POST | `{ summary, system, prompt }` → `{ text, tokens }`,`summary` 必填 |
-| `/_wb/http` | POST | `{ url }` → `{ status, contentType, text }`;GET 代理,12s 超时,2MB 上限,非 UTF-8 源转码后返回 |
-| `/_wb/fs/read` `/_wb/fs/write` `/_wb/fs/list` | POST | 工作区文件,首次使用弹授权 |
+| `/_wt/context` | GET | 组件自身信息:`{ id, name, theme, locale }` |
+| `/_wt/toast` | POST | `{ message }` → `{ ok }`,右下角轻提示,自动带组件名前缀 |
+| `/_wt/confirm` | POST | `{ message }` → `{ ok, confirmed }`,阻塞到用户选择;2 分钟没人理按取消 |
+| `/_wt/open` | POST | `{ url }` → `{ ok }`;在工作台里开网页标签(组件里 `target="_blank"` 会被桌面壳丢去系统浏览器,别用) |
+| `/_wt/ai` | POST | `{ summary, system, prompt }` → `{ text, tokens }`,`summary` 必填 |
+| `/_wt/http` | POST | `{ url }` → `{ status, contentType, text }`;GET 代理,12s 超时,2MB 上限,非 UTF-8 源转码后返回 |
+| `/_wt/fs/read` `/_wt/fs/write` `/_wt/fs/list` | POST | 工作区文件,首次使用弹授权 |
 
 `toast` / `confirm` 需要服务端→客户端的通道(宿主自己的 WS,不受 workerd 那套限制)。
 
@@ -213,7 +213,7 @@ const res = await fetch("/_wb/sql", {
 放代码旁边,`sqlite3 widgets/habit/data.db` 一句话的事。
 副产品:**复制目录 = 连数据一起带走**,组件是自包含的。
 
-**组件的家在 `~/.mainbench/widgets`**:产品自己的东西住产品自己的目录,
+**组件的家在 `~/.worktop/widgets`**:产品自己的东西住产品自己的目录,
 **绝不往用户的工作区里塞 `widgets/`**。
 
 ### 四条配套规则
@@ -273,7 +273,7 @@ const res = await fetch("/_wb/sql", {
 `widgets/counter/main.js`
 ```js
 const sql = (sql, params = []) =>
-  fetch("/_wb/sql", {
+  fetch("/_wt/sql", {
     method: "POST",
     headers: { "content-type": "application/json" },
     body: JSON.stringify({ sql, params }),
@@ -333,7 +333,7 @@ ul { list-style: none; padding: 0; margin: 12px 0 0; color: var(--text-dim); fon
 必须显式做的三件事:
 
 1. **system prompt 里写进契约摘要**:组件形态、目录结构、一个可抄的最小示例、
-   `/_wb/sql` 的调法、三条硬约束(零构建 / 相对路径 / 主题变量)、
+   `/_wt/sql` 的调法、三条硬约束(零构建 / 相对路径 / 主题变量)、
    以及**什么时候不该造组件**(要独立网站、要 CLI、只是看一眼的单页 HTML);
 2. **给出本规范文档的绝对路径**,让 AI 动手前先读全文;
 3. **组件列表要带 `description` 喂给 AI** —— 让它先判断「已经有一个了」,而不是造第二个。
@@ -346,7 +346,7 @@ ul { list-style: none; padding: 0; margin: 12px 0 0; color: var(--text-dim); fon
 
 - [ ] 组件首页能开
 - [ ] `<link href="/style.css">` 与 `./style.css` **都**能加载
-- [ ] `fetch("/_wb/sql")` 能通;建表、写入、查询、batch 事务全过
+- [ ] `fetch("/_wt/sql")` 能通;建表、写入、查询、batch 事务全过
 - [ ] 组件 A 读不到组件 B 的库;localStorage 互不可见
 - [ ] CSP 生效:组件里 `fetch("https://example.com")` 必须失败
 - [ ] 未声明的权限被拒

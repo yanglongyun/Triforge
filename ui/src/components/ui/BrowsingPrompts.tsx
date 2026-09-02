@@ -23,7 +23,7 @@ const PERMISSION_LABEL: Record<string, string> = {
 };
 
 const answer = (id: string, value: unknown) => {
-  void window.workbenchDesktop?.answerWebPrompt(id, value);
+  void window.worktopDesktop?.answerWebPrompt(id, value);
 };
 
 export function BrowsingPrompts() {
@@ -37,13 +37,13 @@ export function BrowsingPrompts() {
     const onPermission = (e: Event) => setPermission((e as CustomEvent).detail);
     const onAuth = (e: Event) => { setUser(""); setPass(""); setAuth((e as CustomEvent).detail); };
     const onCert = (e: Event) => setCert((e as CustomEvent).detail);
-    window.addEventListener("workbench:web-permission", onPermission);
-    window.addEventListener("workbench:web-auth", onAuth);
-    window.addEventListener("workbench:web-cert-error", onCert);
+    window.addEventListener("worktop:web-permission", onPermission);
+    window.addEventListener("worktop:web-auth", onAuth);
+    window.addEventListener("worktop:web-cert-error", onCert);
     return () => {
-      window.removeEventListener("workbench:web-permission", onPermission);
-      window.removeEventListener("workbench:web-auth", onAuth);
-      window.removeEventListener("workbench:web-cert-error", onCert);
+      window.removeEventListener("worktop:web-permission", onPermission);
+      window.removeEventListener("worktop:web-auth", onAuth);
+      window.removeEventListener("worktop:web-cert-error", onCert);
     };
   }, []);
 
@@ -110,10 +110,10 @@ export function BrowsingPrompts() {
             {
               label: "仍要继续", danger: true,
               onClick: () => {
-                void window.workbenchDesktop?.trustCertHost(cert.host);
+                void window.worktopDesktop?.trustCertHost(cert.host);
                 setCert(null);
                 // 信任是这次运行内的事,重载后才会生效
-                window.dispatchEvent(new CustomEvent("workbench:reload-web", { detail: { host: cert.host } }));
+                window.dispatchEvent(new CustomEvent("worktop:reload-web", { detail: { host: cert.host } }));
               },
             },
           ]}

@@ -32,7 +32,7 @@ export const serveDownloads = (browsing, toRenderer) => {
     item.setSavePath(to); // 设了它就不弹对话框
     live.set(id, item);
 
-    const report = (state) => toRenderer("workbench:download", {
+    const report = (state) => toRenderer("worktop:download", {
       id,
       name: path.basename(to),
       path: to,
@@ -46,9 +46,9 @@ export const serveDownloads = (browsing, toRenderer) => {
     item.once("done", (__event, state) => { live.delete(id); report(state); });
   });
 
-  ipcMain.handle("workbench:download-cancel", (_event, id) => { live.get(String(id))?.cancel(); return true; });
-  ipcMain.handle("workbench:download-reveal", (_event, target) => { shell.showItemInFolder(String(target)); return true; });
-  ipcMain.handle("workbench:download-open", async (_event, target) => {
+  ipcMain.handle("worktop:download-cancel", (_event, id) => { live.get(String(id))?.cancel(); return true; });
+  ipcMain.handle("worktop:download-reveal", (_event, target) => { shell.showItemInFolder(String(target)); return true; });
+  ipcMain.handle("worktop:download-open", async (_event, target) => {
     const error = await shell.openPath(String(target));
     return !error;
   });

@@ -1,11 +1,11 @@
 import { startServer } from "./server/http.js";
 import { stopAllApps } from "./server/host/appSupervisor.js";
 
-const port = Number(process.env.WORKBENCH_PORT) || 9506;
+const port = Number(process.env.WORKTOP_PORT) || 9506;
 await startServer(port);
 
 // 壳退出时 SIGTERM 打到这里:app 子进程是我们 spawn 的,得由我们收尾,
-// 不然关掉 Mainbench 会在系统里留下一地孤儿进程还占着端口。
+// 不然关掉 Worktop 会在系统里留下一地孤儿进程还占着端口。
 let closing = false;
 const shutdown = async () => {
   if (closing) return;

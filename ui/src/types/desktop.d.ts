@@ -3,7 +3,7 @@ export {};
 
 declare global {
   interface Window {
-    workbenchDesktop?: {
+    worktopDesktop?: {
       /** 网页标签要挂的 preload 绝对路径(AI 光标);壳算好递过来。 */
       webviewPreload?: string;
       /** CDP:快照 / 原子操作 / 隔离世界执行。 */

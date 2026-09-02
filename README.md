@@ -1,4 +1,4 @@
-# Mainbench ▲
+# Worktop ▲
 
 > 一个本地工作台:左边是**对话**、**文件**、**网站**,中间是标签页,侧栏挂着你自己的**组件**。
 
@@ -28,7 +28,7 @@
   研究/
     notes.md                   ← 真实文件
     src/ app.js                ← AI 用 bash 建的嵌套结构
-~/.mainbench/                  ← 产品自己的家:应用、组件、它们的数据
+~/.worktop/                  ← 产品自己的家:应用、组件、它们的数据
 ```
 
 | 表 | 内容 |
@@ -59,7 +59,7 @@
 组件 = 组件的家里的一个目录,**零构建**(ESM + 原生 CSS,浏览器直接吃),写出目录即安装:
 
 ```
-~/Documents/Mainbench/widgets/<id>/
+~/.worktop/widgets/<id>/
   widget.json   manifest(名字 / 图标 / 权限)
   index.html    入口
   main.js  style.css
@@ -67,7 +67,7 @@
 ```
 
 每个组件跑在**自己的 origin** 上(一个 loopback 端口),宿主 API 是同源 HTTP
-(`fetch("/_wb/sql")`),不需要任何 SDK;默认被 CSP 断网,权限在 manifest 里明文声明。
+(`fetch("/_wt/sql")`),不需要任何 SDK;默认被 CSP 断网,权限在 manifest 里明文声明。
 
 完整契约见 **[WIDGET.md](./WIDGET.md)** —— 一份三用:字段表 = 权限清单 = SDK 文档。
 
@@ -83,8 +83,8 @@
 ## 跑起来
 
 ```bash
-git clone https://github.com/yanglongyun/Mainbench
-cd Mainbench
+git clone https://github.com/yanglongyun/Worktop
+cd Worktop
 npm install
 
 # 开发(两个进程)

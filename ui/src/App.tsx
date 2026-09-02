@@ -189,8 +189,8 @@ export function App() {
         background: !!detail.background,
       });
     };
-    window.addEventListener("workbench:open-web-tab", onOpenTab);
-    return () => window.removeEventListener("workbench:open-web-tab", onOpenTab);
+    window.addEventListener("worktop:open-web-tab", onOpenTab);
+    return () => window.removeEventListener("worktop:open-web-tab", onOpenTab);
   }, [tabGroups.openWeb]);
 
   // browser screenshot:截图前把目标网页标签翻到前台(隐藏的 <webview> 画不出图,capturePage 会挂起)
@@ -199,8 +199,8 @@ export function App() {
       const tabId = String((e as CustomEvent).detail?.tabId || "");
       if (tabId) tabGroups.activateTabById(tabId);
     };
-    window.addEventListener("workbench:web-activate", onActivate);
-    return () => window.removeEventListener("workbench:web-activate", onActivate);
+    window.addEventListener("worktop:web-activate", onActivate);
+    return () => window.removeEventListener("worktop:web-activate", onActivate);
   }, [tabGroups.activateTabById]);
 
   // 全局快捷键:⌘P 快开 / ⌘⇧P 命令面板
@@ -216,7 +216,7 @@ export function App() {
     return () => window.removeEventListener("keydown", onKey);
   }, []);
 
-  // 标签页快捷键:⌘W 关标签(Electron 由菜单转发 workbench:close-tab)、
+  // 标签页快捷键:⌘W 关标签(Electron 由菜单转发 worktop:close-tab)、
   // Ctrl(+Shift)+Tab / ⌘⇧[ ] 在当前分组内循环切换
   useEffect(() => {
     const cycleTab = (dir: number) => {
@@ -243,10 +243,10 @@ export function App() {
     };
     const onCloseTab = () => closeActiveTab();
     window.addEventListener("keydown", onKey);
-    window.addEventListener("workbench:close-tab", onCloseTab);
+    window.addEventListener("worktop:close-tab", onCloseTab);
     return () => {
       window.removeEventListener("keydown", onKey);
-      window.removeEventListener("workbench:close-tab", onCloseTab);
+      window.removeEventListener("worktop:close-tab", onCloseTab);
     };
   }, [tabGroups.activeGroup, tabGroups.activeGroupId, tabGroups.activateTab, tabGroups.closeTab]);
 
@@ -278,7 +278,7 @@ export function App() {
   const addWorkspace = async () => {
     setMobileNavOpen(true);
     setDesktopNavOpen(true);
-    window.dispatchEvent(new Event("workbench:add-workspace"));
+    window.dispatchEvent(new Event("worktop:add-workspace"));
   };
 
   // 新标签页:+ / ⌘T 打开一个空白页;Enter 后**就地转身** —— 文字变对话
@@ -346,19 +346,19 @@ export function App() {
         })();
       }
     };
-    window.addEventListener("workbench:new-tab", onNewTab);
-    window.addEventListener("workbench:launch", onLaunch);
-    window.addEventListener("workbench:launch-close", onLaunchClose);
-    window.addEventListener("workbench:launch-create", onLaunchCreate);
-    window.addEventListener("workbench:launch-open", onLaunchOpen);
-    window.addEventListener("workbench:launch-app", onLaunchApp);
+    window.addEventListener("worktop:new-tab", onNewTab);
+    window.addEventListener("worktop:launch", onLaunch);
+    window.addEventListener("worktop:launch-close", onLaunchClose);
+    window.addEventListener("worktop:launch-create", onLaunchCreate);
+    window.addEventListener("worktop:launch-open", onLaunchOpen);
+    window.addEventListener("worktop:launch-app", onLaunchApp);
     return () => {
-      window.removeEventListener("workbench:new-tab", onNewTab);
-      window.removeEventListener("workbench:launch", onLaunch);
-      window.removeEventListener("workbench:launch-close", onLaunchClose);
-      window.removeEventListener("workbench:launch-create", onLaunchCreate);
-      window.removeEventListener("workbench:launch-open", onLaunchOpen);
-      window.removeEventListener("workbench:launch-app", onLaunchApp);
+      window.removeEventListener("worktop:new-tab", onNewTab);
+      window.removeEventListener("worktop:launch", onLaunch);
+      window.removeEventListener("worktop:launch-close", onLaunchClose);
+      window.removeEventListener("worktop:launch-create", onLaunchCreate);
+      window.removeEventListener("worktop:launch-open", onLaunchOpen);
+      window.removeEventListener("worktop:launch-app", onLaunchApp);
     };
   });
 

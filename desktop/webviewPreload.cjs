@@ -187,7 +187,7 @@
     render();
   };
 
-  ipcRenderer.on("workbench:cursor", (_event, { x, y, seq, animate }) => {
+  ipcRenderer.on("worktop:cursor", (_event, { x, y, seq, animate }) => {
     if (!ensureCursor()) return;
     const target = {
       x: clamp(Number(x) || 0, 0, window.innerWidth),
@@ -201,7 +201,7 @@
     if (!animate || reduced || firstShow) {
       jumpTo(target);
       ensureFrame();
-      ipcRenderer.send("workbench:cursor-arrived", seq);
+      ipcRenderer.send("worktop:cursor-arrived", seq);
       return;
     }
     // 新指令顶掉旧动画,旧的到达回执作废 —— 否则两次移动的回执会串
@@ -212,11 +212,11 @@
     c.motion = long
       ? { mode: "bezier", path: humanCurve(start, target), target }
       : { mode: "scoot", start, target };
-    c.onArrive = () => ipcRenderer.send("workbench:cursor-arrived", seq);
+    c.onArrive = () => ipcRenderer.send("worktop:cursor-arrived", seq);
     ensureFrame();
   });
 
-  ipcRenderer.on("workbench:cursor-pulse", (_event, { x, y }) => {
+  ipcRenderer.on("worktop:cursor-pulse", (_event, { x, y }) => {
     if (!ensureCursor()) return;
     // 涟漪画在**真实落点**上 —— 即便光标是瞬移过去的,「点了哪里」也要看得见
     if (Number.isFinite(x) && Number.isFinite(y) && dist(c.pos, { x, y }) > 2) jumpTo({ x, y });

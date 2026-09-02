@@ -28,7 +28,7 @@ const originOf = (url) => { try { return new URL(url).origin; } catch { return "
 const ask = (toRenderer, payload) => new Promise((resolve) => {
   const id = String((seq += 1));
   pending.set(id, resolve);
-  if (!toRenderer(`workbench:${payload.kind}`, { ...payload, id })) {
+  if (!toRenderer(`worktop:${payload.kind}`, { ...payload, id })) {
     pending.delete(id);
     resolve(null);
   }
@@ -102,7 +102,7 @@ export const serveCertErrors = (browsing, toRenderer) => {
     if (trusted.has(request.hostname)) return callback(0);
     // -2 = 拒绝。先拦住,同时告诉界面;用户点「仍要继续」再放行并重载
     callback(-2);
-    toRenderer("workbench:web-cert-error", { host: request.hostname, reason: request.verificationResult || "" });
+    toRenderer("worktop:web-cert-error", { host: request.hostname, reason: request.verificationResult || "" });
   });
 };
 
@@ -111,7 +111,7 @@ export const forgetCertHosts = () => trusted.clear();
 
 // ── 界面的回话口 ────────────────────────────────────────────────────────
 export const serveAnswers = () => {
-  ipcMain.handle("workbench:web-prompt-answer", (_event, payload) => settle(payload?.id, payload?.value));
-  ipcMain.handle("workbench:web-trust-cert", (_event, host) => { trustCertHost(host); return true; });
-  ipcMain.handle("workbench:web-forget-permissions", () => { forgetPermissions(); forgetCertHosts(); return true; });
+  ipcMain.handle("worktop:web-prompt-answer", (_event, payload) => settle(payload?.id, payload?.value));
+  ipcMain.handle("worktop:web-trust-cert", (_event, host) => { trustCertHost(host); return true; });
+  ipcMain.handle("worktop:web-forget-permissions", () => { forgetPermissions(); forgetCertHosts(); return true; });
 };

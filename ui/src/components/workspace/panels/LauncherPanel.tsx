@@ -44,8 +44,8 @@ export function LauncherPanel({ tab, groupId }: { tab: LauncherTab; groupId: Wor
     window.dispatchEvent(new CustomEvent(type, { detail: { tabId: tab.id, groupId, ...detail } }));
 
   const onKey = (e: React.KeyboardEvent, kind: "chat" | "web", value: string) => {
-    if (e.key === "Enter") { e.preventDefault(); fire("workbench:launch", { value, kind }); }
-    if (e.key === "Escape") { e.preventDefault(); fire("workbench:launch-close"); }
+    if (e.key === "Enter") { e.preventDefault(); fire("worktop:launch", { value, kind }); }
+    if (e.key === "Escape") { e.preventDefault(); fire("worktop:launch-close"); }
   };
 
   return (
@@ -93,7 +93,7 @@ export function LauncherPanel({ tab, groupId }: { tab: LauncherTab; groupId: Wor
             {chats.map((c) => (
               <button
                 key={c.id}
-                onClick={() => fire("workbench:launch-open", { node: c })}
+                onClick={() => fire("worktop:launch-open", { node: c })}
                 className="flex items-start gap-2.5 text-left bg-surface border border-border rounded-[10px] px-3 py-2.5 hover:bg-bg-hover hover:border-border-strong transition-colors"
               >
                 <span className="shrink-0 text-[15px] leading-[20px]">💬</span>
@@ -115,7 +115,7 @@ export function LauncherPanel({ tab, groupId }: { tab: LauncherTab; groupId: Wor
               {apps.map((a) => (
                 <button
                   key={a.id}
-                  onClick={() => fire("workbench:launch-app", { appId: a.id, name: a.name })}
+                  onClick={() => fire("worktop:launch-app", { appId: a.id, name: a.name })}
                   className="flex flex-col items-center gap-1.5 bg-surface border border-border rounded-[10px] px-1 py-2.5 text-[12px] text-text-dim hover:bg-bg-hover hover:border-border-strong transition-colors"
                 >
                   {a.hasIcon
@@ -127,7 +127,7 @@ export function LauncherPanel({ tab, groupId }: { tab: LauncherTab; groupId: Wor
               {sites.map((s) => (
                 <button
                   key={s.id}
-                  onClick={() => fire("workbench:launch", { value: s.url, kind: "web" })}
+                  onClick={() => fire("worktop:launch", { value: s.url, kind: "web" })}
                   className="flex flex-col items-center gap-1.5 bg-surface border border-border rounded-[10px] px-1 py-2.5 text-[12px] text-text-dim hover:bg-bg-hover hover:border-border-strong transition-colors"
                 >
                   <span className="w-7 h-7 rounded-md bg-bg-inset flex items-center justify-center"><Favicon url={s.url} size={16} /></span>

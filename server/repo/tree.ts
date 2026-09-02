@@ -14,8 +14,8 @@ import path from "path";
 import { getDb } from "../db.js";
 
 // 工作区 = 用户手动添加的文件夹,可以多个,记在 workspaces 表里;默认一个都没有。
-// 产品自己的东西(应用/组件/它们的数据)住 ~/.mainbench,不混进用户的文件夹。
-const PRODUCT_HOME = path.resolve(process.env.WORKBENCH_PRODUCT_HOME || path.join(os.homedir(), ".mainbench"));
+// 产品自己的东西(应用/组件/它们的数据)住 ~/.worktop,不混进用户的文件夹。
+const PRODUCT_HOME = path.resolve(process.env.WORKTOP_PRODUCT_HOME || path.join(os.homedir(), ".worktop"));
 const SEP = path.sep;
 
 /** 产品的家(应用、组件、数据)。 */
@@ -326,7 +326,7 @@ const deleteItem = (id) => {
   const hit = locate(id);
   if (!hit) return;
   if (hit.kind === "file") { trashItem(hit.abs); return; }
-  if (isWorkspaceRoot(hit.abs)) throw new Error("工作区根不能删除,请从 Workbench 移除工作区");
+  if (isWorkspaceRoot(hit.abs)) throw new Error("工作区根不能删除,请从 Worktop 移除工作区");
   // space:整目录进废纸篓;绑在这棵子树上的对话**不陪葬**——对话不是目录的附属品,
   // 它们的 workdir 塌缩到父目录,会话照常留在会话列表里
   trashItem(hit.abs);

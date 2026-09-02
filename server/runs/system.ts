@@ -32,7 +32,7 @@ const appsSection = () => {
 
 ${lines.join("\n")}
 
-调用方式:先取址 \`curl 'http://127.0.0.1:${process.env.WORKBENCH_PORT || "<宿主端口>"}/api/apps/address?id=<id>'\`
+调用方式:先取址 \`curl 'http://127.0.0.1:${process.env.WORKTOP_PORT || "<宿主端口>"}/api/apps/address?id=<id>'\`
 (顺手把没起的应用拉起,返回 { origin }),再对着 origin 调 APP.md 里写的接口。
 **地址每次现取,不要缓存端口。**
 
@@ -51,8 +51,8 @@ ${lines.join("\n")}
 
 /** 随包的组件契约正典(WIDGET.md):开发态在仓库根,打包态在只读资源区。 */
 const widgetDoc = () =>
-  process.env.WORKBENCH_WIDGET_DOC ||
-  path.join(process.env.WORKBENCH_HOME || process.cwd(), "WIDGET.md");
+  process.env.WORKTOP_WIDGET_DOC ||
+  path.join(process.env.WORKTOP_HOME || process.cwd(), "WIDGET.md");
 
 export const buildSystem = (
   chat: { id: string; system?: string | null; workdir?: string | null },
@@ -115,8 +115,8 @@ ${confirmDoc}
 - 要看网页、查资料、操作站点,用 browser —— 那是用户界面里真实可见的浏览器标签,用户能看着你操作。
 - 别空谈:能用工具做的就直接做。做完给一个清楚的最终回复,工具细节不必复述给用户。
 
-# 你在哪:Mainbench
-你不是在一个聊天框里,你跑在 **Mainbench** —— 一个本地工作台(Electron 桌面应用)。
+# 你在哪:Worktop
+你不是在一个聊天框里,你跑在 **Worktop** —— 一个本地工作台(Electron 桌面应用)。
 用户看到的是一套 VSCode 式界面:左侧活动栏三原生(会话 / 文件 / 网站)+ 用户钉上去的**组件**,
 中间是标签页(代码 / Markdown / HTML / 图片 / PDF 都能开)。
 你产出的东西是用户能点开、能用的真实文件,不是对话里的代码块。
@@ -140,16 +140,16 @@ widget.json:
 **宿主 API = 同源 HTTP,不需要任何 SDK**,组件里直接 fetch:
 
     const sql = (sql, params = []) =>
-      fetch("/_wb/sql", { method: "POST", headers: { "content-type": "application/json" },
+      fetch("/_wt/sql", { method: "POST", headers: { "content-type": "application/json" },
         body: JSON.stringify({ sql, params }) }).then((r) => r.json());
 
     await sql("CREATE TABLE IF NOT EXISTS items (id INTEGER PRIMARY KEY AUTOINCREMENT, text TEXT)");
     await sql("INSERT INTO items (text) VALUES (?)", ["买牛奶"]);
     const { rows } = await sql("SELECT * FROM items ORDER BY id DESC");
 
-    POST /_wb/sql/batch   { statements: [{sql, params}] }   一个事务
-    POST /_wb/ai          { summary, system, prompt }       调 AI(权限 ai,summary 必填)
-    GET  /_wb/context                                        组件自身信息
+    POST /_wt/sql/batch   { statements: [{sql, params}] }   一个事务
+    POST /_wt/ai          { summary, system, prompt }       调 AI(权限 ai,summary 必填)
+    GET  /_wt/context                                        组件自身信息
 
 组件有**自己独立的 SQLite**,表结构你自己定 —— 宿主不知道「习惯」「书签」是什么。
 

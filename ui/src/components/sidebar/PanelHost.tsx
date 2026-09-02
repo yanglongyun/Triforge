@@ -46,7 +46,7 @@ widget.json:
 
   // 数据(权限 sql):组件有自己独立的 SQLite,表结构你自己定
   const sql = (sql, params = []) =>
-    fetch("/_wb/sql", { method: "POST", headers: { "content-type": "application/json" },
+    fetch("/_wt/sql", { method: "POST", headers: { "content-type": "application/json" },
       body: JSON.stringify({ sql, params }) }).then((r) => r.json());
 
   await sql("CREATE TABLE IF NOT EXISTS items (id INTEGER PRIMARY KEY AUTOINCREMENT, text TEXT)");
@@ -54,9 +54,9 @@ widget.json:
   const { rows } = await sql("SELECT * FROM items ORDER BY id DESC");
 
   // 其它端点
-  POST /_wb/sql/batch   { statements: [{sql, params}] }   一个事务
-  POST /_wb/ai          { summary, system, prompt }       调 AI(权限 ai,summary 必填)
-  GET  /_wb/context                                        组件自身信息
+  POST /_wt/sql/batch   { statements: [{sql, params}] }   一个事务
+  POST /_wt/ai          { summary, system, prompt }       调 AI(权限 ai,summary 必填)
+  GET  /_wt/context                                        组件自身信息
 
 硬性要求:
 1. **零构建**:只能用浏览器直接能跑的东西 —— ES module、原生 CSS。
@@ -172,7 +172,7 @@ export function PanelHost({
   const railWidgets = applyOrder(widgets);
   void order; // 订阅它只为拖拽后重排
 
-  const [sideTab, setSideTab] = useState<string>(() => localStorage.getItem("workbench.sideTab") || "agents");
+  const [sideTab, setSideTab] = useState<string>(() => localStorage.getItem("worktop.sideTab") || "agents");
   // 活动栏组件段的拖拽排序:dragId = 手里拿着谁;dropAt = 松手会插到谁前面(null = 段尾)
   const [dragId, setDragId] = useState<string | null>(null);
   const [dropAt, setDropAt] = useState<string | null | undefined>(undefined);
@@ -187,7 +187,7 @@ export function PanelHost({
     ? sideTab : "agents";
   const switchTab = (tab: string) => {
     setSideTab(tab);
-    localStorage.setItem("workbench.sideTab", tab);
+    localStorage.setItem("worktop.sideTab", tab);
   };
 
   // 活动栏点击:点当前图标 = 收起面板;点别的 = 切换并展开(VS Code 的肌肉记忆)
@@ -273,8 +273,8 @@ export function PanelHost({
   // 聊天面板的工作目录芯片 → 切到文件面板(定位展开由 FilesPanel 自己做)
   useEffect(() => {
     const onReveal = () => switchTab("files");
-    window.addEventListener("workbench:reveal-path", onReveal);
-    return () => window.removeEventListener("workbench:reveal-path", onReveal);
+    window.addEventListener("worktop:reveal-path", onReveal);
+    return () => window.removeEventListener("worktop:reveal-path", onReveal);
   }, []);
 
   // 组件管理页(标签页)里点「让 AI 造一个」—— 动作住在这儿(要开对话、发提示词)
@@ -286,7 +286,7 @@ export function PanelHost({
 
   // ── 宽度拖拽(只管内容面板;活动栏定宽)──
   const [sidebarWidth, setSidebarWidth] = useState(() => {
-    const saved = Number(localStorage.getItem("workbench.sidebarWidth") || "");
+    const saved = Number(localStorage.getItem("worktop.sidebarWidth") || "");
     return Number.isFinite(saved) && saved >= 220 && saved <= 420 ? saved : 260;
   });
   const startResize = (e: React.PointerEvent) => {
@@ -306,7 +306,7 @@ export function PanelHost({
       document.body.style.cursor = previousCursor;
       document.body.style.userSelect = previousSelect;
       endGlobalDrag();
-      localStorage.setItem("workbench.sidebarWidth", String(Math.round(currentWidth)));
+      localStorage.setItem("worktop.sidebarWidth", String(Math.round(currentWidth)));
     };
     const onMove = (ev: PointerEvent) => {
       if (ev.buttons === 0) { onUp(); return; }

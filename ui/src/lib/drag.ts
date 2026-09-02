@@ -6,7 +6,7 @@
 //
 // 解法:任何拖拽会话开始时给 body 挂类,CSS 让 webview/iframe 对指针失明
 // (pointer-events:none),事件全部回到宿主;会话结束摘类。计数支持嵌套/并发会话。
-const CLASS = "wb-dragging";
+const CLASS = "wt-dragging";
 let depth = 0;
 
 export const beginGlobalDrag = () => {

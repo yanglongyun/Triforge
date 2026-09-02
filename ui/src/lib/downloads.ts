@@ -30,7 +30,7 @@ const upsert = (next: Download) => {
 };
 
 if (typeof window !== "undefined") {
-  window.addEventListener("workbench:download", (e) => {
+  window.addEventListener("worktop:download", (e) => {
     const detail = (e as CustomEvent).detail as Download;
     if (detail?.id) upsert(detail);
   });

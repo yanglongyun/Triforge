@@ -177,7 +177,7 @@ const launch = async (app: AppDef): Promise<Record_> => {
       HOST: "127.0.0.1",
       APP_ID: app.id,
       APP_DATA_DIR: dataDir,
-      HOST_URL: `http://127.0.0.1:${process.env.WORKBENCH_PORT || ""}`,
+      HOST_URL: `http://127.0.0.1:${process.env.WORKTOP_PORT || ""}`,
       APP_TOKEN: record.token,
     },
     stdio: ["ignore", "pipe", "pipe"],

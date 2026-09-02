@@ -7,15 +7,15 @@
 //     data.db       组件自己的数据,和代码做邻居
 //
 // 「安装」= 目录存在(扫描自动注册);「卸载」= 目录挪进 .trash(保留 30 天)。
-// 组件的家是产品自己的地盘(~/.mainbench/widgets),不往用户的工作区里塞东西。
+// 组件的家是产品自己的地盘(~/.worktop/widgets),不往用户的工作区里塞东西。
 import fs from "fs";
 import path from "path";
 import { fileURLToPath } from "url";
 import { productHome } from "../repo/tree.js";
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
-const HOME = process.env.WORKBENCH_HOME || path.join(__dirname, "../..");
-const UI_DIST = process.env.WORKBENCH_UI_DIST || path.join(HOME, "ui/dist");
+const HOME = process.env.WORKTOP_HOME || path.join(__dirname, "../..");
+const UI_DIST = process.env.WORKTOP_UI_DIST || path.join(HOME, "ui/dist");
 
 const WIDGET_ID = /^[a-z0-9][a-z0-9-]{0,63}$/;
 export const PERMISSIONS = ["sql", "fs", "ai", "net"] as const; // ui 免申请
@@ -31,7 +31,7 @@ export type WidgetInfo = {
   dir: string;
 };
 
-/** 组件的家:~/.mainbench/widgets。 */
+/** 组件的家:~/.worktop/widgets。 */
 export const widgetsHome = () => path.join(productHome(), "widgets");
 const trashDir = () => path.join(widgetsHome(), ".trash");
 
@@ -82,7 +82,7 @@ export const widgetFile = (id: string, rel: string): { buf: Buffer; ext: string 
   const base = path.resolve(widget.dir);
   const abs = path.resolve(base, rel.replace(/^\/+/, ""));
   if (abs !== base && !abs.startsWith(base + path.sep)) return null;
-  if (/(^|[/\\])data\.db(-wal|-shm)?$/.test(abs)) return null; // 数据库只经 /_wb/sql,不当静态文件发
+  if (/(^|[/\\])data\.db(-wal|-shm)?$/.test(abs)) return null; // 数据库只经 /_wt/sql,不当静态文件发
   try {
     const stat = fs.statSync(abs);
     if (!stat.isFile() || stat.size > 20 * 1024 * 1024) return null;

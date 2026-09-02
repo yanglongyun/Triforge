@@ -4,8 +4,8 @@
 // 存的是 id 列表:在列表里的按列表序,不在的(新装的)按服务端序排在后面。
 import { useEffect, useState } from "react";
 
-const KEY = "workbench.widgets.order";
-const EVENT = "workbench:widget-order-changed";
+const KEY = "worktop.widgets.order";
+const EVENT = "worktop:widget-order-changed";
 
 export const readOrder = (): string[] => {
   try {
@@ -49,5 +49,5 @@ export const useWidgetOrder = (): string[] => {
 };
 
 /** 「让 AI 造一个组件」:动作住在 PanelHost(要开对话、发提示词),管理页只管喊一声。 */
-export const CREATE_WIDGET_EVENT = "workbench:create-widget";
+export const CREATE_WIDGET_EVENT = "worktop:create-widget";
 export const requestCreateWidget = () => window.dispatchEvent(new Event(CREATE_WIDGET_EVENT));

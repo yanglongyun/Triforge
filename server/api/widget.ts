@@ -1,4 +1,4 @@
-// 组件相关 HTTP 端点(宿主侧)。组件自己的 /_wb/* 不在这里 —— 那是组件站点同源应答的
+// 组件相关 HTTP 端点(宿主侧)。组件自己的 /_wt/* 不在这里 —— 那是组件站点同源应答的
 // (见 service/widgetsite.ts),这样宿主能力才与挂载方式正交。
 import http from "http";
 import { getWidget, listWidgets, trashWidget } from "../service/widgets.js";

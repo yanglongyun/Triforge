@@ -25,13 +25,13 @@ export const dismissImportPrompt = () => write("dismissed");
 
 /** 这台机器能不能导(macOS + 装了 Chrome);非桌面壳一律 false。 */
 export const chromeImportAvailable = async () => {
-  try { return (await window.workbenchDesktop?.chromeImportAvailable()) === true; } catch { return false; }
+  try { return (await window.worktopDesktop?.chromeImportAvailable()) === true; } catch { return false; }
 };
 
 /** 列出可选的 Chrome 配置。取不到就返回空数组,由界面退化成「不用选」。 */
 export const listChromeProfiles = async (): Promise<ChromeProfile[]> => {
   try {
-    const result = await window.workbenchDesktop?.chromeProfiles();
+    const result = await window.worktopDesktop?.chromeProfiles();
     return result?.ok ? result.profiles : [];
   } catch { return []; }
 };
@@ -41,7 +41,7 @@ export const listChromeProfiles = async (): Promise<ChromeProfile[]> => {
  * 主进程不认识产品的 HTTP API,所以这一步在界面这边做。
  */
 export const importFromChrome = async (choice: ImportChoice): Promise<ImportResult> => {
-  const bridge = window.workbenchDesktop;
+  const bridge = window.worktopDesktop;
   if (!bridge) throw new Error("需要在桌面应用里使用");
   const result = await bridge.importChromeCookies(choice);
   if (!result.ok) throw new Error(result.error);

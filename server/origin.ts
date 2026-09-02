@@ -1,5 +1,5 @@
 // 同源门卫。server 只绑 127.0.0.1,但浏览器里**任意网页**都能向本机端口发 fetch / WebSocket ——
-// 没有 Origin 校验的话,一个恶意网页就能通过你正跑着的 Workbench 执行 bash、读写磁盘。
+// 没有 Origin 校验的话,一个恶意网页就能通过你正跑着的 Worktop 执行 bash、读写磁盘。
 // 所以 http 的写操作与 ws 升级都必须过这道门:只认应用自己发来的请求。
 //
 // 放行:
@@ -37,7 +37,7 @@ export const isTrustedOrigin = (origin: unknown, _port?: number) => {
   const value = String(origin || "").trim();
   if (!value) return true; // 无 Origin 头:curl 等非浏览器客户端(浏览器跨源写一定带 Origin)
   // 字面 "null" = 不透明源(sandbox iframe / file://)。组件有自己的真 origin 且只走
-  // 自己端口上的 /_wb/*,永远不会以 "null" 打到宿主端口上 —— 一律拒绝。
+  // 自己端口上的 /_wt/*,永远不会以 "null" 打到宿主端口上 —— 一律拒绝。
   if (value === "null") return false;
   let parsed;
   try { parsed = new URL(value); } catch { return false; }

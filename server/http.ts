@@ -43,7 +43,7 @@ const startServer = async (port = 9506) =>
       startWidgetSiteSweeper(); // 组件站点闲置回收
       watchApps();              // 应用目录监听:AI 刚写完一个 app,刷新就出现在列表里
       void startAlwaysApps();   // run.mode: "always" 的应用随宿主拉起(其余按需)
-      console.log(`Workbench running on http://127.0.0.1:${port}`);
+      console.log(`Worktop running on http://127.0.0.1:${port}`);
       resolve(server);
     });
     server.on("error", reject);

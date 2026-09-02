@@ -105,7 +105,7 @@ export const evaluate = async (target, expression, { sessionId = null, world = t
       const tree = await send(target, "Page.getFrameTree", {}, sessionId);
       const created = await send(target, "Page.createIsolatedWorld", {
         frameId: tree.frameTree.frame.id,
-        worldName: "mainbench",
+        worldName: "worktop",
         grantUniveralAccess: true,
       }, sessionId);
       state.isolated.set(frameKey, created.executionContextId);

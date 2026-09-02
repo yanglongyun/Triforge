@@ -13,11 +13,11 @@ import { fileURLToPath } from "node:url";
 const ROOT = join(dirname(fileURLToPath(import.meta.url)), "..");
 
 // ── 名字的两层:内部 slug 永不变,显示名随时可换 ──────────────────────────
-// SLUG 是身份:appId(ai.iimos.workbench)、userData 目录、更新通道都用它。
+// SLUG 是身份:appId(ai.iimos.worktop)、userData 目录、更新通道都用它。
 // 它一旦跟着显示名变,macOS 就认为换了个应用 —— 设置、数据、自动更新链全断。
 // APP_NAME 只用于人眼可见处(窗口标题、Documents 下的工作区目录)。
-const SLUG = "workbench";
-const APP_NAME = "Mainbench";
+const SLUG = "worktop";
+const APP_NAME = "Worktop";
 // userData 显式钉死:Electron 默认按 productName 取路径,改显示名会让数据"凭空消失"。
 app.setPath("userData", join(app.getPath("appData"), SLUG));
 
@@ -32,7 +32,7 @@ const layout = () => {
       nodeBin: "node",
       serverEntry: join(ROOT, "dist/server.mjs"),
       cwd: ROOT,
-      env: { WORKBENCH_HOME: ROOT },
+      env: { WORKTOP_HOME: ROOT },
     };
   }
   const res = process.resourcesPath;
@@ -41,12 +41,12 @@ const layout = () => {
     serverEntry: join(res, "core/server.mjs"),
     cwd: join(res, "core"), // node-pty 从 core/node_modules 解析
     env: {
-      WORKBENCH_PACKAGED: "1",                 // 遥测只在打包应用里发,开发态不打点
-      WORKBENCH_VERSION: app.getVersion(),
-      WORKBENCH_HOME: app.getPath("userData"), // database/ 落在这里(macOS 惯例:应用数据进 Application Support)
-      WORKBENCH_UI_DIST: join(res, "core/ui"),
+      WORKTOP_PACKAGED: "1",                 // 遥测只在打包应用里发,开发态不打点
+      WORKTOP_VERSION: app.getVersion(),
+      WORKTOP_HOME: app.getPath("userData"), // database/ 落在这里(macOS 惯例:应用数据进 Application Support)
+      WORKTOP_UI_DIST: join(res, "core/ui"),
       // 组件契约正典:system prompt 把这个路径给智能体,让它动手前先 read
-      WORKBENCH_WIDGET_DOC: join(res, "core/WIDGET.md"),
+      WORKTOP_WIDGET_DOC: join(res, "core/WIDGET.md"),
     },
   };
 };
@@ -87,9 +87,9 @@ const freePort = () => new Promise((resolve, reject) => {
   });
 });
 
-/** 显式给了 WORKBENCH_PORT 就用它(比如连已在跑的 dev 服务);否则沿用上次那个。 */
+/** 显式给了 WORKTOP_PORT 就用它(比如连已在跑的 dev 服务);否则沿用上次那个。 */
 const pickPort = async () => {
-  const fixed = Number(process.env.WORKBENCH_PORT) || 0;
+  const fixed = Number(process.env.WORKTOP_PORT) || 0;
   if (fixed) return fixed;
 
   const saved = readSavedPort();
@@ -106,7 +106,7 @@ const pickPort = async () => {
 const spawnEnv = (port, extra) => ({
   ...process.env,
   PATH: [process.env.PATH, "/opt/homebrew/bin", "/usr/local/bin"].filter(Boolean).join(":"),
-  WORKBENCH_PORT: String(port),
+  WORKTOP_PORT: String(port),
   ...extra,
 });
 
@@ -196,7 +196,7 @@ const routeNewWindows = (port) => {
       if (!isHost()) return;
       if (url.startsWith(hostOrigin) || url.startsWith("http://localhost:")) return;
       event.preventDefault();
-      if (/^https?:/.test(url)) toRenderer("workbench:open-web-tab", { url });
+      if (/^https?:/.test(url)) toRenderer("worktop:open-web-tab", { url });
       // mailto: / tel: 归系统。不处理的话它们会被 preventDefault 默默吃掉,点了没反应也不报错
       else if (/^[a-z][a-z0-9+.-]*:/i.test(url)) shell.openExternal(url).catch(() => {});
     });
@@ -218,7 +218,7 @@ const routeNewWindows = (port) => {
       }
       // 带上来源和前/后台:Chrome 里 target=_blank 直接切过去,
       // 中键 / ⌘点击 是后台开、留在当前页。disposition 已经把这个区别告诉我们了。
-      toRenderer("workbench:open-web-tab", {
+      toRenderer("worktop:open-web-tab", {
         url,
         openerWcId: contents.id,
         background: disposition === "background-tab",
@@ -244,7 +244,7 @@ const servePageMenu = () => {
 
       if (params.linkURL) {
         items.push(
-          { label: "在新标签页打开链接", click: () => toRenderer("workbench:open-web-tab", { url: params.linkURL, openerWcId: contents.id, background: true }) },
+          { label: "在新标签页打开链接", click: () => toRenderer("worktop:open-web-tab", { url: params.linkURL, openerWcId: contents.id, background: true }) },
           { label: "复制链接地址", click: () => clipboard.writeText(params.linkURL) },
           { type: "separator" },
         );
@@ -253,7 +253,7 @@ const servePageMenu = () => {
         items.push(
           { label: "复制图片", click: () => contents.copyImageAt(params.x, params.y) },
           { label: "复制图片地址", click: () => clipboard.writeText(params.srcURL) },
-          { label: "在新标签页打开图片", click: () => toRenderer("workbench:open-web-tab", { url: params.srcURL, openerWcId: contents.id, background: true }) },
+          { label: "在新标签页打开图片", click: () => toRenderer("worktop:open-web-tab", { url: params.srcURL, openerWcId: contents.id, background: true }) },
           { type: "separator" },
         );
       }
@@ -289,7 +289,7 @@ const servePageMenu = () => {
  * 这一跳绕不开。谁拥有那个标签谁来调,和从前的 browser 工具一个口径。
  */
 const serveCdp = () => {
-  ipcMain.handle("workbench:cdp", async (_event, { wcId, op, params } = {}) => {
+  ipcMain.handle("worktop:cdp", async (_event, { wcId, op, params } = {}) => {
     try {
       const target = targetOf(wcId);
       switch (op) {
@@ -347,7 +347,7 @@ let updateReadyVersion = null;
 const broadcastUpdateReady = (version) => {
   for (const win of BrowserWindow.getAllWindows()) {
     win.webContents
-      .executeJavaScript(`window.dispatchEvent(new CustomEvent('workbench:update-ready',{detail:{version:${JSON.stringify(version)}}}))`)
+      .executeJavaScript(`window.dispatchEvent(new CustomEvent('worktop:update-ready',{detail:{version:${JSON.stringify(version)}}}))`)
       .catch(() => {});
   }
 };
@@ -363,13 +363,13 @@ const setupUpdates = async () => {
     });
   } catch { /* 没打 updater 产物就不更新 */ }
 };
-ipcMain.handle("workbench:install-update", () => { updater?.install(); });
+ipcMain.handle("worktop:install-update", () => { updater?.install(); });
 
 // ── 网页标签的 session:独立分区 ────────────────────────────────────────
 // 网页标签用 persist:web,不与应用自身(127.0.0.1)共用 cookie 罐:
 // 边界清楚,而且「退出所有网站」清得干净 —— 不会顺手清掉应用自己的东西。
 
-ipcMain.handle("workbench:chrome-import-available", async () => {
+ipcMain.handle("worktop:chrome-import-available", async () => {
   try {
     const { chromeImportAvailable } = await import("./chromeImport.mjs");
     return chromeImportAvailable();
@@ -386,7 +386,7 @@ const extractorRuntime = () => (app.isPackaged
   ? { nodeBin: join(process.resourcesPath, "core/bin/node"), script: join(process.resourcesPath, "core/chromeExtract.mjs") }
   : { nodeBin: "node", script: join(ROOT, "desktop/chromeExtract.mjs") });
 
-ipcMain.handle("workbench:chrome-profiles", async () => {
+ipcMain.handle("worktop:chrome-profiles", async () => {
   try {
     const { listChromeProfiles } = await import("./chromeImport.mjs");
     return { ok: true, profiles: await listChromeProfiles(extractorRuntime()) };
@@ -395,7 +395,7 @@ ipcMain.handle("workbench:chrome-profiles", async () => {
   }
 });
 
-ipcMain.handle("workbench:import-chrome-cookies", async (_event, options) => {
+ipcMain.handle("worktop:import-chrome-cookies", async (_event, options) => {
   try {
     const { importChromeCookies } = await import("./chromeImport.mjs");
     return { ok: true, ...(await importChromeCookies(webSession(), extractorRuntime(), options || {})) };
@@ -405,7 +405,7 @@ ipcMain.handle("workbench:import-chrome-cookies", async (_event, options) => {
 });
 
 // 退出所有网站:清 cookie 与站点数据(登录态没了,缓存留着)
-ipcMain.handle("workbench:clear-web-logins", async () => {
+ipcMain.handle("worktop:clear-web-logins", async () => {
   try {
     await webSession().clearStorageData({ storages: ["cookies", "localstorage", "indexdb", "websql", "serviceworkers"] });
     return { ok: true };
@@ -415,7 +415,7 @@ ipcMain.handle("workbench:clear-web-logins", async () => {
 });
 
 // 清缓存:腾磁盘,**不碰登录态**(两个动作分开,别让用户一按就退登)
-ipcMain.handle("workbench:clear-web-cache", async () => {
+ipcMain.handle("worktop:clear-web-cache", async () => {
   try {
     await webSession().clearCache();
     return { ok: true };
@@ -451,7 +451,7 @@ app.on("web-contents-created", (_event, contents) => {
 });
 
 // 应用菜单:⌘W 让给「关闭标签页」(转发进页面,渲染层关工作区标签),⌘⇧W 才关窗口。
-// 无 preload/IPC 通道,用 executeJavaScript 派事件 —— 页面监听 workbench:close-tab。
+// 无 preload/IPC 通道,用 executeJavaScript 派事件 —— 页面监听 worktop:close-tab。
 const buildMenu = () => {
   Menu.setApplicationMenu(Menu.buildFromTemplate([
     { role: "appMenu" },
@@ -463,7 +463,7 @@ const buildMenu = () => {
           accelerator: "CmdOrCtrl+T",
           click: () => {
             BrowserWindow.getFocusedWindow()?.webContents
-              .executeJavaScript("window.dispatchEvent(new Event('workbench:new-tab'))")
+              .executeJavaScript("window.dispatchEvent(new Event('worktop:new-tab'))")
               .catch(() => {});
           },
         },
@@ -473,7 +473,7 @@ const buildMenu = () => {
           accelerator: "CmdOrCtrl+W",
           click: () => {
             BrowserWindow.getFocusedWindow()?.webContents
-              .executeJavaScript("window.dispatchEvent(new Event('workbench:close-tab'))")
+              .executeJavaScript("window.dispatchEvent(new Event('worktop:close-tab'))")
               .catch(() => {});
           },
         },
