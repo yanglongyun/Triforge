@@ -50,6 +50,19 @@ const copy = (id: string, targetParentId: string | null = null) => {
   return item;
 };
 
+const listWorkspaces = () => repo.listWorkspaces();
+
+const addWorkspace = (body: { path?: string } = {}) => {
+  const item = repo.addWorkspace(body as any);
+  emit({ type: "tree_changed", item, reason: "workspace_added" });
+  return item;
+};
+
+const removeWorkspace = (id: string) => {
+  const workspace = repo.removeWorkspace(id);
+  emit({ type: "tree_changed", id, reason: "workspace_removed" });
+  return workspace;
+};
 
 const ancestry = (id: string) => repo.ancestry(id);
 const search = (q: string) => (q ? searchContent(q) : []);
@@ -63,4 +76,4 @@ const terminalCwd = (id: string) => {
   return repo.terminalCwd(id);
 };
 
-export { listChildren, listAll, getItem, create, update, remove, copy, importFile, ancestry, search, fileRawAbs, pathForId, terminalCwd };
+export { listChildren, listAll, getItem, create, update, remove, copy, importFile, ancestry, search, fileRawAbs, pathForId, listWorkspaces, addWorkspace, removeWorkspace, terminalCwd };

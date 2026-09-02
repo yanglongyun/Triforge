@@ -2,7 +2,7 @@
 import { execFileSync } from "child_process";
 import fs from "fs";
 import path from "path";
-import { IGNORE_DIRS, ROOT, isAllowedPath, isRootNoise } from "./tree.js";
+import { listWorkspaces } from "./tree.js";
 
 const runGit = (cwd, args, { allowError = false, input = undefined } = {}) => {
   try {
@@ -64,56 +64,72 @@ const parseFile = (line, topLevel) => {
   };
 };
 
-/** 某个目录的 git 状态。不是仓库也返回一条(isRepo=false),调用方自己决定要不要显示。 */
-const getRepositoryStatus = (dir) => {
-  const abs = path.resolve(String(dir || ""));
+const getRepositoryStatus = (workspace) => {
   try {
-    const topLevel = runGit(abs, ["rev-parse", "--show-toplevel"]);
-    const output = runGit(abs, ["status", "--porcelain=v1", "-b"]);
+    const topLevel = runGit(workspace.path, ["rev-parse", "--show-toplevel"]);
+    const output = runGit(workspace.path, ["status", "--porcelain=v1", "-b"]);
     const lines = output.split(/\r?\n/).filter(Boolean);
     const branch = parseBranch(lines[0] || "");
     const files = lines.slice(1).map((line) => parseFile(line, topLevel));
-    return { title: path.basename(topLevel) || topLevel, dir: abs, root: topLevel, isRepo: true, ...branch, files };
+    return {
+      workspaceId: workspace.id,
+      workspaceTitle: workspace.title,
+      workspacePath: workspace.path,
+      root: topLevel,
+      isRepo: true,
+      ...branch,
+      files,
+    };
   } catch {
-    return { title: path.basename(abs) || abs, dir: abs, root: null, isRepo: false, branch: null, upstream: null, ahead: 0, behind: 0, files: [] };
+    return {
+      workspaceId: workspace.id,
+      workspaceTitle: workspace.title,
+      workspacePath: workspace.path,
+      root: null,
+      isRepo: false,
+      branch: null,
+      upstream: null,
+      ahead: 0,
+      behind: 0,
+      files: [],
+    };
   }
 };
 
-// 没有工作区列表可循,仓库靠**找**:从主目录出发浅扫三层(桌面/文稿/code/… 及其子项),
-// 见到 .git 就算一个。跳过顶层噪音与 node_modules 之类;三层足够覆盖人放项目的地方,
-// 又不至于把整块盘翻一遍。
-const SCAN_DEPTH = 3;
-const SCAN_CAP = 50;
-const findRepoRoots = () => {
-  const roots = [];
-  const walk = (dir, depth, top) => {
-    if (roots.length >= SCAN_CAP) return;
-    let entries; try { entries = fs.readdirSync(dir, { withFileTypes: true }); } catch { return; }
-    if (entries.some((e) => e.name === ".git")) { roots.push(dir); return; } // 仓库里不再往下找嵌套仓库
-    if (depth >= SCAN_DEPTH) return;
-    for (const e of entries) {
-      if (!e.isDirectory() || IGNORE_DIRS.has(e.name) || e.name.startsWith(".")) continue;
-      if (top && isRootNoise(e.name)) continue;
-      if (/\.(app|photoslibrary|musiclibrary|tvlibrary|bundle)$/i.test(e.name)) continue; // macOS 包目录
-      walk(path.join(dir, e.name), depth + 1, false);
-    }
-  };
-  walk(ROOT, 0, true);
-  return roots;
+const listGitRepositories = () => {
+  const seen = new Set();
+  const repos = [];
+  for (const workspace of listWorkspaces()) {
+    const repo = getRepositoryStatus(workspace);
+    const key = repo.root || `workspace:${repo.workspaceId}`;
+    if (seen.has(key)) continue;
+    seen.add(key);
+    repos.push(repo);
+  }
+  return repos;
 };
-
-const listGitRepositories = () => findRepoRoots().map(getRepositoryStatus).filter((repo) => repo.isRepo);
 
 const withSep = (abs) => abs.endsWith(path.sep) ? abs : abs + path.sep;
 const isUnder = (abs, root) => abs === root || abs.startsWith(withSep(root));
-/** 这个目录本身是不是一个仓库根(不是仓库、或只是仓库里的子目录 → null)。 */
+const workspaceForAbs = (abs) =>
+  listWorkspaces()
+    .map((workspace) => ({ ...workspace, path: path.resolve(workspace.path) }))
+    .find((workspace) => isUnder(abs, workspace.path)) || null;
+
 const repositoryStatusForPath = (rawPath) => {
   const abs = path.resolve(String(rawPath || ""));
-  if (!isAllowedPath(abs)) return null;
+  const workspace = workspaceForAbs(abs);
+  if (!workspace) return null;
   let st; try { st = fs.statSync(abs); } catch { return null; }
   if (!st.isDirectory()) return null;
-  const repo = getRepositoryStatus(abs);
-  return repo.isRepo && repo.root === abs ? repo : null;
+  const repo = getRepositoryStatus({
+    id: workspace.id,
+    title: path.basename(abs) || workspace.title,
+    path: abs,
+  });
+  if (!repo.isRepo || repo.root !== abs) return null;
+  if (repo.isRepo && repo.root) repo.workspaceTitle = path.basename(repo.root) || repo.workspaceTitle;
+  return repo;
 };
 
 const repoByRoot = (root) => {
@@ -126,7 +142,11 @@ const repoByRoot = (root) => {
   throw new Error("git repository not found");
 };
 
-const refreshRepo = (repo) => getRepositoryStatus(repo.root);
+const refreshRepo = (repo) => getRepositoryStatus({
+  id: repo.workspaceId,
+  title: repo.workspaceTitle,
+  path: repo.root,
+});
 
 const ensureRelativePath = (filePath) => {
   const value = String(filePath || "").trim();
@@ -301,13 +321,12 @@ const gitCheckout = ({ root, branch }) => {
   return { output, repository, branches: gitBranches(repository.root) };
 };
 
-const gitInit = ({ path: rawPath }) => {
-  const abs = path.resolve(String(rawPath || ""));
-  if (!isAllowedPath(abs)) throw new Error("只能在主目录下初始化仓库");
-  let st; try { st = fs.statSync(abs); } catch { throw new Error(`目录不存在: ${abs}`); }
-  if (!st.isDirectory()) throw new Error(`不是文件夹: ${abs}`);
-  const output = runGitMutation(abs, ["init"]);
-  return { output, repository: getRepositoryStatus(abs) };
+const gitInit = ({ workspacePath }) => {
+  const pathValue = String(workspacePath || "");
+  const workspace = listWorkspaces().find((item) => item.path === pathValue);
+  if (!workspace) throw new Error("workspace not found");
+  const output = runGitMutation(workspace.path, ["init"]);
+  return { output, repository: getRepositoryStatus(workspace) };
 };
 
 export {

@@ -7,38 +7,53 @@
 // 只通过 workdir 绑定到某个目录。目录改名/移动/删除时,这里负责把绑定跟着搬家。
 // id 规则:space / file = 绝对路径(改名/移动即变,前端重拉,无需 fs↔DB 同步)。
 
+import { createHash } from "crypto";
 import fs from "fs";
 import os from "os";
 import path from "path";
 import { getDb } from "../db.js";
 
-// 没有「工作区」这一层:整台机器就是台面。
-//   树顶 = 用户主目录(~),文件面板默认摊开桌面;
-//   产品自己的东西(应用/组件/它们的数据)住 ~/.mainbench,不混进用户看得见的目录。
-const ROOT = path.resolve(process.env.WORKBENCH_ROOT || os.homedir());
+// 工作区 = 用户手动添加的文件夹,可以多个,记在 workspaces 表里;默认一个都没有。
+// 产品自己的东西(应用/组件/它们的数据)住 ~/.mainbench,不混进用户的文件夹。
 const PRODUCT_HOME = path.resolve(process.env.WORKBENCH_PRODUCT_HOME || path.join(os.homedir(), ".mainbench"));
 const SEP = path.sep;
 
 /** 产品的家(应用、组件、数据)。 */
 const productHome = () => { fs.mkdirSync(PRODUCT_HOME, { recursive: true }); return PRODUCT_HOME; };
-/** 默认落脚点:桌面。没有桌面的系统退回主目录。 */
-const defaultDir = () => {
-  const desktop = path.join(ROOT, "Desktop");
-  try { if (fs.statSync(desktop).isDirectory()) return desktop; } catch {}
-  return ROOT;
-};
 
 const isPathId = (id) => typeof id === "string" && id.startsWith("/");
 const normalizeAbs = (p) => path.resolve(String(p || "").trim());
 const withSep = (abs) => abs.endsWith(SEP) ? abs : abs + SEP;
 const isUnder = (abs, root) => abs === root || abs.startsWith(withSep(root));
-const isAllowedPath = (abs) => isUnder(normalizeAbs(abs), ROOT);
-/** 主目录的直接子项(桌面、文稿、code…):树的顶层行,不能在树里删/移/改名 —— 那是系统目录。 */
-const isTopLevel = (abs) => path.dirname(normalizeAbs(abs)) === ROOT;
-const parentAbsOf = (abs) => isTopLevel(abs) ? null : path.dirname(normalizeAbs(abs));
-// 主目录顶层的噪音:点开头的配置目录(.npm/.cache/.zshrc…)和 Library。
-// 只在 ~ 这一层过滤 —— 项目里的 .dev/.github 照常显示(那是内容,不是配置)。
-const isRootNoise = (name) => name.startsWith(".") || name === "Library";
+const workspaceIdForPath = (abs) => createHash("sha1").update(abs).digest("hex").slice(0, 16);
+const workspaceRows = () => {
+  const rows = getDb().prepare(`
+    SELECT id, title, path, enabled, created_at, last_opened_at
+    FROM workspaces
+    WHERE enabled = 1
+    ORDER BY created_at, id
+  `).all();
+  const enabledRows = rows
+    .map((r) => ({ ...r, path: normalizeAbs(r.path) }))
+    .filter((r) => {
+      try { return fs.statSync(r.path).isDirectory(); }
+      catch { return false; }
+    });
+  return enabledRows;
+};
+const workspacePaths = () => workspaceRows().map((r) => r.path);
+/** 没指定去处时的落脚点:第一个工作区;一个都没有就退回主目录(对话/终端总得有个真实目录)。 */
+const defaultDir = () => workspacePaths()[0] || os.homedir();
+const rootOf = (abs) => {
+  const full = normalizeAbs(abs);
+  return workspacePaths()
+    .filter((root) => isUnder(full, root))
+    .sort((a, b) => b.length - a.length)[0] || null;
+};
+const isAllowedPath = (abs) => !!rootOf(abs);
+const isWorkspaceRoot = (abs) => rootOf(abs) === normalizeAbs(abs);
+const workspaceForPath = (abs) => workspaceRows().find((r) => r.path === normalizeAbs(abs)) || null;
+const parentAbsOf = (abs) => isWorkspaceRoot(abs) ? null : path.dirname(normalizeAbs(abs));
 // 点开头不等于隐藏:.dev / .github / .gitignore 都是要看的(VS Code 同款语义)。
 // 真正藏起来的只有系统噪音文件;噪音目录走 IGNORE_DIRS(.git 在其中)。
 const IGNORE_FILES = new Set([".DS_Store", "Thumbs.db", "desktop.ini"]);
@@ -79,9 +94,11 @@ const collapseAgents = (dir, target) => {
 // ── 构造统一 item ──
 const spaceItem = (abs) => {
   const full = normalizeAbs(abs);
+  const ws = isWorkspaceRoot(full) ? workspaceForPath(full) : null;
   return {
     id: full, parent_id: parentAbsOf(full), kind: "space",
-    title: path.basename(full), system: null, content: null, position: null, last_read_at: null, created_at: null,
+    title: ws?.title || path.basename(full), system: null, content: null, position: null, last_read_at: null, created_at: null,
+    workspace: !!ws,
   };
 };
 const MAX_TEXT = 2_000_000;
@@ -156,22 +173,21 @@ const agentContext = (startDir) => {
 };
 
 // 递归列出整棵树所有节点(给 ⌘P 快速打开用),跳过 IGNORE_DIRS / 隐藏。不读文件内容。
-// 树顶是整个主目录,给个上限:够筛选用,不至于把下载/图片几万个文件全扫一遍。
-const LIST_ALL_CAP = 20_000;
 const listAll = () => {
   const out = [];
-  const walk = (dir, top) => {
-    if (out.length >= LIST_ALL_CAP) return;
+  const walk = (dir) => {
     let entries; try { entries = fs.readdirSync(dir, { withFileTypes: true }); } catch { return; }
     for (const e of entries) {
-      if (out.length >= LIST_ALL_CAP) return;
-      if (isHidden(e.name) || (top && isRootNoise(e.name))) continue;
+      if (isHidden(e.name)) continue;
       const abs = path.join(dir, e.name);
-      if (e.isDirectory()) { if (!IGNORE_DIRS.has(e.name)) { out.push(spaceItem(abs)); walk(abs, false); } }
+      if (e.isDirectory()) { if (!IGNORE_DIRS.has(e.name)) { out.push(spaceItem(abs)); walk(abs); } }
       else out.push(fileItem(abs));
     }
   };
-  walk(ROOT, true);
+  for (const root of workspacePaths()) {
+    out.push(spaceItem(root));
+    walk(root);
+  }
   return out;
 };
 
@@ -197,17 +213,20 @@ const terminalCwd = (id) => {
 
 const listChildren = (parentId) => {
   let dirAbs;
-  if (!parentId) dirAbs = ROOT; // 树顶 = 主目录的子项
+  if (!parentId) {
+    const out = workspaceRows().map((row) => spaceItem(row.path));
+    out.forEach((n, i) => { n.position = i + 1; });
+    return out;
+  }
   else {
     const hit = locate(parentId);
     if (!hit || hit.kind !== "space") return [];
     dirAbs = hit.abs;
   }
-  const top = dirAbs === ROOT;
   let entries; try { entries = fs.readdirSync(dirAbs, { withFileTypes: true }); } catch { return []; }
   const out = [];
   for (const e of entries) {
-    if (isHidden(e.name) || (top && isRootNoise(e.name))) continue;
+    if (isHidden(e.name)) continue;
     const abs = path.join(dirAbs, e.name);
     if (e.isDirectory()) out.push(spaceItem(abs));
     else out.push(fileItem(abs));
@@ -258,8 +277,11 @@ const updateItem = (id, { title, system, content, overwrite = false } = {}) => {
     trashItem(next);
   };
 
-  if (hit.kind === "space" && isTopLevel(hit.abs) && title !== undefined) {
-    throw new Error("主目录下的顶层文件夹(桌面、文稿…)不能在这里改名");
+  if (hit.kind === "space" && isWorkspaceRoot(hit.abs)) {
+    if (title !== undefined) {
+      getDb().prepare("UPDATE workspaces SET title = ? WHERE path = ?").run(String(title || "").trim() || path.basename(hit.abs), hit.abs);
+    }
+    return spaceItem(hit.abs);
   }
 
   if (hit.kind === "file") {
@@ -304,7 +326,7 @@ const deleteItem = (id) => {
   const hit = locate(id);
   if (!hit) return;
   if (hit.kind === "file") { trashItem(hit.abs); return; }
-  if (isTopLevel(hit.abs)) throw new Error("主目录下的顶层文件夹(桌面、文稿…)不能在这里删除");
+  if (isWorkspaceRoot(hit.abs)) throw new Error("工作区根不能删除,请从 Workbench 移除工作区");
   // space:整目录进废纸篓;绑在这棵子树上的对话**不陪葬**——对话不是目录的附属品,
   // 它们的 workdir 塌缩到父目录,会话照常留在会话列表里
   trashItem(hit.abs);
@@ -328,7 +350,7 @@ const uniqueDest = (dir, name) => {
 const copyItem = (id, targetParentId = null) => {
   const hit = locate(id);
   if (!hit) throw new Error(`not found: ${id}`);
-  if (hit.kind === "space" && isTopLevel(hit.abs)) throw new Error("主目录下的顶层文件夹不能复制");
+  if (hit.kind === "space" && isWorkspaceRoot(hit.abs)) throw new Error("工作区根不能复制");
   let targetDir;
   if (targetParentId) {
     const ph = locate(targetParentId);
@@ -348,7 +370,7 @@ const copyItem = (id, targetParentId = null) => {
 const moveItem = (id, newParentId, _position = undefined, overwrite = false) => {
   const hit = locate(id);
   if (!hit) throw new Error(`not found: ${id}`);
-  if (hit.kind === "space" && isTopLevel(hit.abs)) throw new Error("主目录下的顶层文件夹不能移动");
+  if (hit.kind === "space" && isWorkspaceRoot(hit.abs)) throw new Error("工作区根不能移动");
   let targetDir;
   if (newParentId) {
     const ph = locate(newParentId);
@@ -401,8 +423,39 @@ const ancestry = (id) => {
   return chain;
 };
 
+const addWorkspace = ({ path: rawPath, title } = {}) => {
+  if (!String(rawPath || "").trim()) throw new Error("path is required");
+  const abs = normalizeAbs(rawPath);
+  let st; try { st = fs.statSync(abs); } catch { throw new Error(`目录不存在: ${abs}`); }
+  if (!st.isDirectory()) throw new Error(`不是文件夹: ${abs}`);
+  const name = String(title || "").trim() || path.basename(abs) || abs;
+  const id = workspaceIdForPath(abs);
+  getDb().prepare(`
+    INSERT INTO workspaces (id, title, path, enabled, last_opened_at)
+    VALUES (?, ?, ?, 1, datetime('now'))
+    ON CONFLICT(path) DO UPDATE SET
+      title = excluded.title,
+      enabled = 1,
+      last_opened_at = datetime('now')
+  `).run(id, name, abs);
+  return spaceItem(abs);
+};
+
+const removeWorkspace = (idOrPath) => {
+  const key = String(idOrPath || "");
+  const rows = workspaceRows();
+  const row = rows.find((r) => r.id === key || r.path === normalizeAbs(key));
+  if (!row) return null;
+  if (rows.length <= 1) throw new Error("至少保留一个工作区");
+  getDb().prepare("UPDATE workspaces SET enabled = 0 WHERE id = ?").run(row.id);
+  return row;
+};
+
+const listWorkspaces = () => workspaceRows();
+
 export {
-  ROOT, productHome, defaultDir, isTopLevel, isRootNoise, IGNORE_DIRS, isAllowedPath,
+  productHome, defaultDir, IGNORE_DIRS, isAllowedPath,
   listChildren, listAll, getItem, createItem, updateItem, deleteItem, moveItem, copyItem, importFile, ancestry,
-  resolveFileAbs, pathForId, agentContext, terminalCwd,
+  resolveFileAbs, pathForId, agentContext,
+  listWorkspaces, addWorkspace, removeWorkspace, isWorkspaceRoot, terminalCwd,
 };

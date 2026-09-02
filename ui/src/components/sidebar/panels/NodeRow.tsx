@@ -88,8 +88,7 @@ export function NodeRow({
   const expanded = controls.expandedIds.has(node.id);
   const isRenaming = controls.renamingId === node.id;
   const isDragging = controls.activeId === node.id;
-  // 主目录顶层(桌面、文稿…)是系统目录,不让拖
-  const dragDisabled = isRenaming || node.parent_id == null;
+  const dragDisabled = isRenaming || !!node.workspace;
 
   // dnd-kit
   const {

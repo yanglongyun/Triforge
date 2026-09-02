@@ -135,7 +135,7 @@ const unreadMap = (ids) => {
   return map;
 };
 
-/** 运行时的家:workdir 没了(被删/盘未挂载)就退回桌面,任务不至于无处落脚。 */
+/** 运行时的家:workdir 没了(被删/盘未挂载)就退回第一个工作区(没有就是主目录),任务不至于无处落脚。 */
 const resolveWorkdir = (chat) => {
   const dir = chat?.workdir || "";
   try { if (dir && fs.statSync(dir).isDirectory()) return dir; } catch { /* fallthrough */ }

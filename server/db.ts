@@ -20,7 +20,7 @@ const initDb = () => {
   db.exec("PRAGMA foreign_keys = ON");
 
   db.exec(`
-    -- 结构(空间/文件)就是用户主目录的文件系统;对话住这里
+    -- 结构(空间/文件/对话)全在文件系统:workspaces/ 下
     --   目录 = 空间,真实文件 = 文件;对话绑定(而不是住在)一个真实文件夹。
     -- SQLite 只存:消息流、设置、收藏。**运行状态不落库** ——
     --   跑到一半的轮次重启后本就恢复不了,而发生过什么已经逐条记在 messages 里。
@@ -74,6 +74,15 @@ const initDb = () => {
     CREATE TABLE IF NOT EXISTS settings (
       key   TEXT PRIMARY KEY,
       value TEXT NOT NULL
+    );
+
+    CREATE TABLE IF NOT EXISTS workspaces (
+      id             TEXT PRIMARY KEY,
+      title          TEXT NOT NULL,
+      path           TEXT NOT NULL UNIQUE,
+      enabled        INTEGER NOT NULL DEFAULT 1,
+      created_at     TEXT NOT NULL DEFAULT (datetime('now')),
+      last_opened_at TEXT
     );
 
     -- 网站:活动栏「网站」面板的收藏(在网页标签里打开)

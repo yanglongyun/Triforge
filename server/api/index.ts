@@ -31,6 +31,8 @@ import {
   listGitRepositories,
   repositoryStatusForPath,
 } from "../repo/git.js";
+import { pickDirectory } from "../host/directoryPicker.js";
+import { syncWatchers } from "../host/watcher.js";
 import * as files from "../host/files.js";
 import { serveFavicon } from "../host/favicons.js";
 
@@ -214,6 +216,38 @@ const handleApi = async (req, res) => {
         try {
           tree.remove(url.searchParams.get("id"));
           return json(res, 200, { ok: true });
+        } catch (error) {
+          return json(res, 400, { ok: false, error: error.message });
+        }
+      }
+    }
+
+    // ---- workspaces(root folders)----
+    if (path === "/api/workspaces/pick" && method === "POST") {
+      try {
+        return json(res, 200, { ok: true, path: await pickDirectory() });
+      } catch (error) {
+        return json(res, 400, { ok: false, error: error.message });
+      }
+    }
+
+    if (path === "/api/workspaces") {
+      if (method === "GET") return json(res, 200, { ok: true, workspaces: tree.listWorkspaces() });
+      if (method === "POST") {
+        const body = await parseBody(req);
+        try {
+          const item = tree.addWorkspace(body);
+          syncWatchers(); // 新根挂上文件监听
+          return json(res, 201, { ok: true, item });
+        } catch (error) {
+          return json(res, 400, { ok: false, error: error.message });
+        }
+      }
+      if (method === "DELETE") {
+        try {
+          const workspace = tree.removeWorkspace(url.searchParams.get("id"));
+          syncWatchers(); // 摘掉的根不再监听
+          return json(res, 200, { ok: true, workspace });
         } catch (error) {
           return json(res, 400, { ok: false, error: error.message });
         }

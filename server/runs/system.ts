@@ -101,7 +101,7 @@ export const buildSystem = (
   超出预算的输出会被截断且不可找回,重定向的文件才是完整的。
 - read / edit / write         — 文件三件套:有界读(带行号)/ 精确替换 / 新建或整体重写(改文件首选,别用 bash sed);
   read 读到图片(png/jpg/gif/webp)时会把图像直接交给你查看
-- browser(action, ...)        — 操作工作台里的网页标签(内置真浏览器,带用户登录态;open 会在分屏侧边打开,用户看得见你在操作):
+- browser(action, ...)        — 操作工作区里的网页标签(内置真浏览器,带用户登录态;open 会在分屏侧边打开,用户看得见你在操作):
   list 列标签 / open 开网址 / navigate·back 导航 / read 读正文 / js 执行脚本 / click·type 点击输入 / screenshot 截图(图像会交给你查看,同时存成工作目录里的文件)
 ${confirmDoc}
 每个工具都必须带 summary:一句话说明这次调用的目的,用户会在界面上看到它。

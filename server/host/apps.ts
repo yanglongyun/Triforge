@@ -47,7 +47,7 @@ export type AppDef = {
 const asString = (value: unknown, fallback = "") =>
   (typeof value === "string" ? value.trim() : fallback);
 
-/** 应用的家:~/.mainbench/apps(与 widgets 并列)。产品自己的东西,不混进用户看得见的目录。 */
+/** 应用的家:~/.mainbench/apps(与 widgets 并列)。产品自己的东西,不混进用户的文件夹。 */
 export const appsHome = () => path.join(productHome(), "apps");
 
 /** 随包的出厂应用(和预装组件同一套路:UI_DIST 旁边)。 */
