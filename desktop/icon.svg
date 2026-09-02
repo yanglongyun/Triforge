@@ -1,26 +1,25 @@
 <svg width="1024" height="1024" viewBox="0 0 1024 1024" xmlns="http://www.w3.org/2000/svg">
-  <!-- Worktop 图标(1.0.0 定稿):三面晶 Tricut Gem —— 出自 Kimi k3 候选 07(.dev/1.0.0/候选-kimi.html)。
-       一颗三琢面的紫晶:左面最亮、右面居中、底面最深,三面共用棱线 = 三合一;右上一粒四芒星。
-       画布 1024,版面 96..928(沿用旧图标的边距约定);内部按候选原稿的 512 坐标系整体缩放平移。 -->
+  <!-- Worktop 图标:三色砖 Tri-Block —— 出自 .dev/1.0.0/候选-kimi.html 的 11 号,去掉了右上那粒星。
+       一块等距的砖:顶面绿、左面红、右面黄,深靛蓝底板。
+       画布 1024,底板 96..928(沿用旧图标的边距约定);砖体按原稿 512 坐标系(底板 16..496)整体缩放平移。 -->
   <defs>
-    <linearGradient id="b7" x1="0" y1="0" x2="1" y2="1"><stop offset="0" stop-color="#3b1160"/><stop offset="1" stop-color="#150826"/></linearGradient>
-    <linearGradient id="g7a" x1="0" y1="0" x2="1" y2="1"><stop offset="0" stop-color="#fae8ff"/><stop offset="1" stop-color="#e9b3fb"/></linearGradient>
-    <linearGradient id="g7b" x1="0" y1="0" x2="1" y2="1"><stop offset="0" stop-color="#e879f9"/><stop offset="1" stop-color="#c026d3"/></linearGradient>
-    <linearGradient id="g7c" x1="0" y1="0" x2="1" y2="0"><stop offset="0" stop-color="#a21caf"/><stop offset="1" stop-color="#701a75"/></linearGradient>
+    <linearGradient id="b" x1="0" y1="0" x2="1" y2="1"><stop offset="0" stop-color="#20366e"/><stop offset="1" stop-color="#0a1230"/></linearGradient>
+    <linearGradient id="t" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#a7f3d0"/><stop offset="1" stop-color="#34d399"/></linearGradient>
+    <linearGradient id="l" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#fda4af"/><stop offset="1" stop-color="#e11d48"/></linearGradient>
+    <linearGradient id="r" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#fde68a"/><stop offset="1" stop-color="#f59e0b"/></linearGradient>
     <linearGradient id="hl" x1="0" y1="0" x2="0" y2="1">
       <stop offset="0" stop-color="#ffffff" stop-opacity=".14"/><stop offset=".3" stop-color="#ffffff" stop-opacity="0"/>
       <stop offset=".75" stop-color="#000000" stop-opacity="0"/><stop offset="1" stop-color="#000000" stop-opacity=".16"/>
     </linearGradient>
   </defs>
 
-  <rect x="96" y="96" width="832" height="832" rx="188" fill="url(#b7)"/>
+  <rect x="96" y="96" width="832" height="832" rx="188" fill="url(#b)"/>
 
-  <!-- 512 坐标系 → 版面:scale 832/480,translate 使原稿底板(16..496)对齐 96..928 -->
-  <g transform="translate(68.267 68.267) scale(1.733333)">
-    <path d="M256 128L116 372L256 296Z" fill="url(#g7a)" stroke="#f0abfc" stroke-width="12" stroke-linejoin="round"/>
-    <path d="M256 128L396 372L256 296Z" fill="url(#g7b)" stroke="#d946ef" stroke-width="12" stroke-linejoin="round"/>
-    <path d="M116 372L396 372L256 296Z" fill="url(#g7c)" stroke="#a21caf" stroke-width="12" stroke-linejoin="round"/>
-    <path d="M352 134Q357 155 378 160Q357 165 352 186Q347 165 326 160Q347 155 352 134Z" fill="#ffffff" opacity=".95"/>
+  <!-- 原稿底板 16..496(480 宽)→ 现底板 96..928(832 宽):scale 832/480,translate 96 − 16×scale -->
+  <g transform="translate(68.267 68.267) scale(1.73333)">
+    <path d="M134 186L256 258L256 402L134 330Z" fill="url(#l)" stroke="#0a1230" stroke-width="8" stroke-linejoin="round"/>
+    <path d="M256 258L378 186L378 330L256 402Z" fill="url(#r)" stroke="#0a1230" stroke-width="8" stroke-linejoin="round"/>
+    <path d="M256 116L378 186L256 258L134 186Z" fill="url(#t)" stroke="#0a1230" stroke-width="8" stroke-linejoin="round"/>
   </g>
 
   <rect x="96" y="96" width="832" height="832" rx="188" fill="url(#hl)"/>
