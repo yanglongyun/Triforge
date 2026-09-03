@@ -141,7 +141,7 @@ export const browser = async ({
         const abs = isAbsolute(rel) ? rel : resolve(ctx.cwd || process.cwd(), rel);
         mkdirSync(dirname(abs), { recursive: true });
         writeFileSync(abs, bytes);
-        ctx.emit?.({ type: "tree_changed", reason: "browser_screenshot" });
+        ctx.emit?.({ type: "tree_changed", reason: "browser_screenshot", paths: [abs] });
         // 截图走 image 通道进当前轮上下文 —— 模型看得见画面;文件同时留在树里给用户
         return {
           output: `已截图保存到 ${rel}(${Math.round(bytes.length / 1024)} KB),并已作为图像交给你查看;文件在左侧树里,用户也可点开。`,

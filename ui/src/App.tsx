@@ -137,12 +137,17 @@ export function App() {
   useEffect(() => {
     const off = socket.on("tree_changed", (p: any) => {
       refreshGit();
+      // 变了哪些路径:watcher / write / edit / 树操作都会带;bash 说不清(没有 paths)就全刷。
+      // 标签的 id 就是绝对路径:相等命中;路径是它的上级目录(改名/移动)也命中。
+      const paths: string[] | null = Array.isArray(p?.paths) ? p.paths.map(String)
+        : p?.item?.id ? [String(p.item.id)] : p?.reason === "deleted" && p?.id ? [String(p.id)] : null;
+      const hit = (tabId: string) => !paths || paths.some((x) => x === tabId || tabId.startsWith(x.endsWith("/") ? x : x + "/"));
       setFileRefreshKeys((prev) => {
         let changed = false;
         const next = { ...prev };
         for (const t of allTabsRef.current) {
           if (!isNodeTab(t)) continue;
-          if (t.kind !== "file" || dirtyRef.current.has(t.id)) continue;
+          if (t.kind !== "file" || dirtyRef.current.has(t.id) || !hit(t.id)) continue;
           next[t.id] = (next[t.id] || 0) + 1;
           changed = true;
         }

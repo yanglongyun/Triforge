@@ -18,9 +18,14 @@ const INTERVAL_MS = 400;
 let lastFired = 0;
 let timer: ReturnType<typeof setTimeout> | null = null;
 
+// 这一窗口里变过的绝对路径。拿不到 filename 的事件把 unknown 置真 —— 那一轮就不带 paths,界面按全刷处理。
+let pending = new Set<string>();
+let unknown = false;
 const fire = () => {
   lastFired = Date.now();
-  emit({ type: "tree_changed", reason: "fs" });
+  const paths = unknown ? undefined : [...pending];
+  pending = new Set(); unknown = false;
+  emit({ type: "tree_changed", reason: "fs", ...(paths ? { paths } : {}) });
 };
 
 const schedule = () => {
@@ -40,6 +45,7 @@ const watchRoot = (root: string) => {
   try {
     const watcher = fs.watch(root, { recursive: true }, (_event, filename) => {
       if (ignorable(filename)) return;
+      if (filename) pending.add(path.join(root, String(filename))); else unknown = true;
       schedule();
     });
     // 根被删/权限变化:收掉,等下次 sync 重试

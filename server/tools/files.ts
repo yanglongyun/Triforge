@@ -133,7 +133,7 @@ export const edit = ({ path: p, old, new: next, replace_all }, ctx) => {
   }
 
   try { writeFileSync(abs, restoreLineEnding(updated, ending)); } catch (e) { return `error: 写回失败 ${e.message}`; }
-  ctx.emit?.({ type: "tree_changed", reason: "edit" });
+  ctx.emit?.({ type: "tree_changed", reason: "edit", paths: [abs] });
   return `已编辑 ${p}(替换 ${replace_all ? occurrences : 1} 处)`;
 };
 
@@ -162,7 +162,7 @@ export const write = ({ path: p, content }, ctx) => {
     mkdirSync(dirname(abs), { recursive: true });
     writeFileSync(abs, content != null ? String(content) : "");
   } catch (e) { return `error: ${e.message}`; }
-  ctx.emit?.({ type: "tree_changed", reason: "write" });
+  ctx.emit?.({ type: "tree_changed", reason: "write", paths: [abs] });
   const bytes = Buffer.byteLength(content != null ? String(content) : "");
   return `${existed ? "已覆盖" : "已创建"} ${p}(${bytes} 字节)`;
 };
