@@ -1,5 +1,5 @@
-import { startServer } from "./server/http.js";
-import { stopAllApps } from "./server/host/appSupervisor.js";
+import { startServer } from "./server/index.js";
+import { stopAllApps } from "./server/apps/supervisor.js";
 
 const port = Number(process.env.WORKTOP_PORT) || 9506;
 await startServer(port);

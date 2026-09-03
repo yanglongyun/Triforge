@@ -7,7 +7,7 @@
 // 打点永不影响主流程:全链路 catch,8 秒超时,发丢了就丢了。
 import { randomUUID } from "crypto";
 import { getDb } from "./db.js";
-import { getSettings } from "./repo/settings.js";
+import { getSettings } from "./settings.js";
 
 const API = "https://api.worktop.iimos.ai/t";
 
