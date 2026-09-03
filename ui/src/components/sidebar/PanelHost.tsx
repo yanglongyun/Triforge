@@ -7,7 +7,7 @@
 // 状态点(会话未读/运行、应用在跑)上浮到图标上,面板关着也看得见。
 // 「收起侧栏」只收内容面板,活动栏常驻;点当前图标一下 = 收起(VS Code 的肌肉记忆)。
 // 组件的身体是 iframe,指向组件自己的 origin;契约是出厂技能 skills/widget。
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { api, type GitRepositoryStatus, type Node } from "../../api";
 import { ContextMenu, dialog, type MenuItem } from "../ui";
 import { Activity, ChevronLeft, PanelLeft, Plus, Puzzle, Settings, Trash2, X } from "lucide-react";
@@ -27,6 +27,8 @@ type Socket = { send: (m: any) => void; on: (t: string, fn: (p: any) => void) =>
 
 const TOOL_WIDGET_KEY = "worktop.tools.widget";
 const LOWER_KEY = "worktop.lower";
+const LOWER_RATIO_KEY = "worktop.lower.ratio";
+const clampRatio = (r: number) => Math.max(0.2, Math.min(0.8, r));
 type LowerId = "tools" | "tasks";
 
 /** 「让 AI 造一个组件」的开工指令:自包含的契约速查表(全写进提示词,不指望 AI 去翻文档)。 */
@@ -178,6 +180,41 @@ export function PanelHost({
   const openLower = (id: LowerId | null) => {
     setLower(id);
     if (id) localStorage.setItem(LOWER_KEY, id); else localStorage.removeItem(LOWER_KEY);
+  };
+  // 下半占侧栏的比例:拖中间那条线调,20%–80%,记住
+  const [lowerRatio, setLowerRatio] = useState(() => {
+    const v = Number(localStorage.getItem(LOWER_RATIO_KEY));
+    return Number.isFinite(v) && v > 0 ? clampRatio(v) : 0.5;
+  });
+  const columnRef = useRef<HTMLDivElement>(null);
+  const startLowerResize = (e: React.PointerEvent) => {
+    e.preventDefault();
+    e.stopPropagation();
+    const total = columnRef.current?.getBoundingClientRect().height || 0;
+    if (!total) return;
+    const startY = e.clientY;
+    const startRatio = lowerRatio;
+    let current = startRatio;
+    const previousCursor = document.body.style.cursor;
+    const previousSelect = document.body.style.userSelect;
+    document.body.style.cursor = "row-resize";
+    document.body.style.userSelect = "none";
+    beginGlobalDrag();
+    const onUp = () => {
+      window.removeEventListener("pointermove", onMove);
+      window.removeEventListener("pointerup", onUp);
+      document.body.style.cursor = previousCursor;
+      document.body.style.userSelect = previousSelect;
+      endGlobalDrag();
+      localStorage.setItem(LOWER_RATIO_KEY, current.toFixed(3));
+    };
+    const onMove = (ev: PointerEvent) => {
+      if (ev.buttons === 0) { onUp(); return; }
+      current = clampRatio(startRatio - (ev.clientY - startY) / total);
+      setLowerRatio(current);
+    };
+    window.addEventListener("pointermove", onMove);
+    window.addEventListener("pointerup", onUp);
   };
   const toggleLower = (id: LowerId) => {
     const desktop = window.matchMedia("(min-width: 768px)").matches;
@@ -388,6 +425,7 @@ export function PanelHost({
 
       {/* ── 内容面板:桌面端可收起(活动栏留着),移动端跟抽屉走 ── */}
       <div
+        ref={columnRef}
         style={{ width: `min(${sidebarWidth}px, calc(100vw - 84px))` }}
         className={[
           "relative flex flex-col min-w-0 border-l border-border",
@@ -396,8 +434,8 @@ export function PanelHost({
       >
         {/* 面板头:一行搞定 —— 当前面板叫什么 + 右侧收起(移动端 X 关抽屉),没有品牌行 */}
         {/* 高度与标签栏对齐(两边各让一半:40 / 44 → 42) */}
-        {/* ── 上半:当前原生面板;下半开着时两半平分 ── */}
-        <div className="flex-1 min-h-0 flex flex-col">
+        {/* ── 上半:当前原生面板;下半开着时按 lowerRatio 分高 ── */}
+        <div style={{ flex: `${lower ? 1 - lowerRatio : 1} 1 0px` }} className="min-h-0 flex flex-col">
         <div className="shrink-0 h-[42px] flex items-center gap-2 px-3.5 border-b border-border">
           {activeNative && <activeNative.icon size={14} className="text-accent shrink-0" />}
           <span className="text-[13px] font-medium text-text truncate flex-1">{activeNative?.title}</span>
@@ -450,9 +488,16 @@ export function PanelHost({
         )}
         </div>
 
-        {/* ── 下半:小组件 / 任务,占一半高;头一行 = (‹ 返回)图标 + 名字 + ✕ ── */}
+        {/* ── 下半:小组件 / 任务;顶上那条线可拖,改上下分高;头一行 = (‹ 返回)图标 + 名字 + ✕ ── */}
         {lower && (
-          <div className="flex-1 min-h-0 flex flex-col border-t border-border">
+          <div style={{ flex: `${lowerRatio} 1 0px` }} className="min-h-0 flex flex-col">
+            <div className="relative shrink-0 h-px bg-border">
+              <div
+                onPointerDown={startLowerResize}
+                className="absolute inset-x-0 -top-[3px] h-[7px] z-10 cursor-row-resize hover:bg-accent/25"
+                title="调整上下高度"
+              />
+            </div>
             <div className="shrink-0 h-[34px] flex items-center gap-2 px-3.5">
               {toolWidget && (
                 <button
