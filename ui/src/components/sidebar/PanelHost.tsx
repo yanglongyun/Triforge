@@ -214,7 +214,7 @@ export function PanelHost({
     if (toolWidgetId === widget.id) enterWidget(null);
   };
 
-  // 让 AI 造一个组件:一句话 → 新对话 → agent 在 widgets/ 里写出目录 → 自动出现在「组件」面板
+  // 让 AI 造一个组件:一句话 → 新对话 → agent 在 widgets/ 里写出目录 → 自动出现在「工具」面板
   const createWidgetWithAI = async () => {
     const desc = await dialog.prompt("", {
       title: "让 AI 造一个组件",

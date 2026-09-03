@@ -129,7 +129,7 @@ export const handleHostRoutes = async (
       return true;
     }
 
-    // 应用触发的完整 agent 轮次:独立任务(tasks 表),不过护盾,SSE 流回
+    // 应用触发的完整 agent 轮次:独立任务(tasks 表),不过规则,SSE 流回
     if (method === "POST" && path === "/ai/agent") {
       if (!need("ai.agent")) return true;
       const input = await readBody(req);

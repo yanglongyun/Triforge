@@ -9,7 +9,7 @@
 // 因此它不进会话列表,在「任务」里看。这样详情页能完整回放它到底干了什么。
 //
 // 与用户会话的两点不同:
-//   1. **不过护盾**:任务没有人守在旁边,confirm 也不在工具表里 —— 直接按 skip 跑;
+//   1. **不过规则**:任务没有人守在旁边,confirm 也不在工具表里 —— 直接按 skip 跑;
 //   2. 结果以 SSE 流回给发起的应用:tool(进度)/ error / done。应用只认 error 和 done。
 import { runAgent as runAi } from "../agent/index.js";
 import { createRunner, tools } from "../agent/tools.js";
