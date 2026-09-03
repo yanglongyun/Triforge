@@ -162,14 +162,14 @@ export function App() {
     return off;
   }, [refreshGit, socket, tabGroups.removeNodeTab, tabGroups.updateNodeTab]);
 
-  // browser open:AI 要开一个网页标签 —— 按策略落在分屏侧组(左边对话继续流,
-  // 右边看着 AI 操作浏览器),带 token 打开,webview 注册时兑现给 server;
-  // 同站已开则聚焦现有标签,并用它的 wcId 带 token 重注册,工具调用同样兑现
+  // browser open:AI 要开一个网页标签 —— **后台打开**,在当前分组里正常开一个标签但不抢前台:
+  // 用户可能正在别的对话里干活,AI 开页不该把人的焦点夺走。带 token 打开,webview 注册时兑现给 server;
+  // 同站已开则复用现有标签(同样不聚焦),并用它的 wcId 带 token 重注册,工具调用同样兑现
   useEffect(() => {
     const off = socket.on("web_tab_open", (p: any) => {
       if (!p?.url) return;
       const token = p.token ? String(p.token) : undefined;
-      const existing = tabGroups.openWeb(String(p.url), undefined, { token, groupId: "side" });
+      const existing = tabGroups.openWeb(String(p.url), undefined, { token, background: true });
       if (existing && token) {
         const wcId = wcIdForTab(existing.id);
         if (wcId != null) {

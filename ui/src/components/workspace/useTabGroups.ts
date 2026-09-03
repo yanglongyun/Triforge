@@ -255,7 +255,7 @@ export function useTabGroups({ canCloseTab = () => true, onTabClosed = () => {} 
         tabs.find((tab): tab is WebTab => isWebTab(tab) && exactKey(tab.url) === exact)
         || (host ? tabs.find((tab): tab is WebTab => isWebTab(tab) && hostKey(tab.url) === host) : undefined);
       if (existing) {
-        activateTab(groupId, existing.id);
+        if (!opts.background) activateTab(groupId, existing.id); // 后台打开:已有的也不抢前台
         return existing;
       }
     }
