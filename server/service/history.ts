@@ -5,6 +5,7 @@
 //
 // 记录只在网页标签里发生的导航;宿主自己的地址不进来。
 import { getDb } from "../db.js";
+import { emit } from "../bus.js";
 
 export type HistoryRow = { url: string; title: string; visits: number; visited_at: string };
 
@@ -31,6 +32,7 @@ const visit = ({ url, title }: { url?: string; title?: string } = {}) => {
       -- 标题可能这次才拿到(导航时页面还没加载完),有新的就用新的
       title = CASE WHEN excluded.title != '' THEN excluded.title ELSE history.title END
   `).run(clean_url, name);
+  emit({ type: "history_changed" });
   return true;
 };
 
@@ -52,10 +54,12 @@ const list = ({ q, limit }: { q?: string; limit?: number } = {}) => {
 /** 忘掉一条,或全部。删除是用户对自己记录的处置权,必须有。 */
 const forget = ({ url, all }: { url?: string; all?: boolean } = {}) => {
   const db = getDb();
-  if (all) { db.prepare("DELETE FROM history").run(); return true; }
+  if (all) { db.prepare("DELETE FROM history").run(); emit({ type: "history_changed" }); return true; }
   const target = clean(url) || String(url || "");
   if (!target) return false;
-  return db.prepare("DELETE FROM history WHERE url = ?").run(target).changes > 0;
+  const gone = db.prepare("DELETE FROM history WHERE url = ?").run(target).changes > 0;
+  if (gone) emit({ type: "history_changed" });
+  return gone;
 };
 
 export { visit, list, forget };
