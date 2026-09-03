@@ -1,7 +1,7 @@
 // 面板宿主:侧边栏的「壳」。
 //
 // 骨架三层:
-//   上半 = 三段固定面板(对话 / 文件 / 网站),横向切换;运行中的对话在段名旁亮点
+//   上半 = 品牌行(名字 + 收起把手)→ 三段固定面板(对话 / 文件 / 网站)下划线式横向切换;运行中的对话在段名旁亮点
 //   下半 = 工具箱(可开合):打开后侧栏上下对半分,格子里是装好的组件,点一个整块进入该组件(iframe),「‹」返回
 //   底栏 = 工具箱开关(带数量)+ 设置(在主区开标签页)
 // 没有活动栏、没有钉住:组件不占侧栏任何常驻位置。应用与技能在新标签页进,任务在标签栏右端。
@@ -14,6 +14,7 @@ import { beginGlobalDrag, endGlobalDrag } from "../../lib/drag";
 import { applyOrder, dropFromOrder, useWidgetOrder, writeOrder } from "../../lib/widgetOrder";
 import { CREATE_APP_EVENT, CREATE_WIDGET_EVENT } from "../../lib/createRequests";
 import { EVENTS } from "../../../../server/shared/events";
+import { APP_NAME } from "../../lib/brand";
 import { NATIVE_PANELS, type NativePanelId, type WidgetDef } from "./registry";
 import { ChatRail } from "./panels/ChatRail";
 import { FilesPanel } from "./panels/FilesPanel";
@@ -332,8 +333,31 @@ export function PanelHost({
     >
       {/* ── 上半:三段 ── */}
       <div className="flex-1 min-h-0 basis-0 flex flex-col">
-        {/* 段切换:高度与标签栏对齐(42) */}
-        <div className="shrink-0 h-[42px] flex items-center gap-0.5 px-2 border-b border-border">
+        {/* brand:右上角 = 把手,只管侧栏收起(移动端沿用 X 关闭抽屉) */}
+        <div className="shrink-0 flex items-center gap-2.5 px-3.5 h-11 border-b border-border">
+          <img src="/icon.svg" alt="" className="w-5 h-5 select-none" draggable={false} />
+          <span className="text-[17px] font-semibold text-text flex-1 tracking-tight">{APP_NAME}</span>
+          {onToggleNav && (
+            <button
+              onClick={onToggleNav}
+              title="收起侧边栏"
+              className="hidden md:flex w-6 h-6 rounded items-center justify-center text-text-faint hover:text-text hover:bg-bg-hover transition-colors"
+            >
+              <PanelLeft size={16} />
+            </button>
+          )}
+          {onCloseMobile && (
+            <button
+              onClick={onCloseMobile}
+              className="md:hidden w-6 h-6 rounded flex items-center justify-center text-text-faint hover:text-text hover:bg-bg-hover transition-colors"
+            >
+              <X size={14} />
+            </button>
+          )}
+        </div>
+
+        {/* 三段切换:下划线式,三等分;运行中的对话在段名旁亮点 */}
+        <div className="shrink-0 flex items-stretch border-b border-border">
           {NATIVE_PANELS.map((p) => {
             const on = tab === p.id;
             const badge = p.id === "agents" ? chatBadge : "";
@@ -343,28 +367,18 @@ export function PanelHost({
                 onClick={() => switchTab(p.id)}
                 title={p.title}
                 className={[
-                  "flex-1 h-7 rounded-md flex items-center justify-center gap-1.5 text-[13px] transition-colors",
-                  on ? "bg-bg-inset text-text font-medium" : "text-text-faint hover:text-text",
+                  "flex-1 min-w-0 px-1 flex items-center justify-center gap-1.5 h-9 text-[13px] transition-colors border-b-2 -mb-px",
+                  on ? "border-accent text-text font-medium" : "border-transparent text-text-dim hover:text-text hover:bg-bg-hover",
                 ].join(" ")}
               >
-                <p.icon size={14} className={on ? "text-accent" : ""} />
-                {p.title}
+                <p.icon size={13} className="shrink-0" />
+                <span className="truncate">{p.title}</span>
                 {badge && (
-                  <span className={["w-[6px] h-[6px] rounded-full", badge === "run" ? "bg-accent animate-pulse" : "bg-success"].join(" ")} />
+                  <span className={["shrink-0 w-[6px] h-[6px] rounded-full", badge === "run" ? "bg-accent animate-pulse" : "bg-success"].join(" ")} />
                 )}
               </button>
             );
           })}
-          {onToggleNav && (
-            <button onClick={onToggleNav} title="收起侧栏" className={`hidden md:flex ${iconBtn}`}>
-              <PanelLeft size={15} />
-            </button>
-          )}
-          {onCloseMobile && (
-            <button onClick={onCloseMobile} className={`md:hidden ${iconBtn}`}>
-              <X size={14} />
-            </button>
-          )}
         </div>
 
         {/* 面板身体:对话切走即卸;文件常驻隐藏保重状态;网站切走即卸 */}
