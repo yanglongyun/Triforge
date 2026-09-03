@@ -64,29 +64,30 @@ const messageText = (item) => {
  * 会话轮次和应用任务共用 —— 落库口径只写一处。
  */
 export const createLedger = (chatId, rows) => {
-  const live = rows.map((row) => ({ id: row.id, item: row.item }));
+  const live = rows.map((row) => ({ id: row.id, item: row.item, summary: row.meta?.kind === "compaction" }));
   const generated = [];
   const record = (type, data) => {
     if (type === "compact") {
       if (data.phase === "started") { emit({ type: EVENTS.COMPACT_START, chatId }); return; }
-      if (data.compacted && data.tailCount < live.length) {
-        const cut = live.length - data.tailCount;
-        const early = live.slice(0, cut);
+      // 锚点只按原文的 id 算:上一份摘要行的 id 比它替代的历史都大,拿它当锚点会把尾段一起划到锚点之前
+      const cut = live.length - data.tailCount;
+      const originals = live.slice(0, cut).filter((row) => !row.summary);
+      if (data.compacted && originals.length) {
         const tail = live.slice(cut);
-        const startMessageId = early[0].id;
-        const endMessageId = early[early.length - 1].id;
+        const startMessageId = originals[0].id;
+        const endMessageId = originals[originals.length - 1].id;
         const compactionId = createCompaction({ chatId, startMessageId, endMessageId, summary: data.summary, tokens: data.tokens });
-        // 摘要落成一条消息:详情页能看到,下一轮从锚点之后取历史时它自然在其中
+        // 摘要落成一条消息:详情页能看到,下一轮从锚点之后取历史时它自然在其中(只认最新一份,见 runChat)
         const row = appendItem(chatId, data.history[0], { meta: { kind: "compaction", compactionId, startMessageId, endMessageId } });
         emit({ type: EVENTS.INPUT, chatId, row });
-        live.splice(0, live.length, { id: row.id, item: data.history[0] }, ...tail);
+        live.splice(0, live.length, { id: row.id, item: data.history[0], summary: true }, ...tail);
       }
       emit({ type: EVENTS.COMPACT_DONE, chatId });
       return;
     }
     if (!data.item) return;
     const row = appendItem(chatId, data.item, { usage: data.usage || null });
-    live.push({ id: row.id, item: data.item });
+    live.push({ id: row.id, item: data.item, summary: false });
     generated.push(data.item);
     if (type === "function_call") {
       emit({ type: EVENTS.CALLS, chatId, calls: [{ callId: data.item.call_id, name: data.item.name, args: parseArgs(data.item.arguments) }] });
@@ -157,9 +158,11 @@ const runChat = async (chatId) => {
 
   // 历史从最近一次压缩的锚点之后取;摘要行在锚点之后,自然在其中
   const latest = getLatestCompaction(chatId);
-  // 摘要行落库时 id 排在尾段之后,但发给模型时它必须在最前面 —— 和压缩发生那一轮循环里看到的顺序一致
+  // 摘要行落库时 id 排在尾段之后,但发给模型时它必须在最前面;锚点只按原文 id 算,旧摘要也会落在锚点之后,
+  // 只认最新一份 —— 每次压缩都把上一份摘要折进新摘要,旧的已被替代
   const after = listRows(chatId, { afterId: Number(latest?.end_message_id || 0) });
-  const rows = [...after.filter((row) => row.meta?.kind === "compaction"), ...after.filter((row) => row.meta?.kind !== "compaction")];
+  const summaries = after.filter((row) => row.meta?.kind === "compaction");
+  const rows = [...summaries.slice(-1), ...after.filter((row) => row.meta?.kind !== "compaction")];
   const ledger = createLedger(chatId, rows);
 
   try {
