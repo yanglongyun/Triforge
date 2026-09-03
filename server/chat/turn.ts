@@ -157,7 +157,9 @@ const runChat = async (chatId) => {
 
   // 历史从最近一次压缩的锚点之后取;摘要行在锚点之后,自然在其中
   const latest = getLatestCompaction(chatId);
-  const rows = listRows(chatId, { afterId: Number(latest?.end_message_id || 0) });
+  // 摘要行落库时 id 排在尾段之后,但发给模型时它必须在最前面 —— 和压缩发生那一轮循环里看到的顺序一致
+  const after = listRows(chatId, { afterId: Number(latest?.end_message_id || 0) });
+  const rows = [...after.filter((row) => row.meta?.kind === "compaction"), ...after.filter((row) => row.meta?.kind !== "compaction")];
   const ledger = createLedger(chatId, rows);
 
   try {
