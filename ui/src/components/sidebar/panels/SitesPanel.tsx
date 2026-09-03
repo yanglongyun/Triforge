@@ -9,7 +9,7 @@
 // 拖拽用指针事件,和标签栏同一套路:超阈值才算拖、挂 lib/drag.ts 的
 // 全局护栏(webview/iframe 会吞 pointerup)、松手事件被吞时靠 buttons===0 自愈。
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
-import { ChevronDown, ChevronRight, ChevronsDownUp, ChevronsUpDown, Copy, Download, Eye, EyeOff, Folder, FolderPlus, Globe, History, KeyRound, Pencil, Plus, Star, Trash2, Upload, X } from "lucide-react";
+import { ChevronDown, ChevronRight, ChevronsDownUp, ChevronsUpDown, Copy, Download, Eye, EyeOff, Folder, FolderPlus, Globe, History, KeyRound, Pencil, Plus, Star, Trash2, Upload, User, X } from "lucide-react";
 import { api, type HistoryEntry, type PasswordEntry, type Site } from "../../../api";
 import { beginGlobalDrag, endGlobalDrag } from "../../../lib/drag";
 import { ChromeImportDialog, ContextMenu, dialog, showToast, type MenuItem } from "../../ui";
@@ -199,7 +199,6 @@ export function SitesPanel({ onOpenUrl, socket }: {
   };
 
   // ── 密码 ──
-  const [shown, setShown] = useState<Record<string, string>>({}); // id → 明文(点了眼睛才有)
   const [pwEditing, setPwEditing] = useState<{ id: string | null; url: string; username: string; password: string; note: string } | null>(null);
   const [pwShowInput, setPwShowInput] = useState(false);
   const [importOpen, setImportOpen] = useState(false);
@@ -208,11 +207,6 @@ export function SitesPanel({ onOpenUrl, socket }: {
   };
   const copyPassword = async (p: PasswordEntry) => {
     try { await copyText(await api.revealPassword(p.id), "密码"); } catch (e: any) { void dialog.alert(e?.message || "读不到密码"); }
-  };
-  const toggleShow = async (p: PasswordEntry) => {
-    if (shown[p.id] !== undefined) { setShown((m) => { const n = { ...m }; delete n[p.id]; return n; }); return; }
-    try { const text = await api.revealPassword(p.id); setShown((m) => ({ ...m, [p.id]: text })); }
-    catch (e: any) { void dialog.alert(e?.message || "读不到密码"); }
   };
   const editPassword = async (p: PasswordEntry | null) => {
     let password = "";
@@ -235,7 +229,7 @@ export function SitesPanel({ onOpenUrl, socket }: {
   const clearPasswords = async () => {
     if (!passwords.length) return;
     if (!(await dialog.confirm(`清空全部 ${passwords.length} 条密码?不可恢复。`, { danger: true, confirmText: "清空" }))) return;
-    try { await api.clearPasswords(); setShown({}); setPwEditing(null); loadPasswords(); } catch { /* 同上 */ }
+    try { await api.clearPasswords(); setPwEditing(null); loadPasswords(); } catch { /* 同上 */ }
   };
   const exportPasswords = async () => {
     if (!passwords.length) return;
@@ -276,8 +270,8 @@ export function SitesPanel({ onOpenUrl, socket }: {
     setMenu({
       x: e.clientX, y: e.clientY,
       items: [
-        { label: "复制密码", icon: <Copy size={13} />, onClick: () => void copyPassword(p) },
-        { label: "复制账号", icon: <Copy size={13} />, disabled: !p.username, onClick: () => void copyText(p.username, "账号") },
+        { label: "复制密码", icon: <KeyRound size={13} />, onClick: () => void copyPassword(p) },
+        { label: "复制账号", icon: <User size={13} />, disabled: !p.username, onClick: () => void copyText(p.username, "账号") },
         { label: "打开网站", icon: <Globe size={13} />, disabled: !p.url, onClick: () => onOpenUrl(p.url, p.host) },
         { label: "编辑", icon: <Pencil size={13} />, onClick: () => void editPassword(p) },
         "divider" as const,
@@ -437,7 +431,6 @@ export function SitesPanel({ onOpenUrl, socket }: {
   );
 
   const HistoryRow = ({ h }: { h: HistoryEntry }) => {
-    const saved = bookmarked.has(h.url.replace(/\/$/, ""));
     return (
       <div
         onClick={() => onOpenUrl(h.url, h.title)}
@@ -447,21 +440,7 @@ export function SitesPanel({ onOpenUrl, socket }: {
       >
         <Favicon url={h.url} />
         <span className="flex-1 min-w-0 truncate text-[13.5px] text-text">{h.title || hostOf(h.url)}</span>
-        <span className="shrink-0 text-[11px] text-text-faint group-hover:hidden">{ago(h.visited_at)}</span>
-        <button
-          onClick={(e) => { e.stopPropagation(); if (!saved) void bookmark(h); }}
-          title={saved ? "已收藏" : "收藏"}
-          className={`${actionBtn} ${saved ? "!text-accent" : ""}`}
-        >
-          <Star size={12} className={saved ? "fill-current" : ""} />
-        </button>
-        <button
-          onClick={(e) => { e.stopPropagation(); void forget(h); }}
-          title="从历史删除"
-          className={`${actionBtn} hover:!text-danger`}
-        >
-          <X size={12} />
-        </button>
+        <span className="shrink-0 text-[11px] text-text-faint">{ago(h.visited_at)}</span>
       </div>
     );
   };
@@ -495,7 +474,6 @@ export function SitesPanel({ onOpenUrl, socket }: {
   );
 
   const PasswordRow = ({ p }: { p: PasswordEntry }) => {
-    const plain = shown[p.id];
     return (
       <>
         <div
@@ -508,14 +486,19 @@ export function SitesPanel({ onOpenUrl, socket }: {
           <div className="flex-1 min-w-0">
             <div className="truncate text-[13.5px] text-text">{p.host || p.url || "(无网址)"}</div>
             <div className="truncate text-[11.5px] text-text-faint font-mono">
-              {p.username || <i>无账号</i>}{plain !== undefined && <> · <span className="text-text">{plain || "(空密码)"}</span></>}
+              {p.username || <i>无账号</i>}
             </div>
           </div>
-          <button onClick={(e) => { e.stopPropagation(); void toggleShow(p); }} title={plain !== undefined ? "隐藏密码" : "显示密码"} className={actionBtn}>
-            {plain !== undefined ? <EyeOff size={12} /> : <Eye size={12} />}
+          <button
+            onClick={(e) => { e.stopPropagation(); void copyText(p.username, "账号"); }}
+            title="复制账号"
+            disabled={!p.username}
+            className={`${actionBtn} disabled:opacity-40`}
+          >
+            <User size={12} />
           </button>
           <button onClick={(e) => { e.stopPropagation(); void copyPassword(p); }} title="复制密码" className={actionBtn}>
-            <Copy size={12} />
+            <KeyRound size={12} />
           </button>
         </div>
         {pwEditing?.id === p.id && passwordEditor()}
