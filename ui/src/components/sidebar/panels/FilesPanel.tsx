@@ -3,13 +3,14 @@ import type { GitRepositoryStatus, Node } from "../../../api";
 import { api } from "../../../api";
 import { NodeRow, InlineCreateRow, iconFor, colorFor, type TreeControls } from "./NodeRow";
 import { ContextMenu, dialog, type MenuItem } from "../../ui";
-import { Folder, FolderPlus, FolderOpen, FileText, Bot, Trash2, Pencil, Copy, PanelRight, Terminal, GitBranch, Scissors, ClipboardPaste, Plus } from "lucide-react";
+import { Folder, FolderPlus, FolderOpen, FileText, FilePlus, Bot, Trash2, Pencil, Copy, PanelRight, Terminal, GitBranch, Scissors, ClipboardPaste, RefreshCw, ChevronsDownUp } from "lucide-react";
 
 const REVEAL_LABEL = /Mac/i.test(navigator.platform) ? "在 Finder 中显示"
   : /Win/i.test(navigator.platform) ? "在资源管理器中显示" : "在文件管理器中显示";
 import { DndContext, DragOverlay, useDroppable } from "@dnd-kit/core";
 import { useTreeDnd, ROOT_ID } from "./useTreeDnd";
 import { AddWorkspaceDialog } from "./AddWorkspaceDialog";
+import { Toolbar } from "../Toolbar";
 
 // 文件面板:真实文件系统的树。多选/键盘/剪贴板/拖拽/Git 染色/筛选都内聚在此;
 // 宿主(PanelHost)只负责装卸与显隐 —— 本面板常驻挂载,展开集/多选等重状态跨切换保活。
@@ -42,6 +43,21 @@ export function FilesPanel({
   // 文件夹徽标:workdir → 绑定的对话数
   const [agentDirs, setAgentDirs] = useState<Map<string, number>>(new Map());
   const [addWorkspaceOpen, setAddWorkspaceOpen] = useState(false);
+  // 搜索:只搜文件名,平铺列出(带所在目录);清空回到树
+  const [q, setQ] = useState("");
+  const [hits, setHits] = useState<Node[]>([]);
+  const needle = q.trim().toLowerCase();
+  useEffect(() => {
+    if (!needle) { setHits([]); return; }
+    let gone = false;
+    const timer = setTimeout(() => {
+      void api.listAllNodes().then((r) => {
+        if (gone) return;
+        setHits((r.nodes || []).filter((n) => n.kind !== "chat" && n.title.toLowerCase().includes(needle)).slice(0, 200));
+      }).catch(() => {});
+    }, 150);
+    return () => { gone = true; clearTimeout(timer); };
+  }, [needle, refreshKey]);
   const [workspacePathDraft, setWorkspacePathDraft] = useState("");
   const [workspaceError, setWorkspaceError] = useState<string | null>(null);
   const [addingWorkspace, setAddingWorkspace] = useState(false);
@@ -657,6 +673,31 @@ export function FilesPanel({
   // 键盘 handler 的最新函数出口(handler 只挂一次,经 ref 调最新实现)
   keyApiRef.current = { handleSelect, startRename, toggleExpand, setExpanded };
 
+  // 工具行:＋ = 在当前目录新建;⋯ = 添加工作区 / 刷新 / 折叠全部 / 在终端打开
+  const targetDirId = () => createParentId || roots[0]?.id || null;
+  const addItems = (): MenuItem[] => [
+    { label: "新建文件", icon: <FilePlus size={13} />, disabled: !roots.length, onClick: () => startCreate(targetDirId(), "file") },
+    { label: "新建文件夹", icon: <FolderPlus size={13} />, disabled: !roots.length, onClick: () => startCreate(targetDirId(), "space") },
+    "divider",
+    { label: "添加工作区…", icon: <FolderPlus size={13} className="text-accent" />, onClick: openAddWorkspace },
+  ];
+  const moreItems = (): MenuItem[] => [
+    { label: "添加工作区…", icon: <FolderPlus size={13} />, onClick: openAddWorkspace },
+    { label: "刷新", icon: <RefreshCw size={13} />, onClick: refresh },
+    { label: "折叠全部", icon: <ChevronsDownUp size={13} />, disabled: !expandedIds.size, onClick: () => setExpandedIds(new Set()) },
+    "divider",
+    { label: "在终端打开", icon: <Terminal size={13} />, disabled: !onOpenTerminal || !roots.length,
+      onClick: () => {
+        const id = targetDirId();
+        if (!id) return;
+        void api.getNode(id).then((r) => onOpenTerminal?.(r.node)).catch(() => { if (roots[0]) onOpenTerminal?.(roots[0]); });
+      } },
+  ];
+  const shortParent = (id: string) => {
+    const parts = id.split("/").filter(Boolean);
+    return parts.slice(0, -1).slice(-2).join("/");
+  };
+
   const controls: TreeControls = {
     expandedIds, toggleExpand, setExpanded,
     creatingUnder, creatingKind, draftTitle, setDraftTitle, commitCreate, cancelCreate,
@@ -672,17 +713,35 @@ export function FilesPanel({
     <DndContext sensors={sensors} {...dndHandlers}>
       {/* 身体:未激活仅隐藏 —— 展开集/多选/键盘锚点等重状态跨面板切换保活 */}
       <div className={active ? "flex flex-col flex-1 min-h-0" : "hidden"}>
-        {/* 面板内部的入口:添加工作区(样式同对话面板的「新建对话」);一个都没有时由下面的空状态承担 */}
-        {roots.length > 0 && (
-          <div
-            onClick={openAddWorkspace}
-            className="flex items-center gap-1.5 py-[4px] pl-3 pr-2 cursor-pointer select-none text-text hover:bg-bg-hover"
-          >
-            <Plus size={14} className="shrink-0" />
-            <span className="text-[13.5px]">添加工作区</span>
-          </div>
-        )}
+        <Toolbar
+          value={q}
+          onChange={setQ}
+          placeholder="搜索文件…"
+          add={{ title: "新建文件 / 文件夹", items: addItems }}
+          more={moreItems}
+        />
 
+        {needle ? (
+          <div className="flex-1 overflow-y-auto py-1">
+            {hits.map((n) => {
+              const Icon = iconFor(n.kind, n.title);
+              return (
+                <div
+                  key={n.id}
+                  onClick={() => { handleSelect(n); if (n.kind === "space") setExpanded(n.id, true); }}
+                  onContextMenu={(e) => onNodeContext(e, n)}
+                  title={n.id}
+                  className={["flex items-center gap-2 py-[4px] px-3 cursor-pointer select-none", selectedId === n.id ? "bg-bg-inset" : "hover:bg-bg-hover"].join(" ")}
+                >
+                  <Icon size={14} className={`shrink-0 ${colorFor(n.kind)}`} />
+                  <span className="shrink-0 truncate max-w-[60%] text-[13.5px] text-text">{n.title}</span>
+                  <span className="flex-1 min-w-0 truncate text-[11px] text-text-faint">{shortParent(n.id)}</span>
+                </div>
+              );
+            })}
+            {!hits.length && <div className="px-3 py-6 text-center text-[12.5px] text-text-faint">没有匹配的文件</div>}
+          </div>
+        ) : (
         <RootDroppable onContextMenu={onBlankContext} onNativeDragOver={onExternalDragOver} onNativeDrop={onExternalDrop}>
           {creatingUnder === "" && <InlineCreateRow depth={0} controls={controls} />}
 
@@ -713,6 +772,7 @@ export function FilesPanel({
           ))}
 
         </RootDroppable>
+        )}
       </div>
 
       {/* 菜单与对话框放隐藏容器之外:面板未激活时(如命令面板发起「添加工作区」)也可见 */}

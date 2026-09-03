@@ -110,7 +110,13 @@ export function LauncherPanel({ tab, groupId }: { tab: LauncherTab; groupId: Wor
 
         {/* 应用与网站:一段,一行排开 */}
         <div className="flex flex-col gap-2 min-w-0">
-            <div className="text-[11px] text-text-faint tracking-[1.5px] select-none">应用与网站</div>
+            <div className="flex items-center text-[11px] text-text-faint tracking-[1.5px] select-none">
+              <span className="flex-1">应用与网站</span>
+              {/* 应用与技能的家在这里,不占侧栏 */}
+              <button onClick={() => fire("worktop:launch-page", { page: "apps" })} className="tracking-normal hover:text-text transition-colors">全部应用</button>
+              <span className="mx-1.5">·</span>
+              <button onClick={() => fire("worktop:launch-page", { page: "skills" })} className="tracking-normal hover:text-text transition-colors">技能</button>
+            </div>
             <div className="grid grid-cols-6 gap-2 max-md:grid-cols-4">
               {apps.map((a) => (
                 <button

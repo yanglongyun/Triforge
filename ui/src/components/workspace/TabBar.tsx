@@ -14,7 +14,10 @@ const tabIconFor = (tab: WorkspaceTab) =>
   tab.kind === "app" ? AppWindow :
   tab.kind === "web" ? Globe :
   tab.kind === "task" ? Activity :
+  tab.kind === "tasks" ? Activity :
+  tab.kind === "apps" ? AppWindow :
   tab.kind === "skill" ? Sparkles :
+  tab.kind === "skills" ? Sparkles :
   tab.kind === "launcher" ? Plus : iconFor(tab.kind, tab.title);
 
 const tabColorFor = (tab: WorkspaceTab) =>
@@ -26,7 +29,10 @@ const tabColorFor = (tab: WorkspaceTab) =>
   tab.kind === "app" ? "text-accent" :
   tab.kind === "web" ? "text-accent" :
   tab.kind === "task" ? "text-accent" :
+  tab.kind === "tasks" ? "text-accent" :
+  tab.kind === "apps" ? "text-accent" :
   tab.kind === "skill" ? "text-accent" :
+  tab.kind === "skills" ? "text-accent" :
   tab.kind === "launcher" ? "text-text-faint" : colorFor(tab.kind);
 
 type DropGuide = {
@@ -46,6 +52,7 @@ export function TabBar({
   sideToggleOpen,
   onOpenNav,
   navOpen,
+  tasksRunning,
 }: {
   tabs: WorkspaceTab[];
   activeId: string | null;
@@ -60,6 +67,8 @@ export function TabBar({
   onOpenNav?: () => void;
   /** 侧边栏当前是否展开:展开时桌面端隐藏标签栏左端的汉堡(汉堡在侧栏头部)。 */
   navOpen?: boolean;
+  /** 有任务在跑:右端任务小图标亮点。 */
+  tasksRunning?: boolean;
 }) {
   const pointerDrag = useRef<{
     startX: number;
@@ -314,11 +323,22 @@ export function TabBar({
         <Plus size={15} />
       </button>
 
+      {/* 右端:任务小图标(有在跑带点)+ 分屏开关,只在最右一组 */}
+      {showSideToggle && (
+        <button
+          onClick={actions.openTasks}
+          className="ml-auto flex px-2 items-center justify-center border-l border-border shrink-0 text-text-faint hover:text-text hover:bg-bg-hover relative"
+          title="任务:应用在后台替你干的活"
+        >
+          <Activity size={14} />
+          {tasksRunning && <span className="absolute top-2.5 right-1.5 w-[6px] h-[6px] rounded-full bg-accent animate-pulse" />}
+        </button>
+      )}
       {showSideToggle && (
         <button
           onClick={actions.toggleSideGroup}
           className={[
-            "ml-auto flex px-2 items-center justify-center border-l border-border shrink-0",
+            "flex px-2 items-center justify-center border-l border-border shrink-0",
             sideToggleOpen ? "text-accent bg-accent-soft hover:text-accent" : "text-text-faint hover:text-text hover:bg-bg-hover",
           ].join(" ")}
           title={sideToggleOpen ? "收起右侧区域" : "开启右侧区域"}

@@ -3,8 +3,9 @@ import { ChatPanel } from "../chat";
 import { FilePanel } from "../files";
 import { SettingsPanel } from "../settings";
 import { WidgetsManager } from "../widgets/WidgetsManager";
-import { AppPanel, EmptyPanel, GitDiffPanel, GitView, LauncherPanel, SkillPanel, TaskPanel } from "./panels";
-import { isAppTab, isGitDiffTab, isGitTab, isLauncherTab, isSettingsTab, isSkillTab, isTaskTab, isWidgetsTab, isNodeTab, type WorkspaceGroupId, type WorkspaceTab } from "./types";
+import { AppPanel, AppsPanel, EmptyPanel, GitDiffPanel, GitView, LauncherPanel, ListPage, SkillPanel, SkillsPanel, TaskPanel, TasksPanel } from "./panels";
+import { requestCreateApp } from "../../lib/createRequests";
+import { isAppTab, isAppsTab, isGitDiffTab, isGitTab, isLauncherTab, isSettingsTab, isSkillTab, isSkillsTab, isTaskTab, isTasksTab, isWidgetsTab, isNodeTab, type WorkspaceGroupId, type WorkspaceTab } from "./types";
 
 type Socket = {
   send: (m: any) => void;
@@ -28,6 +29,9 @@ export function TabContent({
   onSettingsSaved,
   onGitChanged,
   onOpenGitDiff,
+  onOpenApp,
+  onOpenTask,
+  onOpenSkill,
 }: {
   tab: WorkspaceTab | null;
   groupId: WorkspaceGroupId;
@@ -45,6 +49,9 @@ export function TabContent({
   onSettingsSaved?: (settings: Settings) => void;
   onGitChanged?: () => void;
   onOpenGitDiff: (root: string, path: string, staged?: boolean, commit?: string) => void;
+  onOpenApp: (appId: string, name: string) => void;
+  onOpenTask: (taskId: string, title: string) => void;
+  onOpenSkill: (skillId: string, title: string) => void;
 }) {
   if (!tab) return <EmptyPanel />;
 
@@ -84,6 +91,30 @@ export function TabContent({
 
   if (isSkillTab(tab)) {
     return <SkillPanel tab={tab} />;
+  }
+
+  if (isAppsTab(tab)) {
+    return (
+      <ListPage title="应用" hint="开在标签页里的本地应用,AI 也能调它们的 API。" action={{ label: "让 AI 创建", onClick: requestCreateApp }}>
+        <AppsPanel socket={socket} onOpenApp={(app) => onOpenApp(app.id, app.name)} onCreate={requestCreateApp} />
+      </ListPage>
+    );
+  }
+
+  if (isSkillsTab(tab)) {
+    return (
+      <ListPage title="技能" hint="~/.worktop/skills/ 里的 SKILL.md;开着的会介绍给 AI。">
+        <SkillsPanel onOpenSkill={onOpenSkill} />
+      </ListPage>
+    );
+  }
+
+  if (isTasksTab(tab)) {
+    return (
+      <ListPage title="任务" hint="应用在后台替你干的活,点一条看过程。">
+        <TasksPanel socket={socket} onOpenTask={onOpenTask} />
+      </ListPage>
+    );
   }
 
   if (isWidgetsTab(tab)) {

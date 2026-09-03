@@ -20,6 +20,9 @@ export type TabContentProps = {
   onSelect: (n: Node) => void;
   onOpenAgent?: (id: string) => void;
   onOpenSettings: () => void;
+  onOpenApp: (appId: string, name: string) => void;
+  onOpenTask: (taskId: string, title: string) => void;
+  onOpenSkill: (skillId: string, title: string) => void;
   onSettingsSaved?: (settings: Settings) => void;
   onGitChanged?: () => void;
   onOpenGitDiff: (root: string, path: string, staged?: boolean, commit?: string) => void;
@@ -41,6 +44,7 @@ export function WorkspaceGroup({
   onOpenNav,
   tabs,
   content,
+  tasksRunning,
 }: {
   group: WorkspaceGroupState;
   active: boolean;
@@ -52,6 +56,7 @@ export function WorkspaceGroup({
   onOpenNav?: () => void;
   tabs: TabActions;
   content: TabContentProps;
+  tasksRunning?: boolean;
 }) {
   const tab = activeTabOf(group);
 
@@ -77,6 +82,7 @@ export function WorkspaceGroup({
         sideToggleOpen={sideOpen}
         onOpenNav={showNavButton ? onOpenNav : undefined}
         navOpen={navOpen}
+        tasksRunning={tasksRunning}
       />
       {/* data-panel-host:常驻层(PersistentPanelLayer)按这块矩形投放本组的网页/终端。
           分组只决定「摆在哪、显不显」,webview/PTY 的生命都在常驻层 —— 跨分屏移动不死 */}

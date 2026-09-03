@@ -6,3 +6,7 @@ export { GitDiffPanel } from "./GitDiffPanel";
 export { GitView } from "./GitView";
 export { TaskPanel } from "./TaskPanel";
 export { SkillPanel } from "./SkillPanel";
+export { AppsPanel } from "./AppsPanel";
+export { SkillsPanel } from "./SkillsPanel";
+export { TasksPanel } from "./TasksPanel";
+export { ListPage } from "./ListPage";

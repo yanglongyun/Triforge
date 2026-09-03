@@ -1,7 +1,7 @@
 import { useCallback, useMemo, useRef, useState } from "react";
 import { exactKey, hostKey } from "../../lib/urls";
 import type { Node } from "../../api";
-import { isOpenableSpace, isNodeTab, gitTab, gitDiffTab, settingsTab, widgetsTab, taskTab, skillTab, appTab, terminalTab, webTab, launcherTab, isWebTab, type WebTab, type WorkspaceGroupId, type WorkspaceGroupState, type WorkspaceTab } from "./types";
+import { isOpenableSpace, isNodeTab, gitTab, gitDiffTab, settingsTab, widgetsTab, taskTab, skillTab, appTab, terminalTab, webTab, launcherTab, isWebTab, type WebTab, type WorkspaceGroupId, type WorkspaceGroupState, type WorkspaceTab, appsTab, skillsTab, tasksTab } from "./types";
 
 type UseTabGroupsOptions = {
   canCloseTab?: (tab: WorkspaceTab) => boolean | Promise<boolean>;
@@ -150,6 +150,16 @@ export function useTabGroups({ canCloseTab = () => true, onTabClosed = () => {} 
 
   const openWidgets = useCallback((opts: { groupId?: WorkspaceGroupId; side?: boolean } = {}) => {
     openTab(widgetsTab(), opts);
+  }, [openTab]);
+
+  const openApps = useCallback((opts: { groupId?: WorkspaceGroupId; side?: boolean } = {}) => {
+    openTab(appsTab(), opts);
+  }, [openTab]);
+  const openSkills = useCallback((opts: { groupId?: WorkspaceGroupId; side?: boolean } = {}) => {
+    openTab(skillsTab(), opts);
+  }, [openTab]);
+  const openTasks = useCallback((opts: { groupId?: WorkspaceGroupId; side?: boolean } = {}) => {
+    openTab(tasksTab(), opts);
   }, [openTab]);
 
   const openTask = useCallback((taskId: string, title: string, opts: { groupId?: WorkspaceGroupId; side?: boolean } = {}) => {
@@ -427,6 +437,9 @@ export function useTabGroups({ canCloseTab = () => true, onTabClosed = () => {} 
     openGitDiff,
     openSettings,
     openWidgets,
+    openApps,
+    openSkills,
+    openTasks,
     openTask,
     openSkill,
     openApp,

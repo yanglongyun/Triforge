@@ -1,17 +1,19 @@
-// 「网站」面板:收藏 / 历史 / 密码。点开即在网页标签里打开(Electron 壳的 <webview>,真登录态)。
-// 收藏(server/service/sites.ts):一棵树,文件夹可以无限嵌套,同级可拖动排序。
-// 历史(server/service/history.ts):一个 url 一行,重复访问只抬时间与次数。
-// 密码(server/service/passwords.ts):按网站存的账号密码,宿主加密落库,明文只在点开那一刻解。
+// 「网站」段:收藏 / 历史 / 密码 三个子视图。点开即在网页标签里打开(Electron 壳的 <webview>,真登录态)。
+// 收藏(server/sites):一棵树,文件夹可以无限嵌套,同级可拖动排序。
+// 历史:一个 url 一行,重复访问只抬时间与次数。
+// 密码:按网站存的账号密码,宿主加密落库,明文只在点开那一刻解。
 //
-// 顶部一条搜索:三样一起搜,分段列出;清空回到当前视图。搜索框下面三段切换,记在 localStorage。
+// 骨架:子视图切换 → 工具行(搜索 + ＋ + ⋯,只作用于当前子视图)→ 列表。
+// 行 = 图标 · 主文字 · 右侧灰字,悬停出两个快捷动作,其余右键。密码点行 = 打开网站,编辑在行下就地展开。
 //
 // 拖拽用指针事件,和标签栏同一套路:超阈值才算拖、挂 lib/drag.ts 的
 // 全局护栏(webview/iframe 会吞 pointerup)、松手事件被吞时靠 buttons===0 自愈。
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
-import { ChevronDown, ChevronRight, Copy, Eye, EyeOff, Folder, FolderPlus, Globe, History, KeyRound, Pencil, Plus, Star, Trash2, X } from "lucide-react";
+import { ChevronDown, ChevronRight, ChevronsDownUp, ChevronsUpDown, Copy, Download, Eye, EyeOff, Folder, FolderPlus, Globe, History, KeyRound, Pencil, Plus, Star, Trash2, Upload, X } from "lucide-react";
 import { api, type HistoryEntry, type PasswordEntry, type Site } from "../../../api";
 import { beginGlobalDrag, endGlobalDrag } from "../../../lib/drag";
 import { ChromeImportDialog, ContextMenu, dialog, showToast, type MenuItem } from "../../ui";
+import { Toolbar } from "../Toolbar";
 
 const hostOf = (url: string) => { try { return new URL(url).host; } catch { return url; } };
 const OPEN_KEY = "worktop.sites.openFolders";
@@ -53,6 +55,8 @@ const Favicon = ({ url }: { url: string }) => (
   />
 );
 
+const actionBtn = "shrink-0 w-5 h-5 rounded flex items-center justify-center text-text-faint opacity-0 group-hover:opacity-100 hover:text-text hover:bg-bg-inset";
+
 export function SitesPanel({ onOpenUrl, socket }: {
   onOpenUrl: (url: string, title?: string) => void;
   socket: { on: (event: string, fn: (payload: unknown) => void) => () => void };
@@ -80,16 +84,18 @@ export function SitesPanel({ onOpenUrl, socket }: {
   useEffect(() => socket.on("passwords_changed", () => loadPasswords()), [socket, loadPasswords]);
   const switchView = (next: View) => {
     setView(next);
+    setQ("");
+    setPwEditing(null);
     try { localStorage.setItem(VIEW_KEY, next); } catch { /* 隐私模式 */ }
   };
 
   const needle = q.trim().toLowerCase();
   useEffect(() => {
-    if (!needle) { setHits([]); return; }
+    if (!needle || view !== "history") { setHits([]); return; }
     let gone = false;
     const timer = setTimeout(() => { void api.listHistory(q.trim()).then((rows) => { if (!gone) setHits(rows); }).catch(() => {}); }, 180);
     return () => { gone = true; clearTimeout(timer); };
-  }, [needle, q]);
+  }, [needle, q, view]);
 
   const byId = useMemo(() => new Map(sites.map((s) => [s.id, s])), [sites]);
   const childrenOf = (id: string | null) => sites.filter((s) => (s.parent_id || null) === id);
@@ -105,15 +111,21 @@ export function SitesPanel({ onOpenUrl, socket }: {
     return names.join(" / ");
   };
   const bookmarked = useMemo(() => new Set(sites.filter((s) => s.kind === "site").map((s) => s.url.replace(/\/$/, ""))), [sites]);
+  const folderIds = useMemo(() => sites.filter((s) => s.kind === "folder").map((s) => s.id), [sites]);
 
+  const writeOpen = (next: Set<string>) => {
+    try { localStorage.setItem(OPEN_KEY, JSON.stringify([...next])); } catch { /* 隐私模式 */ }
+    return next;
+  };
   const toggleFolder = (id: string) => {
     setOpen((prev) => {
       const next = new Set(prev);
       if (next.has(id)) next.delete(id); else next.add(id);
-      try { localStorage.setItem(OPEN_KEY, JSON.stringify([...next])); } catch { /* 隐私模式 */ }
-      return next;
+      return writeOpen(next);
     });
   };
+  const expandAll = () => setOpen(writeOpen(new Set(folderIds)));
+  const collapseAll = () => setOpen(writeOpen(new Set()));
 
   // ── 收藏 ──
   const add = async (parentId: string | null = null) => {
@@ -125,7 +137,7 @@ export function SitesPanel({ onOpenUrl, socket }: {
   const addFolder = async (parentId: string | null = null) => {
     const title = await dialog.prompt("", { title: "新建文件夹", placeholder: "文件夹名…", confirmText: "创建" });
     if (!title || !title.trim()) return;
-    try { await api.createSiteFolder({ title: title.trim(), parentId }); if (parentId) setOpen((p) => new Set(p).add(parentId)); load(); }
+    try { await api.createSiteFolder({ title: title.trim(), parentId }); if (parentId) setOpen((p) => writeOpen(new Set(p).add(parentId))); load(); }
     catch (e: any) { void dialog.alert(e?.message || "创建失败"); }
   };
   const remove = async (site: Site) => {
@@ -153,7 +165,7 @@ export function SitesPanel({ onOpenUrl, socket }: {
             { label: "在此新建文件夹…", icon: <FolderPlus size={13} />, onClick: () => void addFolder(site.id) },
           ]
           : [{ label: "打开", icon: <Globe size={13} />, onClick: () => onOpenUrl(site.url, site.title) }]),
-        { label: "重命名…", onClick: () => void rename(site) },
+        { label: "重命名…", icon: <Pencil size={13} />, onClick: () => void rename(site) },
         "divider" as const,
         { label: isFolder ? "删除文件夹" : "移除", icon: <Trash2 size={13} />, danger: true, onClick: () => void remove(site) },
       ],
@@ -218,12 +230,12 @@ export function SitesPanel({ onOpenUrl, socket }: {
   };
   const removePassword = async (p: PasswordEntry) => {
     if (!(await dialog.confirm(`删除「${p.host || p.url}」的账号 ${p.username || ""} 的密码?不可恢复。`, { danger: true, confirmText: "删除" }))) return;
-    try { await api.removePassword(p.id); loadPasswords(); } catch { /* 同上 */ }
+    try { await api.removePassword(p.id); if (pwEditing?.id === p.id) setPwEditing(null); loadPasswords(); } catch { /* 同上 */ }
   };
   const clearPasswords = async () => {
     if (!passwords.length) return;
     if (!(await dialog.confirm(`清空全部 ${passwords.length} 条密码?不可恢复。`, { danger: true, confirmText: "清空" }))) return;
-    try { await api.clearPasswords(); setShown({}); loadPasswords(); } catch { /* 同上 */ }
+    try { await api.clearPasswords(); setShown({}); setPwEditing(null); loadPasswords(); } catch { /* 同上 */ }
   };
   const exportPasswords = async () => {
     if (!passwords.length) return;
@@ -267,12 +279,37 @@ export function SitesPanel({ onOpenUrl, socket }: {
         { label: "复制密码", icon: <Copy size={13} />, onClick: () => void copyPassword(p) },
         { label: "复制账号", icon: <Copy size={13} />, disabled: !p.username, onClick: () => void copyText(p.username, "账号") },
         { label: "打开网站", icon: <Globe size={13} />, disabled: !p.url, onClick: () => onOpenUrl(p.url, p.host) },
-        { label: "编辑…", icon: <Pencil size={13} />, onClick: () => void editPassword(p) },
+        { label: "编辑", icon: <Pencil size={13} />, onClick: () => void editPassword(p) },
         "divider" as const,
         { label: "删除", icon: <Trash2 size={13} />, danger: true, onClick: () => void removePassword(p) },
       ],
     });
   };
+
+  // ── 工具行:每个子视图自己的 ＋ 与 ⋯ ──
+  const placeholder = { sites: "搜索收藏…", history: "搜索历史…", passwords: "搜索密码(域名 / 账号)…" }[view];
+  const addAction = view === "sites"
+    ? { title: "添加网站", onClick: () => void add() }
+    : view === "passwords"
+      ? { title: "添加密码", onClick: () => void editPassword(null) }
+      : undefined;
+  const moreItems = (): MenuItem[] => view === "sites"
+    ? [
+      { label: "新建文件夹…", icon: <FolderPlus size={13} />, onClick: () => void addFolder() },
+      { label: "从 Chrome 导入书签…", icon: <Download size={13} />, onClick: () => setImportOpen(true) },
+      "divider",
+      { label: "展开全部", icon: <ChevronsUpDown size={13} />, disabled: !folderIds.length, onClick: expandAll },
+      { label: "折叠全部", icon: <ChevronsDownUp size={13} />, disabled: !open.size, onClick: collapseAll },
+    ]
+    : view === "history"
+      ? [{ label: "清空浏览记录", icon: <Trash2 size={13} />, danger: true, disabled: !history.length, onClick: () => void clearHistory() }]
+      : [
+        { label: "从 Chrome 导入…", icon: <Download size={13} />, onClick: () => setImportOpen(true) },
+        { label: "导入 CSV…", icon: <Upload size={13} />, onClick: importCsv },
+        { label: "导出 CSV", icon: <Download size={13} />, disabled: !passwords.length, onClick: () => void exportPasswords() },
+        "divider",
+        { label: "清空全部密码", icon: <Trash2 size={13} />, danger: true, disabled: !passwords.length, onClick: () => void clearPasswords() },
+      ];
 
   // ── 拖拽(仅收藏树)──
   const dropAt = (y: number): Drop => {
@@ -306,7 +343,7 @@ export function SitesPanel({ onOpenUrl, socket }: {
     const ids = siblings.map((s) => s.id);
     ids.splice(index, 0, movedId);
     setSites((prev) => prev.map((s) => (s.id === movedId ? { ...s, parent_id: parentId } : s)));
-    if (parentId) setOpen((prev) => new Set(prev).add(parentId));
+    if (parentId) setOpen((prev) => writeOpen(new Set(prev).add(parentId)));
     void api.reorderSites({ parentId, ids }).then(setSites).catch(load);
   };
   const startDrag = (e: React.PointerEvent, site: Site) => {
@@ -370,12 +407,20 @@ export function SitesPanel({ onOpenUrl, socket }: {
         ) : <Favicon url={site.url} />}
         <span className="flex-1 min-w-0 truncate text-[14px]">{site.title || hostOf(site.url)}</span>
         <button
+          onClick={(e) => { e.stopPropagation(); void rename(site); }}
+          onPointerDown={(e) => e.stopPropagation()}
+          title="重命名"
+          className={actionBtn}
+        >
+          <Pencil size={12} />
+        </button>
+        <button
           onClick={(e) => { e.stopPropagation(); void remove(site); }}
           onPointerDown={(e) => e.stopPropagation()}
           title={isFolder ? "删除文件夹" : "移除"}
-          className="shrink-0 w-5 h-5 rounded flex items-center justify-center text-text-faint opacity-0 group-hover:opacity-100 hover:text-danger hover:bg-bg-inset"
+          className={`${actionBtn} hover:!text-danger`}
         >
-          <Trash2 size={12} />
+          <X size={12} />
         </button>
       </div>
     );
@@ -391,60 +436,99 @@ export function SitesPanel({ onOpenUrl, socket }: {
     </>
   );
 
-  const HistoryRow = ({ h }: { h: HistoryEntry }) => (
-    <div
-      onClick={() => onOpenUrl(h.url, h.title)}
-      onContextMenu={(e) => historyMenu(e, h)}
-      title={h.url}
-      className="group flex items-center gap-2 py-[5px] px-3 cursor-pointer select-none hover:bg-bg-hover"
-    >
-      <Favicon url={h.url} />
-      <span className="flex-1 min-w-0 truncate text-[13.5px] text-text">{h.title || hostOf(h.url)}</span>
-      <span className="shrink-0 text-[11px] text-text-faint">{ago(h.visited_at)}</span>
-      <button
-        onClick={(e) => { e.stopPropagation(); void forget(h); }}
-        title="从历史里删除"
-        className="shrink-0 w-5 h-5 rounded flex items-center justify-center text-text-faint opacity-0 group-hover:opacity-100 hover:text-danger hover:bg-bg-inset"
+  const HistoryRow = ({ h }: { h: HistoryEntry }) => {
+    const saved = bookmarked.has(h.url.replace(/\/$/, ""));
+    return (
+      <div
+        onClick={() => onOpenUrl(h.url, h.title)}
+        onContextMenu={(e) => historyMenu(e, h)}
+        title={h.url}
+        className="group flex items-center gap-2 py-[5px] px-3 cursor-pointer select-none hover:bg-bg-hover"
       >
-        <X size={12} />
-      </button>
+        <Favicon url={h.url} />
+        <span className="flex-1 min-w-0 truncate text-[13.5px] text-text">{h.title || hostOf(h.url)}</span>
+        <span className="shrink-0 text-[11px] text-text-faint group-hover:hidden">{ago(h.visited_at)}</span>
+        <button
+          onClick={(e) => { e.stopPropagation(); if (!saved) void bookmark(h); }}
+          title={saved ? "已收藏" : "收藏"}
+          className={`${actionBtn} ${saved ? "!text-accent" : ""}`}
+        >
+          <Star size={12} className={saved ? "fill-current" : ""} />
+        </button>
+        <button
+          onClick={(e) => { e.stopPropagation(); void forget(h); }}
+          title="从历史删除"
+          className={`${actionBtn} hover:!text-danger`}
+        >
+          <X size={12} />
+        </button>
+      </div>
+    );
+  };
+
+  const inputClass = "w-full h-7 px-2 rounded border border-border bg-bg text-[12.5px] text-text placeholder:text-text-faint outline-none focus:border-accent";
+  // 编辑表单是函数不是组件:组件每次渲染都是新身份会被重挂,输入一个字就失焦
+  const passwordEditor = () => pwEditing && (
+    <div className="mx-2 my-1.5 p-2.5 rounded-lg border border-border bg-bg-raised flex flex-col gap-1.5" onClick={(e) => e.stopPropagation()}>
+      <input className={inputClass} placeholder="网址" autoFocus={!pwEditing.id} value={pwEditing.url} onChange={(e) => setPwEditing({ ...pwEditing, url: e.target.value })} />
+      <input className={inputClass} placeholder="账号" value={pwEditing.username} onChange={(e) => setPwEditing({ ...pwEditing, username: e.target.value })} />
+      <div className="flex gap-1">
+        <input className={`${inputClass} font-mono`} type={pwShowInput ? "text" : "password"} placeholder="密码" value={pwEditing.password} onChange={(e) => setPwEditing({ ...pwEditing, password: e.target.value })} />
+        <button onClick={() => setPwShowInput((v) => !v)} title="显示 / 隐藏" className="shrink-0 w-7 h-7 rounded flex items-center justify-center text-text-faint hover:text-text hover:bg-bg-hover">
+          {pwShowInput ? <EyeOff size={13} /> : <Eye size={13} />}
+        </button>
+      </div>
+      <input className={inputClass} placeholder="备注" value={pwEditing.note} onChange={(e) => setPwEditing({ ...pwEditing, note: e.target.value })} />
+      <div className="flex gap-1.5 pt-0.5">
+        <button onClick={() => void savePassword()} className="h-7 px-3 rounded bg-accent text-white text-[12.5px] hover:opacity-90">保存</button>
+        <button onClick={() => setPwEditing(null)} className="h-7 px-3 rounded border border-border text-[12.5px] text-text-dim hover:text-text hover:bg-bg-hover">取消</button>
+        {pwEditing.id && (
+          <button
+            onClick={() => { const p = passwords.find((x) => x.id === pwEditing.id); if (p) void removePassword(p); }}
+            className="ml-auto h-7 px-2 rounded text-[12.5px] text-danger hover:bg-bg-hover"
+          >
+            删除
+          </button>
+        )}
+      </div>
     </div>
   );
 
   const PasswordRow = ({ p }: { p: PasswordEntry }) => {
     const plain = shown[p.id];
     return (
-      <div
-        onContextMenu={(e) => passwordMenu(e, p)}
-        onClick={() => void editPassword(p)}
-        title={p.url || p.host}
-        className="group flex items-center gap-2 py-[5px] px-3 cursor-pointer select-none hover:bg-bg-hover"
-      >
-        {p.url ? <Favicon url={p.url} /> : <KeyRound size={14} className="shrink-0 text-text-faint" />}
-        <div className="flex-1 min-w-0">
-          <div className="truncate text-[13.5px] text-text">{p.host || p.url || "(无网址)"}</div>
-          <div className="truncate text-[11.5px] text-text-faint font-mono">
-            {p.username || <i>无账号</i>}{plain !== undefined && <> · <span className="text-text">{plain || "(空密码)"}</span></>}
+      <>
+        <div
+          onContextMenu={(e) => passwordMenu(e, p)}
+          onClick={() => { if (p.url) onOpenUrl(p.url, p.host); else void editPassword(p); }}
+          title={p.url || p.host}
+          className="group flex items-center gap-2 py-[5px] px-3 cursor-pointer select-none hover:bg-bg-hover"
+        >
+          {p.url ? <Favicon url={p.url} /> : <KeyRound size={14} className="shrink-0 text-text-faint" />}
+          <div className="flex-1 min-w-0">
+            <div className="truncate text-[13.5px] text-text">{p.host || p.url || "(无网址)"}</div>
+            <div className="truncate text-[11.5px] text-text-faint font-mono">
+              {p.username || <i>无账号</i>}{plain !== undefined && <> · <span className="text-text">{plain || "(空密码)"}</span></>}
+            </div>
           </div>
+          <button onClick={(e) => { e.stopPropagation(); void toggleShow(p); }} title={plain !== undefined ? "隐藏密码" : "显示密码"} className={actionBtn}>
+            {plain !== undefined ? <EyeOff size={12} /> : <Eye size={12} />}
+          </button>
+          <button onClick={(e) => { e.stopPropagation(); void copyPassword(p); }} title="复制密码" className={actionBtn}>
+            <Copy size={12} />
+          </button>
         </div>
-        <button onClick={(e) => { e.stopPropagation(); void toggleShow(p); }} title={plain !== undefined ? "隐藏密码" : "显示密码"}
-          className="shrink-0 w-5 h-5 rounded flex items-center justify-center text-text-faint opacity-0 group-hover:opacity-100 hover:text-text hover:bg-bg-inset">
-          {plain !== undefined ? <EyeOff size={12} /> : <Eye size={12} />}
-        </button>
-        <button onClick={(e) => { e.stopPropagation(); void copyPassword(p); }} title="复制密码"
-          className="shrink-0 w-5 h-5 rounded flex items-center justify-center text-text-faint opacity-0 group-hover:opacity-100 hover:text-text hover:bg-bg-inset">
-          <Copy size={12} />
-        </button>
-      </div>
+        {pwEditing?.id === p.id && passwordEditor()}
+      </>
     );
   };
 
   const siteHits = needle
     ? sites.filter((s) => s.kind === "site" && (s.title.toLowerCase().includes(needle) || hostOf(s.url).toLowerCase().includes(needle))).slice(0, 50)
     : [];
-  const passwordHits = needle
+  const passwordRows = needle
     ? passwords.filter((p) => p.host.includes(needle) || p.url.toLowerCase().includes(needle) || p.username.toLowerCase().includes(needle)).slice(0, 50)
-    : [];
+    : passwords;
   const groups = useMemo(() => {
     const out: { label: string; rows: HistoryEntry[] }[] = [];
     for (const h of history) {
@@ -455,122 +539,82 @@ export function SitesPanel({ onOpenUrl, socket }: {
     return out;
   }, [history]);
 
-  const inputClass = "w-full h-7 px-2 rounded border border-border bg-bg text-[12.5px] text-text placeholder:text-text-faint outline-none focus:border-accent";
+  const empty = (text: string) => <div className="px-3 py-6 text-center text-[12.5px] text-text-faint">{text}</div>;
 
   return (
     <div className="flex-1 min-h-0 flex flex-col">
-      <div className="shrink-0 flex items-center gap-1 px-2 pt-1.5 pb-1">
-        <input
-          value={q}
-          onChange={(e) => setQ(e.target.value)}
-          onKeyDown={(e) => { if (e.key === "Escape") { setQ(""); (e.target as HTMLInputElement).blur(); } }}
-          placeholder="搜索收藏、历史、密码…"
-          spellCheck={false}
-          className="flex-1 min-w-0 h-6 px-2 rounded bg-bg-inset text-[12px] text-text placeholder:text-text-faint outline-none focus:ring-1 ring-accent/40"
-        />
-        {q && (
-          <button onClick={() => setQ("")} title="清除" className="w-5 h-5 rounded flex items-center justify-center text-text-faint hover:text-text hover:bg-bg-hover">
-            <X size={12} />
+      {/* 子视图切换 */}
+      <div className="shrink-0 flex px-2 pt-1.5 pb-1">
+        {([["sites", "收藏", Star], ["history", "历史", History], ["passwords", "密码", KeyRound]] as const).map(([id, label, Icon]) => (
+          <button
+            key={id}
+            onClick={() => switchView(id)}
+            className={["flex-1 h-6 rounded flex items-center justify-center gap-1 text-[12px] transition-colors", view === id ? "bg-bg-inset text-text font-medium" : "text-text-faint hover:text-text"].join(" ")}
+          >
+            <Icon size={12} /> {label}
           </button>
-        )}
+        ))}
       </div>
-      {!needle && (
-        <div className="shrink-0 flex px-2 pb-1.5 border-b border-border">
-          {([["sites", "收藏", Star], ["history", "历史", History], ["passwords", "密码", KeyRound]] as const).map(([id, label, Icon]) => (
-            <button
-              key={id}
-              onClick={() => switchView(id)}
-              className={["flex-1 h-6 rounded flex items-center justify-center gap-1 text-[12px] transition-colors", view === id ? "bg-bg-inset text-text font-medium" : "text-text-faint hover:text-text"].join(" ")}
-            >
-              <Icon size={12} /> {label}
-            </button>
-          ))}
-        </div>
-      )}
+      <Toolbar value={q} onChange={setQ} placeholder={placeholder} add={addAction} more={moreItems} />
 
-      {needle ? (
-        <div className="flex-1 overflow-y-auto py-1">
-          {siteHits.length > 0 && <div className="px-3 pt-1 pb-0.5 text-[11px] font-medium text-text-faint select-none">收藏</div>}
-          {siteHits.map((site) => (
-            <div key={site.id} onClick={() => onOpenUrl(site.url, site.title)} onContextMenu={(e) => contextMenu(e, site)} title={site.url}
-              className="flex items-center gap-2 py-[5px] px-3 cursor-pointer select-none hover:bg-bg-hover">
-              <Favicon url={site.url} />
-              <span className="shrink-0 truncate max-w-[60%] text-[13.5px] text-text">{site.title || hostOf(site.url)}</span>
-              <span className="flex-1 min-w-0 truncate text-[11px] text-text-faint">{pathOf(site) || hostOf(site.url)}</span>
-            </div>
-          ))}
-          {hits.length > 0 && <div className="px-3 pt-2 pb-0.5 text-[11px] font-medium text-text-faint select-none">历史</div>}
-          {hits.map((h) => <HistoryRow key={h.url} h={h} />)}
-          {passwordHits.length > 0 && <div className="px-3 pt-2 pb-0.5 text-[11px] font-medium text-text-faint select-none">密码</div>}
-          {passwordHits.map((p) => <PasswordRow key={p.id} p={p} />)}
-          {!siteHits.length && !hits.length && !passwordHits.length && <div className="px-3 py-6 text-center text-[12.5px] text-text-faint">没有匹配的结果</div>}
-        </div>
-      ) : view === "sites" ? (
+      {view === "sites" ? (
         <div ref={listRef} className="flex-1 overflow-y-auto py-1">
-          <div className="flex items-center">
-            <div onClick={() => void add()} className="flex-1 flex items-center gap-1.5 py-[4px] pl-3 pr-2 cursor-pointer select-none text-text hover:bg-bg-hover">
-              <Plus size={14} className="shrink-0" />
-              <span className="text-[13.5px]">添加网站…</span>
-            </div>
-            <button onClick={() => void addFolder()} title="新建文件夹" className="shrink-0 w-7 h-7 mr-1.5 rounded flex items-center justify-center text-text-faint hover:text-text hover:bg-bg-hover transition-colors">
-              <FolderPlus size={14} />
-            </button>
-          </div>
-          <Tree parentId={null} depth={0} />
-          {!sites.length && <div className="px-3 py-6 text-center text-[12.5px] text-text-faint">还没有收藏的网站</div>}
+          {needle ? (
+            <>
+              {siteHits.map((site) => (
+                <div key={site.id} onClick={() => onOpenUrl(site.url, site.title)} onContextMenu={(e) => contextMenu(e, site)} title={site.url}
+                  className="flex items-center gap-2 py-[5px] px-3 cursor-pointer select-none hover:bg-bg-hover">
+                  <Favicon url={site.url} />
+                  <span className="shrink-0 truncate max-w-[60%] text-[13.5px] text-text">{site.title || hostOf(site.url)}</span>
+                  <span className="flex-1 min-w-0 truncate text-[11px] text-text-faint">{pathOf(site) || hostOf(site.url)}</span>
+                </div>
+              ))}
+              {!siteHits.length && empty("没有匹配的收藏")}
+            </>
+          ) : (
+            <>
+              <Tree parentId={null} depth={0} />
+              {!sites.length && empty("还没有收藏的网站")}
+            </>
+          )}
         </div>
       ) : view === "history" ? (
-        <div className="flex-1 min-h-0 flex flex-col">
-          <div className="flex-1 overflow-y-auto py-1">
-            {groups.map((g) => (
-              <div key={g.label}>
-                <div className="px-3 pt-2 pb-0.5 text-[11px] font-medium text-text-faint select-none">{g.label}</div>
-                {g.rows.map((h) => <HistoryRow key={h.url} h={h} />)}
-              </div>
-            ))}
-            {!history.length && <div className="px-3 py-6 text-center text-[12.5px] text-text-faint">还没有浏览记录</div>}
-          </div>
-          {history.length > 0 && (
-            <div className="shrink-0 border-t border-border">
-              <button onClick={() => void clearHistory()} className="w-full py-1.5 text-[12px] text-text-faint hover:text-danger hover:bg-bg-hover transition-colors">清空浏览记录</button>
-            </div>
+        <div className="flex-1 overflow-y-auto py-1">
+          {needle ? (
+            <>
+              {hits.map((h) => <HistoryRow key={h.url} h={h} />)}
+              {!hits.length && empty("没有匹配的记录")}
+            </>
+          ) : (
+            <>
+              {groups.map((g) => (
+                <div key={g.label}>
+                  <div className="px-3 pt-2 pb-0.5 text-[11px] font-medium text-text-faint select-none">{g.label}</div>
+                  {g.rows.map((h) => <HistoryRow key={h.url} h={h} />)}
+                </div>
+              ))}
+              {!history.length && empty("还没有浏览记录")}
+            </>
           )}
         </div>
       ) : (
-        <div className="flex-1 min-h-0 flex flex-col">
-          <div className="flex-1 overflow-y-auto py-1">
-            <div onClick={() => void editPassword(null)} className="flex items-center gap-1.5 py-[4px] pl-3 pr-2 cursor-pointer select-none text-text hover:bg-bg-hover">
-              <Plus size={14} className="shrink-0" />
-              <span className="text-[13.5px]">添加密码…</span>
-            </div>
-            {pwEditing && (
-              <div className="mx-2 my-1.5 p-2.5 rounded-lg border border-border bg-bg-raised flex flex-col gap-1.5" onClick={(e) => e.stopPropagation()}>
-                <input className={inputClass} placeholder="网址" value={pwEditing.url} onChange={(e) => setPwEditing({ ...pwEditing, url: e.target.value })} />
-                <input className={inputClass} placeholder="账号" value={pwEditing.username} onChange={(e) => setPwEditing({ ...pwEditing, username: e.target.value })} />
-                <div className="flex gap-1">
-                  <input className={`${inputClass} font-mono`} type={pwShowInput ? "text" : "password"} placeholder="密码" value={pwEditing.password} onChange={(e) => setPwEditing({ ...pwEditing, password: e.target.value })} />
-                  <button onClick={() => setPwShowInput((v) => !v)} title="显示 / 隐藏" className="shrink-0 w-7 h-7 rounded flex items-center justify-center text-text-faint hover:text-text hover:bg-bg-hover">
-                    {pwShowInput ? <EyeOff size={13} /> : <Eye size={13} />}
-                  </button>
+        <div className="flex-1 overflow-y-auto py-1">
+          {pwEditing && !pwEditing.id && passwordEditor()}
+          {passwordRows.map((p) => <PasswordRow key={p.id} p={p} />)}
+          {!passwordRows.length && !pwEditing && (
+            needle
+              ? empty("没有匹配的密码")
+              : (
+                <div className="px-4 py-8 text-center text-[12.5px] text-text-faint leading-relaxed">
+                  还没有密码。<br />从 Chrome 导入,或导入密码管理器导出的 CSV。
+                  <div className="mt-3">
+                    <button onClick={() => setImportOpen(true)} className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-md bg-accent text-white text-[12.5px] hover:opacity-90">
+                      <Download size={13} /> 从 Chrome 导入
+                    </button>
+                  </div>
                 </div>
-                <input className={inputClass} placeholder="备注" value={pwEditing.note} onChange={(e) => setPwEditing({ ...pwEditing, note: e.target.value })} />
-                <div className="flex gap-1.5 pt-0.5">
-                  <button onClick={() => void savePassword()} className="flex-1 h-7 rounded bg-accent text-white text-[12.5px] hover:opacity-90">保存</button>
-                  <button onClick={() => setPwEditing(null)} className="h-7 px-3 rounded border border-border text-[12.5px] text-text-dim hover:text-text hover:bg-bg-hover">取消</button>
-                </div>
-              </div>
-            )}
-            {passwords.map((p) => <PasswordRow key={p.id} p={p} />)}
-            {!passwords.length && !pwEditing && (
-              <div className="px-4 py-8 text-center text-[12.5px] text-text-faint leading-relaxed">还没有密码。<br />从 Chrome 导入,或导入密码管理器导出的 CSV。</div>
-            )}
-          </div>
-          <div className="shrink-0 border-t border-border flex text-[12px]">
-            <button onClick={() => setImportOpen(true)} className="flex-1 py-1.5 text-text-faint hover:text-text hover:bg-bg-hover transition-colors">从 Chrome 导入</button>
-            <button onClick={importCsv} className="flex-1 py-1.5 text-text-faint hover:text-text hover:bg-bg-hover transition-colors border-l border-border">导入 CSV</button>
-            <button onClick={() => void exportPasswords()} disabled={!passwords.length} className="flex-1 py-1.5 text-text-faint hover:text-text hover:bg-bg-hover transition-colors border-l border-border disabled:opacity-40">导出</button>
-            <button onClick={() => void clearPasswords()} disabled={!passwords.length} className="flex-1 py-1.5 text-text-faint hover:text-danger hover:bg-bg-hover transition-colors border-l border-border disabled:opacity-40">清空</button>
-          </div>
+              )
+          )}
         </div>
       )}
       {menu && <ContextMenu x={menu.x} y={menu.y} items={menu.items} onClose={() => setMenu(null)} />}

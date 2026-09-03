@@ -40,6 +40,14 @@ export type SettingsTab = {
 
 /** 组件管理:装了哪些、钉/取下、删除、让 AI 造一个。
  *  走标签页而不是侧栏面板 —— 管理是「摊开来看」的事,侧栏那 260px 摆不下。 */
+export const APPS_TAB_ID = "__apps__";
+export const SKILLS_TAB_ID = "__skills__";
+export const TASKS_TAB_ID = "__tasks__";
+/** 三个列表页(应用 / 技能 / 任务):各只有一张,像设置一样。 */
+export type AppsTab = { id: string; kind: "apps"; title: string };
+export type SkillsTab = { id: string; kind: "skills"; title: string };
+export type TasksTab = { id: string; kind: "tasks"; title: string };
+
 export type WidgetsTab = {
   id: typeof WIDGETS_TAB_ID;
   kind: "widgets";
@@ -104,7 +112,7 @@ export type TaskTab = {
   taskId: string;
 };
 
-export type WorkspaceTab = Node | TerminalTab | GitTab | GitDiffTab | SettingsTab | WidgetsTab | AppTab | WebTab | LauncherTab | TaskTab | SkillTab;
+export type WorkspaceTab = Node | TerminalTab | GitTab | GitDiffTab | SettingsTab | WidgetsTab | AppTab | WebTab | LauncherTab | TaskTab | SkillTab | AppsTab | SkillsTab | TasksTab;
 export type WorkspaceGroupId = "main" | "side";
 
 export type WorkspaceGroupState = {
@@ -127,6 +135,8 @@ export type TabActions = {
   closeToRight: (groupId: WorkspaceGroupId, afterId: string) => void;
   closeGroup: (groupId: WorkspaceGroupId) => void;
   newTab: (groupId: WorkspaceGroupId, anchor?: HTMLElement) => void;
+  /** 标签栏右端的任务小图标:打开任务列表页。 */
+  openTasks: () => void;
 };
 
 export const terminalTab = (cwd: string, title = "Terminal", initialCommand?: string): TerminalTab => ({
@@ -174,6 +184,10 @@ export const taskTab = (taskId: string, title: string): TaskTab => ({
   taskId,
 });
 
+export const appsTab = (): AppsTab => ({ id: APPS_TAB_ID, kind: "apps", title: "应用" });
+export const skillsTab = (): SkillsTab => ({ id: SKILLS_TAB_ID, kind: "skills", title: "技能" });
+export const tasksTab = (): TasksTab => ({ id: TASKS_TAB_ID, kind: "tasks", title: "任务" });
+
 export const widgetsTab = (): WidgetsTab => ({
   id: WIDGETS_TAB_ID,
   kind: "widgets",
@@ -218,6 +232,12 @@ export const isSettingsTab = (tab: WorkspaceTab | null | undefined): tab is Sett
 export const isWidgetsTab = (tab: WorkspaceTab | null | undefined): tab is WidgetsTab =>
   tab?.kind === "widgets";
 
+export const isAppsTab = (tab: WorkspaceTab | null | undefined): tab is AppsTab =>
+  !!tab && tab.kind === "apps";
+export const isSkillsTab = (tab: WorkspaceTab | null | undefined): tab is SkillsTab =>
+  !!tab && tab.kind === "skills";
+export const isTasksTab = (tab: WorkspaceTab | null | undefined): tab is TasksTab =>
+  !!tab && tab.kind === "tasks";
 export const isTaskTab = (tab: WorkspaceTab | null | undefined): tab is TaskTab =>
   tab?.kind === "task";
 

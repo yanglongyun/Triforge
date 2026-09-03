@@ -4,7 +4,8 @@ import { useEffect, useState } from "react";
 import { LayoutGrid, Sparkles, Trash2 } from "lucide-react";
 import { api } from "../../api";
 import { dialog } from "../ui";
-import { dropFromOrder, requestCreateWidget } from "../../lib/widgetOrder";
+import { dropFromOrder } from "../../lib/widgetOrder";
+import { requestCreateWidget } from "../../lib/createRequests";
 import type { WidgetDef } from "../sidebar/registry";
 
 const PERMISSION_LABEL: Record<string, string> = {
@@ -45,7 +46,7 @@ export function WidgetsManager() {
           <div className="flex-1 min-w-0">
             <h1 className="text-[17px] font-semibold text-text">组件</h1>
             <p className="mt-0.5 text-[12.5px] text-text-faint">
-零构建的小工具,一个目录即一个组件。开启后显示在活动栏。
+零构建的小工具,一个目录即一个组件。装好就出现在侧栏的工具箱里。
             </p>
           </div>
           <button
@@ -73,7 +74,7 @@ export function WidgetsManager() {
                   key={widget.id}
                   className="group flex flex-col p-3.5 rounded-lg border border-border bg-surface hover:border-accent/40 transition-colors"
                 >
-                  {/* 顶行:图标 + 名字。装了就在活动栏上,没有显示开关 */}
+                  {/* 顶行:图标 + 名字。装了就在工具箱里,没有显示开关 */}
                   <div className="flex items-center gap-3">
                     <span className="shrink-0 w-9 h-9 rounded-md bg-bg-panel flex items-center justify-center text-[19px] leading-none">
                       {widget.icon}
