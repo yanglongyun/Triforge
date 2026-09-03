@@ -82,9 +82,6 @@ const handleConnection = (ws) => {
       return;
     }
 
-    // subscribe/unsubscribe 是旧协议的空操作:广播本就全量,界面按 chatId 认领
-    if (type === "subscribe" || type === "unsubscribe") return;
-
     sendJson(ws, { type: "error", error: `unknown: ${type}` });
   });
 

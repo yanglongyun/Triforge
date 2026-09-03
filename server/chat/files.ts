@@ -10,10 +10,10 @@ import { DATA_HOME } from "../home.js";
 import { createHash } from "crypto";
 import { mkdirSync, readFileSync, statSync, writeFileSync } from "fs";
 import type { ServerResponse } from "http";
-import { basename, dirname, extname, join } from "path";
+import { basename, extname, join } from "path";
 
 /** 附件元数据:落库与随消息传的就是这一份,不含字节。 */
-export type Attachment = {
+type Attachment = {
   id: string;
   name: string;
   path: string;
@@ -25,7 +25,7 @@ export type Attachment = {
 const ROOT = join(DATA_HOME, "files");
 
 export const MAX_BYTES = 8 * 1024 * 1024;
-export const MAX_PER_MESSAGE = 10;
+const MAX_PER_MESSAGE = 10;
 const MAX_LIVE_TOOL_IMAGES = 2;
 
 const IMAGE_TYPES = new Map([

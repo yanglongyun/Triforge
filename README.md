@@ -115,23 +115,24 @@ Vite · CodeMirror 6 · @dnd-kit · ws · Electron
 
 ## 想读代码——架构
 
-分层清晰:**ai(内核)→ tools / runs(编排)→ repo(数据)→ api / realtime(通道)**。
+按领域分目录,一个目录一句话说清;领域之间不互相 import。
 
 ```
 server/
-├── ai/           🧠 无状态 AI 内核(纯 JS 零依赖):模型 → 工具 → 模型的循环 / SSE 解析
-├── shared/       📜 事件名契约,服务端与界面共用一份
-├── tools/        🔧 五个工具的定义与实现(全部必填 summary);外部能力经 ctx 注入
-├── runs/         🎬 运行编排——逐条落库 / 事件广播 / 压缩水位 / 停止收尾(悬空调用补输出)
-├── service/      🌳 业务层:chats / tree / sites / widget*(组件机制)
-├── repo/         💾 纯存取:tree(文件系统即树)/ chats / messages / compactions / settings
-├── api/          🌐 HTTP(很薄,只解析请求、拼响应)
-└── realtime.ts   📡 WebSocket(send 立即返回,事件按 chatId 认领;终端多路复用)
+├── index.ts      🚀 启动装配;db / home / settings / bus / telemetry 谁都要用,留在根上
+├── ai/           🧠 Responses API 客户端(纯 JS 零依赖):请求 / 读流 / 重试 / 单次补全
+├── agent/        🔁 循环(模型 → 工具 → 模型)、循环内压缩、tools.ts 定义表、functions/ 六个工具的实现
+├── http/         🌐 HTTP 的皮:api/(每个资源一个文件)/ ws(WebSocket)/ static / origin
+├── chat/         🎬 一轮怎么跑:turn(编排、逐条落库、压缩记账)/ system(提示词)/ approvals / rules / files
+├── workspace/    🌳 文件树:tree / watcher / search / git / directoryPicker
+├── apps/         📦 应用宿主:registry / supervisor / bridge(/host/*)/ tasks
+├── widgets/ sites/ skills/ browser/ terminals/   各管一样东西
+└── shared/       📜 事件名契约,服务端与界面共用一份
 desktop/          🖥 Electron 壳:esbuild 单文件 server 由壳拉起,窗口指向 127.0.0.1
 ui/src/components/   React 前端:sidebar(三原生 + 组件)/ workspace(标签页)/ chat / files / widgets
 ```
 
-`server/ai/` 不知道对话是什么,只接收组装好的 items、工具表和执行映射跑循环。消息**逐条落库**:
+`server/agent/` 不知道对话是什么,只接收组装好的 items、工具表和 run(call) 跑循环;压缩在循环里每次请求前判断。消息**逐条落库**:
 每个 item(思考 / 正文 / 工具调用 / 结果)完成即入库,中途停止只丢正在流式的半句。
 
 ## 几句实话

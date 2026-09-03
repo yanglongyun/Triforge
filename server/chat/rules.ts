@@ -5,7 +5,7 @@ import { getDb } from "../db.js";
 // 没有硬闸。正则和词表只能看命令字面,覆盖面小却要养一套编译器;
 // 与其给人「拦得住」的错觉,不如把赌注明白地押在模型遵守规则上。
 // 规则要求先问的,模型调 confirm 等用户答复;规则关掉时 confirm 也不在,提示词里明说没有任何拦截。
-export type Rule = {
+type Rule = {
   id: string;
   text: string;
   enabled: boolean;

@@ -43,4 +43,4 @@ const saveSettings = (patch = {}) => {
   return getSettings();
 };
 
-export { getSettings, saveSettings, DEFAULTS };
+export { getSettings, saveSettings };

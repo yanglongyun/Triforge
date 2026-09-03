@@ -167,7 +167,7 @@ export const write = ({ path: p, content }, ctx) => {
 };
 
 // ---- 行尾:模型看到的和 edit 用来匹配的必须是同一套(只处理 CRLF,孤立的 \r 原样保留)----
-export function detectLineEnding(content: string) {
+function detectLineEnding(content: string) {
   const crlf = content.indexOf("\r\n");
   if (crlf === -1) return "\n";
   const lf = content.indexOf("\n");
@@ -176,11 +176,11 @@ export function detectLineEnding(content: string) {
 }
 
 /** CRLF → LF。 */
-export function toLf(text: string) {
+function toLf(text: string) {
   return text.includes("\r\n") ? text.replace(/\r\n/g, "\n") : text;
 }
 
 /** LF → 原始行尾。 */
-export function restoreLineEnding(text: string, ending: string) {
+function restoreLineEnding(text: string, ending: string) {
   return ending === "\r\n" ? text.replace(/\n/g, "\r\n") : text;
 }

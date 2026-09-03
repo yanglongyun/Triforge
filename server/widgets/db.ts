@@ -35,13 +35,12 @@ export const closeWidgetDb = (id: string) => {
   opened.delete(id);
 };
 
-export const closeAllWidgetDbs = () => { for (const id of [...opened.keys()]) closeWidgetDb(id); };
 
 /** 越狱语法:ATTACH 能打开任意路径的库,load_extension 能加载任意代码。 */
 const FORBIDDEN = /\b(attach|load_extension)\b/i;
 const isRead = (sql: string) => /^\s*(select|with|pragma|explain)\b/i.test(sql);
 
-export type SqlResult = { rows?: unknown[]; changes?: number; lastInsertRowid?: number };
+type SqlResult = { rows?: unknown[]; changes?: number; lastInsertRowid?: number };
 
 const toValues = (params: unknown[]) =>
   (Array.isArray(params) ? params : []).map((v) =>

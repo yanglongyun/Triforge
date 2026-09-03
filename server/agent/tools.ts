@@ -36,7 +36,7 @@ const IMPLS = {
  * bash 输出是一次性的,截掉就没了;指引它重跑时重定向到文件再用 read 分段读。
  * (read 自己按行收口、永不进这里;详见 files.ts。)
  */
-export const truncateToolResult = (text: unknown, maxChars = 30000) => {
+const truncateToolResult = (text: unknown, maxChars = 30000) => {
   const limit = Math.max(1000, Math.min(50000, Number(maxChars) || 30000));
   const value = String(text || "");
   if (value.length <= limit) return value;
@@ -49,7 +49,7 @@ export const truncateToolResult = (text: unknown, maxChars = 30000) => {
 };
 
 /** 工具执行上下文:Worktop 的外部能力经此注入,各工具按需取用(刻意宽松)。 */
-export type ToolCtx = Record<string, any> & { toolResultMaxChars?: number; signal?: AbortSignal; cwd?: string };
+type ToolCtx = Record<string, any> & { toolResultMaxChars?: number; signal?: AbortSignal; cwd?: string };
 
 const parseArgs = (value: unknown) => {
   if (value && typeof value === "object") return value as Record<string, unknown>;

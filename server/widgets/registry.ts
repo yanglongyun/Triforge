@@ -11,15 +11,14 @@ import { REPO_ROOT } from "../home.js";
 // 组件的家是产品自己的地盘(~/.worktop/widgets),不往用户的工作区里塞东西。
 import fs from "fs";
 import path from "path";
-import { fileURLToPath } from "url";
 import { productHome } from "../workspace/tree.js";
 
 const UI_DIST = process.env.WORKTOP_UI_DIST || path.join(REPO_ROOT, "ui/dist");
 
 const WIDGET_ID = /^[a-z0-9][a-z0-9-]{0,63}$/;
-export const PERMISSIONS = ["sql", "fs", "ai", "net"] as const; // ui 免申请
+const PERMISSIONS = ["sql", "fs", "ai", "net"] as const; // ui 免申请
 
-export type WidgetInfo = {
+type WidgetInfo = {
   id: string;
   name: string;
   icon: string;

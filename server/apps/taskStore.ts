@@ -2,7 +2,7 @@
 // 记录的过程在 messages 里(task.id 就是那段会话的 id),这里只记发起方与终局。
 import { getDb } from "../db.js";
 
-export type TaskStatus = "running" | "done" | "error" | "aborted";
+type TaskStatus = "running" | "done" | "error" | "aborted";
 
 export const createTask = ({ id, appId, prompt }: { id: string; appId: string; prompt: string }) => {
   getDb().prepare("INSERT INTO tasks (id, app_id, prompt) VALUES (?, ?, ?)").run(id, appId, prompt);
@@ -22,10 +22,3 @@ export const listTasks = (limit = 50) =>
     FROM tasks JOIN chats ON chats.id = tasks.id
     ORDER BY tasks.created_at DESC LIMIT ?
   `).all(Math.max(1, Math.min(limit, 200)));
-
-export const getTask = (id: string) =>
-  getDb().prepare(`
-    SELECT tasks.*, chats.title
-    FROM tasks JOIN chats ON chats.id = tasks.id
-    WHERE tasks.id = ?
-  `).get(String(id)) || null;

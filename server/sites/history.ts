@@ -7,7 +7,7 @@
 import { getDb } from "../db.js";
 import { emit } from "../bus.js";
 
-export type HistoryRow = { url: string; title: string; visits: number; visited_at: string };
+type HistoryRow = { url: string; title: string; visits: number; visited_at: string };
 
 const clean = (raw: unknown) => {
   const value = String(raw || "").trim();

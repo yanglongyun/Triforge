@@ -6,7 +6,7 @@ import { emit } from "../bus.js";
 
 const changed = () => emit({ type: "sites_changed" });
 
-export type SiteRow = {
+type SiteRow = {
   id: string;
   title: string;
   url: string;

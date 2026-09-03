@@ -9,7 +9,7 @@ import { seedPresetWidgets, sweepTrash } from "./widgets/registry.js";
 import { seedPresetSkills } from "./skills/skills.js";
 import { startWidgetSiteSweeper } from "./widgets/site.js";
 import { seedPresetApps, watchApps } from "./apps/registry.js";
-import { startAlwaysApps, stopAllApps } from "./apps/supervisor.js";
+import { startAlwaysApps } from "./apps/supervisor.js";
 
 const startServer = async (port = 9506) =>
   new Promise((resolve, reject) => {

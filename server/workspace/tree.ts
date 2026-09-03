@@ -468,5 +468,5 @@ export {
   productHome, defaultDir, IGNORE_DIRS, isBundle, isAllowedPath, parseSkill,
   listChildren, listAll, getItem, createItem, updateItem, deleteItem, moveItem, copyItem, importFile, ancestry,
   resolveFileAbs, pathForId, agentContext,
-  listWorkspaces, addWorkspace, removeWorkspace, isWorkspaceRoot, terminalCwd,
+  listWorkspaces, addWorkspace, removeWorkspace, terminalCwd,
 };

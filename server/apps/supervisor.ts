@@ -268,7 +268,6 @@ export const appStatus = (id: string) => {
 };
 
 /** app 作用域凭证。与进程无关 —— 纯静态 app 也要能调宿主能力。 */
-export const tokenForApp = (id: string) => recordFor(id).token;
 /** 反查:token → appId。/host/* 靠它认身份,路径里不带 id。 */
 export const identifyApp = (token: string) => {
   if (!token) return "";

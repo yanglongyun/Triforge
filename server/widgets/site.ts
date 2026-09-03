@@ -226,7 +226,6 @@ export const startWidgetSiteSweeper = () => {
   timer.unref?.();
 };
 
-export const closeAllWidgetSites = () => { for (const id of [...sites.keys()]) closeWidgetSite(id); };
 
 /** 供调试:当前在跑的组件站点。 */
 export const listWidgetSites = () =>

@@ -11,7 +11,7 @@ import { getSettings, saveSettings } from "../settings.js";
 const UI_DIST = process.env.WORKTOP_UI_DIST || path.join(REPO_ROOT, "ui/dist");
 const SKILL_NAME = /^[a-z0-9][a-z0-9-]{0,63}$/;
 
-export const skillsHome = () => path.join(productHome(), "skills");
+const skillsHome = () => path.join(productHome(), "skills");
 
 export const seedPresetSkills = () => {
   const home = skillsHome();
@@ -36,7 +36,7 @@ const disabledSet = () => {
   try { return new Set<string>(JSON.parse(getSettings().disabledSkills || "[]")); } catch { return new Set<string>(); }
 };
 
-export type ProductSkill = { id: string; name: string; description: string; path: string; enabled: boolean };
+type ProductSkill = { id: string; name: string; description: string; path: string; enabled: boolean };
 
 /** 产品家目录里的技能(出厂的 + 用户自己放进去的),给所有对话用。id = 目录名。 */
 export const listProductSkills = (): ProductSkill[] => {

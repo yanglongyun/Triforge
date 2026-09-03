@@ -112,20 +112,6 @@ export type MessageRow = {
   created_at: string;
 };
 
-export type Call = {
-  id: number;
-  caller_id: string | null;
-  callee_id: string;
-  request_msg_id: number | null;
-  response_msg_id: number | null;
-  status: string;
-  result: string | null;
-  error: string | null;
-  created_at: string;
-  completed_at: string | null;
-  callerTitle?: string | null;
-  calleeTitle?: string | null;
-};
 
 export type Settings = {
   apiUrl: string;
@@ -322,15 +308,6 @@ export const api = {
     request<{ rows: MessageRow[] }>(`/api/messages?chatId=${encodeURIComponent(chatId)}`),
 
   listRuns: () => request<{ ids: string[] }>("/api/runs"),
-
-  listCalls: (params: { callerId?: string; calleeId?: string; status?: string } = {}) => {
-    const qs = new URLSearchParams();
-    if (params.callerId) qs.set("callerId", params.callerId);
-    if (params.calleeId) qs.set("calleeId", params.calleeId);
-    if (params.status) qs.set("status", params.status);
-    const tail = qs.toString() ? `?${qs}` : "";
-    return request<{ calls: Call[] }>(`/api/calls${tail}`);
-  },
 
   gitStatus: () => request<{ repositories: GitRepositoryStatus[] }>("/api/git/status"),
   gitRepository: (path: string) =>

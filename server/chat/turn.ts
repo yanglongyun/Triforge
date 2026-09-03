@@ -45,7 +45,6 @@ export const compactionOf = (settings) => {
 
 // ── 对话级运行注册:stop 对任意 chatId 都生效 ──
 const running = new Map();
-const isChatRunning = (chatId) => running.has(String(chatId));
 const runningIds = () => [...running.keys()];
 const stopChat = (chatId) => { running.get(String(chatId))?.abort(); };
 
@@ -89,6 +88,11 @@ export const createLedger = (chatId, rows) => {
     const row = appendItem(chatId, data.item, { usage: data.usage || null });
     live.push({ id: row.id, item: data.item });
     generated.push(data.item);
+    if (type === "function_call") {
+      emit({ type: EVENTS.CALLS, chatId, calls: [{ callId: data.item.call_id, name: data.item.name, args: parseArgs(data.item.arguments) }] });
+    } else if (type === "function_call_output") {
+      emit({ type: EVENTS.CALL_OUTPUT, chatId, callId: data.item.call_id, result: data.item.output || "" });
+    }
   };
   return { live, generated, record };
 };
@@ -233,4 +237,4 @@ const runChat = async (chatId) => {
   }
 };
 
-export { runChat, stopChat, isChatRunning, runningIds };
+export { runChat, stopChat, runningIds };

@@ -23,7 +23,7 @@ const DEFAULT_HEALTH = "/health";
 const RUN_MODES = ["on-demand", "always"] as const;
 const IDLE_TIMEOUT_MS = 600_000;
 
-export type AppRun = {
+type AppRun = {
   command: string;
   args: string[];
   health: string;

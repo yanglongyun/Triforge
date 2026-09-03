@@ -7,7 +7,7 @@ import { emit } from "../bus.js";
 
 const TIMEOUT_MS = 300_000;
 
-export type ApprovalCard = {
+type ApprovalCard = {
   id: string;
   chatId: string;
   /** 助手打算做什么(一句话) */
@@ -19,7 +19,7 @@ export type ApprovalCard = {
   at: string;
 };
 
-export type Answer = "allow" | "deny" | "timeout";
+type Answer = "allow" | "deny" | "timeout";
 
 type Entry = { resolve: (answer: Answer) => void; timer: NodeJS.Timeout; card: ApprovalCard; cleanup: () => void };
 const pending = new Map<string, Entry>();

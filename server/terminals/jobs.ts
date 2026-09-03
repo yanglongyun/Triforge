@@ -11,7 +11,7 @@ import { DATA_HOME } from "../home.js";
 import { spawn, type ChildProcess } from "child_process";
 import { randomUUID } from "crypto";
 import { createWriteStream, existsSync, mkdirSync } from "fs";
-import { dirname, join } from "path";
+import { join } from "path";
 import type { WriteStream } from "fs";
 import { emit } from "../bus.js";
 
@@ -217,37 +217,7 @@ const startProcess = ({ command, cwd, reason = "" }: { command: string; cwd?: st
   return publicProcess(record);
 };
 
-const listProcesses = () =>
-  Array.from(processes.values())
-    .sort((a, b) => String(b.started_at).localeCompare(String(a.started_at)))
-    .map((p) => publicProcess(p));
-
 const getProcess = (id: string, opts: { tail?: number } = {}) => publicProcess(processes.get(String(id || "")), opts);
-
-const stopProcess = (id: string) => {
-  const record = processes.get(String(id || ""));
-  if (!record) throw new Error(`process not found: ${id}`);
-  if (record.status !== "running") return publicProcess(record);
-  record.stopping = true;
-  try {
-    if (process.platform !== "win32" && record.pid) process.kill(-record.pid, "SIGTERM");
-    else record.child.kill("SIGTERM");
-  } catch {
-    try { record.child.kill("SIGTERM"); } catch {}
-  }
-  appendLog(record, "\n[stop requested]\n");
-  setTimeout(() => {
-    if (record.status === "running") {
-      try {
-        if (process.platform !== "win32" && record.pid) process.kill(-record.pid, "SIGKILL");
-        else record.child.kill("SIGKILL");
-      } catch {
-        try { record.child.kill("SIGKILL"); } catch { /* 进程已经没了 */ }
-      }
-    }
-  }, 2500).unref?.();
-  return publicProcess(record);
-};
 
 const LONG_RUNNING_RE =
   /\b(npm|pnpm|yarn|bun)\s+(run\s+)?(dev|start|serve)\b|\b(vite|next|nuxt|astro|remix)\s+dev\b|\bwrangler\s+dev\b|\bpython\d?\s+-m\s+http\.server\b|\b(http-server|serve)\b|\bflask\s+run\b|\buvicorn\b|\bdjango-admin\s+runserver\b|\brails\s+(server|s)\b|\bbin\/rails\s+s\b/i;
@@ -257,4 +227,4 @@ const EXPLICIT_BACKGROUND_RE = /(^|\s)(&|nohup|pm2|forever)\b|\bdocker\s+compose
 const looksLongRunning = (command: unknown) =>
   LONG_RUNNING_RE.test(String(command || "")) && !EXPLICIT_BACKGROUND_RE.test(String(command || ""));
 
-export { startProcess, listProcesses, getProcess, stopProcess, looksLongRunning, publicProcess };
+export { startProcess, getProcess, looksLongRunning };

@@ -11,7 +11,6 @@
 // 与用户会话的两点不同:
 //   1. **不过护盾**:任务没有人守在旁边,confirm 也不在工具表里 —— 直接按 skip 跑;
 //   2. 结果以 SSE 流回给发起的应用:tool(进度)/ error / done。应用只认 error 和 done。
-import { homedir } from "node:os";
 import { runAgent as runAi } from "../agent/index.js";
 import { createRunner, tools } from "../agent/tools.js";
 import { getSettings } from "../settings.js";
@@ -26,8 +25,6 @@ import { emit } from "../bus.js";
 
 const MAX_ROUNDS = 64;
 const ERROR_MAX_CHARS = 4000;
-
-const running = new Map(); // taskId → AbortController
 
 /**
  * 开一条任务:建会话行(origin_app 标记发起方,据此不进会话列表)+ tasks 行 + 第一条用户消息。
@@ -72,7 +69,6 @@ export const runAppTask = async (
   send("start", { taskId });
 
   const controller = new AbortController();
-  running.set(taskId, controller);
   res.on("close", () => controller.abort()); // 应用断开(它自己有超时)= 停止任务
 
   const ctx = {
@@ -127,10 +123,7 @@ export const runAppTask = async (
     if (!aborted) send("error", { taskId, message });
     send("done", { taskId }); // 契约:done 是终局信号,error 之后也要发
   } finally {
-    running.delete(taskId);
     emit({ type: "tasks_changed" });
     try { res.end(); } catch { /* 已断 */ }
   }
 };
-
-export const stopAppTask = (taskId) => { running.get(String(taskId))?.abort(); };
