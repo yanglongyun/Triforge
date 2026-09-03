@@ -8,10 +8,7 @@
 // ai/ 内核完全不知道树/邮箱/进程/调用,所有状态在这里管。
 import { complete, runAgent as runAi } from "../ai/index.js";
 import { EVENTS } from "../shared/events.js";
-import { homedir } from "node:os";
 import { buildExecutors, tools } from "../tools/index.js";
-import { gate, gateTools } from "../permission/gate.js";
-import { listRules } from "../repo/rules.js";
 import type { Mode } from "../permission/rules.js";
 import { buildSystem } from "./system.js";
 import { maybeCompact } from "./compact.js";
@@ -113,6 +110,7 @@ const runChat = async (chatId) => {
     const ctx = {
       selfChatId: chatId,
       chatId,        // confirm 要用它把提醒卡投到这段对话里
+      signal,        // 整轮被停时,悬着的提醒卡跟着收掉
       cwd,
       emit,
       toolResultMaxChars: Number(settings.toolResultMaxChars) || 30000,
@@ -150,8 +148,8 @@ const runChat = async (chatId) => {
       }
     };
 
-    // 护盾状态:决定工具表里有没有 confirm,以及执行器套不套门
-    const mode = (settings.permissionMode || "rules") as Mode;
+    // 规则开关:开着 confirm 工具在;关着连它也不在(描述一个调不到的工具,模型只会去调然后撞空)
+    const rulesOn = (settings.rulesEnabled || "on") !== "off";
 
     const result = await runAi({
       runId: crypto.randomUUID(),
@@ -161,16 +159,8 @@ const runChat = async (chatId) => {
       model: settings.model,
       instructions: buildSystem(chat, settings),
       input,
-      tools: gateTools(tools, mode),
-      // 审批门包在执行器外面:ai/ 依然不感知权限,它只知道「执行器返回了一个结果」——
-      // 被拒绝也是一种结果(回给模型的是一句人话,不是抛错中断整轮)
-      executors: gate(buildExecutors(ctx), {
-        mode,
-        rules: listRules(),
-        context: { home: homedir(), cwd },
-        chatId: chat.id,
-        signal,
-      }),
+      tools: rulesOn ? tools : tools.filter((t) => t.name !== "confirm"),
+      executors: buildExecutors(ctx),
       maxRounds: MAX_ROUNDS,
       errorMaxChars: ERROR_MAX_CHARS,
       workdir: cwd,

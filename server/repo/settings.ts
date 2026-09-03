@@ -12,8 +12,8 @@ const DEFAULTS = {
   toolResultMaxChars: "30000",
   // 匿名使用统计:on/off。只收 事件名/版本/平台/匿名安装 id(见 server/telemetry.ts)。
   telemetry: "on",
-  // 护盾:rules = 盾开(按规则把关)/ skip = 盾关(见 server/permission/)。
-  permissionMode: "rules",
+  // 规则开关:on = 规则写进提示词、confirm 工具在;off = 都不在。
+  rulesEnabled: "on",
   // 关掉的技能(目录名 JSON 数组):不进提示词,文件不动。
   disabledSkills: "[]",
   // 默认人格(无自定义 system 的对话的兜底)。工具清单 / 身份 / 协作规则由 buildSystem 每次注入,

@@ -6,7 +6,7 @@
 import path from "path";
 import { appDataHome, appsHome, listApps } from "../host/apps.js";
 import { listRules } from "../repo/rules.js";
-import { injection } from "../permission/rules.js";
+import { rulesSection } from "../permission/rules.js";
 import { agentContext } from "../repo/tree.js";
 import { resolveWorkdir } from "../repo/chats.js";
 import { listProductSkills } from "../service/skills.js";
@@ -52,7 +52,7 @@ ${product.join("\n")}${folder.length ? "\n本文件夹专属:\n" + folder.join("
 
 export const buildSystem = (
   chat: { id: string; system?: string | null; workdir?: string | null },
-  settings: { system?: string; permissionMode?: string },
+  settings: { system?: string; rulesEnabled?: string },
   opts: { rules?: boolean } = {},
 ) => {
   const base = (chat.system && chat.system.trim()) || settings.system || "";
@@ -63,15 +63,15 @@ export const buildSystem = (
       ctx.docs.map((doc) => `——— ${doc.rel} ———\n${doc.content.trim()}`).join("\n\n")
     : "";
 
-  // 护盾关掉时 confirm 工具不存在(见 permission/gate.ts),提示词里也不能提它。
-  const shielded = (settings?.permissionMode || "rules") !== "skip";
-  const confirmDoc = shielded
+  // 规则关掉时 confirm 工具不存在,提示词里也不能提它。
+  const rulesOn = (settings?.rulesEnabled || "on") !== "off";
+  const confirmDoc = rulesOn
     ? `- confirm(summary, detail, risk) — 动手前先提醒用户并等确认。用在你自己觉得该问一句的时候:
   操作不可逆、影响面比你被交代的更大、要动没被明确授权的东西。得到允许前不要执行。
-  它和用户的规则是两回事:规则是用户定的闸,confirm 是你自己的判断。
+  规则说要先问的必须问;规则没说到但你拿不准的,也问。
 `
     : "";
-  const rulesBlock = opts.rules === false ? "" : injection(listRules(), (settings?.permissionMode || "rules") as any);
+  const rulesBlock = opts.rules === false ? "" : rulesSection(listRules(), rulesOn);
 
   return `${base}
 

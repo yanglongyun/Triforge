@@ -84,15 +84,11 @@ const initDb = () => {
 
     -- 网站:活动栏「网站」面板的收藏(在网页标签里打开)
     -- 权限规则:一条规则 = 一个「命中就停下来问」的触发条件。
-    -- text 是用户原话(真相),prompt 和 match_json 都是它的派生物。
-    -- match_json 为 '{}' 表示编译不出条件,这条只剩提示词一个出口(界面要如实标出)。
+    -- 规则:用户写给助手的一句话,只进提示词。
     CREATE TABLE IF NOT EXISTS rules (
       id         TEXT PRIMARY KEY,
       text       TEXT NOT NULL,
-      prompt     TEXT NOT NULL DEFAULT '',
-      match_json TEXT NOT NULL DEFAULT '{}',
       enabled    INTEGER NOT NULL DEFAULT 1,
-      origin     TEXT NOT NULL DEFAULT 'user',
       position   INTEGER NOT NULL DEFAULT 0,
       created_at TEXT NOT NULL DEFAULT (datetime('now'))
     );
@@ -137,13 +133,14 @@ const initDb = () => {
  */
 const seedRules = (db: DatabaseSync) => {
   const seeds = [
+    "删除或移动我的文件之前,先问我。",
+    "需要管理员权限、格式化磁盘,或启动常驻后台进程时,先问我。",
+    "在我的电脑上安装软件或软件包之前,先问我。",
     "超出我交代范围的动作先问我:不可逆的、花钱的、对外发送的,以及在网页上提交或删除。",
     "发现我的前提有问题,先告诉我,不要自己换方案。",
   ];
-  const write = db.prepare(
-    "INSERT INTO rules (id, text, prompt, match_json, enabled, origin, position) VALUES (?, ?, ?, '{\"tools\":[],\"actions\":[],\"paths\":[],\"gate\":false}', 1, 'user', ?)",
-  );
-  seeds.forEach((text, index) => write.run(randomUUID(), text, text, index));
+  const write = db.prepare("INSERT INTO rules (id, text, enabled, position) VALUES (?, ?, 1, ?)");
+  seeds.forEach((text, index) => write.run(randomUUID(), text, index));
 };
 
 const getDb = () => initDb();

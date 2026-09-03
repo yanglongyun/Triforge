@@ -5,7 +5,7 @@ import { useCallback, useEffect, useRef, useState } from "react";
 import { FileText, Folder, Paperclip, Send, Settings, Square, X } from "lucide-react";
 import { ApprovalCard } from "./ApprovalCard";
 import { RulesControl } from "./RulesControl";
-import { permissionApi, type ApprovalCard as Card, type Mode } from "../../lib/permission";
+import { permissionApi, type ApprovalCard as Card } from "../../lib/permission";
 
 import type { Attachment, Node } from "../../api";
 import { api } from "../../api";
@@ -180,13 +180,13 @@ export function ChatPanel({
   }), [socket]);
   const dismiss = (id: string) => setApprovals((list) => list.filter((c) => c.id !== id));
 
-  const [mode, setMode] = useState<Mode>("rules");
-  useEffect(() => { void api.getSettings().then((r: any) => setMode((r.settings?.permissionMode || "rules") as Mode)).catch(() => {}); }, []);
-  const changeMode = (next: Mode) => {
-    setMode(next);
+  const [rulesOn, setRulesOn] = useState(true);
+  useEffect(() => { void api.getSettings().then((r: any) => setRulesOn((r.settings?.rulesEnabled || "on") !== "off")).catch(() => {}); }, []);
+  const changeRules = (next: boolean) => {
+    setRulesOn(next);
     // 只改这一项:先取回整份再合并,免得把别的设置抹成默认值
     void api.getSettings()
-      .then((r: any) => api.saveSettings({ ...(r.settings || {}), permissionMode: next }))
+      .then((r: any) => api.saveSettings({ ...(r.settings || {}), rulesEnabled: next ? "on" : "off" }))
       .catch(() => {});
   };
 
@@ -295,7 +295,7 @@ export function ChatPanel({
             >
               <Paperclip size={16} />
             </button>
-            <RulesControl mode={mode} onModeChange={changeMode} />
+            <RulesControl on={rulesOn} onChange={changeRules} />
             <div className="flex-1" />
             {busy ? (
               <button

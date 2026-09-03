@@ -14,7 +14,6 @@
 import { homedir } from "node:os";
 import { runAgent as runAi } from "../ai/index.js";
 import { buildExecutors, tools } from "../tools/index.js";
-import { gate, gateTools } from "../permission/gate.js";
 import { getSettings } from "../repo/settings.js";
 import { createTask, settleTask } from "../repo/tasks.js";
 import { createChat } from "../repo/chats.js";
@@ -94,14 +93,8 @@ export const runAppTask = async (
         + `\n\n# 本轮是应用触发的任务\n\n发起方:应用「${appName}」(${appId})。没有用户守在旁边,不要提问、不要等确认;`
         + `按提示把事做完,做不了就直说失败原因。`,
       input: [{ role: "user", content: prompt.slice(0, 100_000) }],
-      tools: gateTools(tools, "skip"),
-      executors: gate(buildExecutors(ctx), {
-        mode: "skip", // 任务不过护盾:先跑起来再说
-        rules: [],
-        context: { home: homedir(), cwd },
-        chatId: ctx.chatId,
-        signal: controller.signal,
-      }),
+      tools: tools.filter((t) => t.name !== "confirm"), // 没人守着,不能问
+      executors: buildExecutors(ctx),
       maxRounds: MAX_ROUNDS,
       errorMaxChars: ERROR_MAX_CHARS,
       workdir: cwd,
