@@ -34,6 +34,10 @@ export function WebPanel({ tab, socket, onUpdate }: {
   const wcIdRef = useRef<number | null>(null);
   // 平时展示人话形(藏 https:// 和尾斜杠),点进编辑时换完整 URL
   const [address, setAddress] = useState(displayUrl(tab.url));
+  // <webview> 的 src 只在挂载时给一次。之后 tab.url 跟着页面自己的导航走(did-navigate 回写),
+  // 如果 src 也跟着变,React 一改属性 webview 就再导航一次 —— 页面每跳一步我们就把它推回去一步,
+  // 单页应用(阿里云控制台 / → /home/dashboard)会在两个地址之间无限来回。导航只走 loadURL / reload。
+  const initialUrl = useRef(tab.url);
   const [editing, setEditing] = useState(false);
   const [loading, setLoading] = useState(false);
   const [starred, setStarred] = useState(false);
@@ -512,7 +516,7 @@ export function WebPanel({ tab, socket, onUpdate }: {
           决定去处 —— 带尺寸的弹窗真开窗口(OAuth 要),其余落我们自己的新标签。 */}
       <webview
         ref={(el) => { viewRef.current = el; }}
-        src={tab.url}
+        src={initialUrl.current}
         partition={WEB_PARTITION}
         allowpopups={"true" as unknown as boolean}
         preload={window.worktopDesktop?.webviewPreload || undefined}
