@@ -1,26 +1,47 @@
 // @ts-nocheck
 // 运行编排:一个对话同一时刻只有一轮在跑。
-//   - 压缩水位判断 → 组装历史与 system → 调 ai/ 内核 → **逐条落库** → 事件广播
+//   - 组装历史与 system → 调 agent/ 循环 → **逐条落库** → 事件广播
+//   - 压缩在循环里每次请求前判断(依据是最近一次应答的 usage,每次应答都落库);
+//     压了循环 emit compact,这里记 compactions 锚点、把摘要落成一条消息
 //   - 运行状态只在内存里(running Map)+ 事件广播;跑到一半重启本就恢复不了
 //   - 停止/出错收尾:悬空 function_call 补输出(Responses 要求成对,缺了下一轮请求被拒),
 //     落 [stopped]/[error] 留痕 —— 给用户看,也给模型看
 //
-// ai/ 内核完全不知道树/邮箱/进程/调用,所有状态在这里管。
-import { complete, runAgent as runAi } from "../ai/index.js";
+// agent/ 循环完全不知道树/邮箱/进程/调用,所有状态在这里管。
+import { complete } from "../ai/complete.js";
+import { runAgent as runAi } from "../agent/index.js";
 import { EVENTS } from "../shared/events.js";
-import { buildExecutors, tools } from "../tools/index.js";
-import type { Mode } from "../permission/rules.js";
+import { createRunner, tools } from "../tools/index.js";
 import { buildSystem } from "./system.js";
-import { maybeCompact } from "./compact.js";
-import { DEFAULT_TITLE, createChat, getChat, resolveWorkdir, touchChat, updateChat } from "../repo/chats.js";
-import { appendItem, listRows } from "../repo/messages.js";
-import { getLatestCompaction } from "../repo/compactions.js";
+import { DEFAULT_TITLE, getChat, resolveWorkdir, updateChat } from "../repo/chats.js";
+import { appendItem, latestUsage, listRows } from "../repo/messages.js";
+import { createCompaction, getLatestCompaction } from "../repo/compactions.js";
 import { getSettings } from "../repo/settings.js";
 import { prepareInput } from "../host/files.js";
 import { emit } from "../bus.js";
 
 const MAX_ROUNDS = 64;
 const ERROR_MAX_CHARS = 4000;
+
+const DEFAULT_COMPACT_PROMPT =
+  "你负责压缩一段对话上下文,供后续模型继续工作时使用。" +
+  "保留目标、限制、关键事实、工具结果、已做决定和未完成事项。删除寒暄和重复内容。用对话本身的语言写摘要,避免编造。";
+
+/** 压缩配置:水位就是 settings.compressThreshold(token),0 = 不压。 */
+export const compactionOf = (settings) => {
+  const threshold = Number(settings.compressThreshold || 0) || 0;
+  if (!threshold) return null;
+  return {
+    contextWindowTokens: threshold,
+    foldRatio: 1,
+    tailKeepChars: 40_000,
+    summaryMinChars: 80,
+    callArgsMaxChars: 2_000,
+    callOutputMaxChars: 4_000,
+    mechanicalItemMaxChars: 160,
+    prompt: String(settings.compactPrompt || "").trim() || DEFAULT_COMPACT_PROMPT,
+  };
+};
 
 // ── 对话级运行注册:stop 对任意 chatId 都生效 ──
 const running = new Map();
@@ -39,6 +60,40 @@ const messageText = (item) => {
 };
 
 /**
+ * 账本:循环吐出来的每个 item 逐条落库;压缩事件在这里换成 compactions 锚点 + 一条摘要消息。
+ * live 是「库里这段上下文对应的行」,压缩要靠它把尾段条数换算成消息 id 区间。
+ * 会话轮次和应用任务共用 —— 落库口径只写一处。
+ */
+export const createLedger = (chatId, rows) => {
+  const live = rows.map((row) => ({ id: row.id, item: row.item }));
+  const generated = [];
+  const record = (type, data) => {
+    if (type === "compact") {
+      if (data.phase === "started") { emit({ type: EVENTS.COMPACT_START, chatId }); return; }
+      if (data.compacted && data.tailCount < live.length) {
+        const cut = live.length - data.tailCount;
+        const early = live.slice(0, cut);
+        const tail = live.slice(cut);
+        const startMessageId = early[0].id;
+        const endMessageId = early[early.length - 1].id;
+        const compactionId = createCompaction({ chatId, startMessageId, endMessageId, summary: data.summary, tokens: data.tokens });
+        // 摘要落成一条消息:详情页能看到,下一轮从锚点之后取历史时它自然在其中
+        const row = appendItem(chatId, data.history[0], { meta: { kind: "compaction", compactionId, startMessageId, endMessageId } });
+        emit({ type: EVENTS.INPUT, chatId, row });
+        live.splice(0, live.length, { id: row.id, item: data.history[0] }, ...tail);
+      }
+      emit({ type: EVENTS.COMPACT_DONE, chatId });
+      return;
+    }
+    if (!data.item) return;
+    const row = appendItem(chatId, data.item, { usage: data.usage || null });
+    live.push({ id: row.id, item: data.item });
+    generated.push(data.item);
+  };
+  return { live, generated, record };
+};
+
+/**
  * 首条消息跑完后给对话取名 —— 独立的一次补全调用,和对话运行完全分离,
  * 失败退回机械截断(用户消息前 24 字),保证一定脱离「未命名对话」。
  */
@@ -49,7 +104,6 @@ const autoTitle = async (chatId, rows, finalText, settings) => {
   let title = "";
   try {
     const result = await complete({
-      driver: settings.driver,
       responsesUrl: settings.apiUrl,
       apiKey: settings.apiKey,
       model: settings.model,
@@ -88,7 +142,7 @@ const runChat = async (chatId) => {
 
   const settings = getSettings();
   if (!settings.apiUrl || !settings.apiKey || !settings.model) {
-    throw new Error("还没配置模型(设置 → 接口协议 / API URL / API Key / 模型)");
+    throw new Error("还没配置模型(设置 → API URL / API Key / 模型)");
   }
 
   const controller = new AbortController();
@@ -97,16 +151,13 @@ const runChat = async (chatId) => {
 
   emit({ type: EVENTS.START, chatId });
 
-  const generated = [];
+  // 历史从最近一次压缩的锚点之后取;摘要行在锚点之后,自然在其中
+  const latest = getLatestCompaction(chatId);
+  const rows = listRows(chatId, { afterId: Number(latest?.end_message_id || 0) });
+  const ledger = createLedger(chatId, rows);
 
   try {
-    await maybeCompact({ chatId, settings, signal, emit });
-
-    const latest = getLatestCompaction(chatId);
-    const rows = listRows(chatId, { afterId: Number(latest?.end_message_id || 0) });
-    const input = rows.map((row) => row.item);
     const cwd = resolveWorkdir(chat);
-
     const ctx = {
       selfChatId: chatId,
       chatId,        // confirm 要用它把提醒卡投到这段对话里
@@ -117,35 +168,15 @@ const runChat = async (chatId) => {
     };
 
     const emitKernel = (type, data) => {
-      if (type === "message" && data.delta) {
-        emit({ type: EVENTS.DELTA, chatId, content: data.delta });
-        return;
-      }
-      if (type === "reasoning" && data.delta) {
-        emit({ type: EVENTS.REASONING, chatId, content: data.delta });
-        return;
-      }
-      if (type === "function_call" && data.phase === "started") {
-        emit({ type: EVENTS.CALL_STARTED, chatId });
-        return;
-      }
+      if (type === "message" && data.delta) { emit({ type: EVENTS.DELTA, chatId, content: data.delta }); return; }
+      if (type === "reasoning" && data.delta) { emit({ type: EVENTS.REASONING, chatId, content: data.delta }); return; }
+      if (type === "function_call" && data.phase === "started") { emit({ type: EVENTS.CALL_STARTED, chatId }); return; }
       if (type === "retry") {
-        // 网络抖动/限流,内核在退避重试 —— 透给界面,别让用户以为卡死了
+        // 网络抖动/限流,循环在退避重试 —— 透给界面,别让用户以为卡死了
         emit({ type: EVENTS.RETRY, chatId, attempt: data.attempt, maxRetries: data.maxRetries, delayMs: data.delayMs, message: String(data.error || "") });
         return;
       }
-      if (!data.item) return; // 内核自己的 done/error 事件,终局由本层广播
-      generated.push(data.item);
-      appendItem(chatId, data.item, { usage: data.usage || null });
-      if (type === "function_call") {
-        emit({
-          type: EVENTS.CALLS,
-          chatId,
-          calls: [{ callId: data.item.call_id, name: data.item.name, args: parseArgs(data.item.arguments) }],
-        });
-      } else if (type === "function_call_output") {
-        emit({ type: EVENTS.CALL_OUTPUT, chatId, callId: data.item.call_id, result: data.item.output || "" });
-      }
+      ledger.record(type, data); // item 落库 / 压缩记账;循环自己的 done/error 不落,终局由本层广播
     };
 
     // 规则开关:开着 confirm 工具在;关着连它也不在(描述一个调不到的工具,模型只会去调然后撞空)
@@ -153,24 +184,23 @@ const runChat = async (chatId) => {
 
     const result = await runAi({
       runId: crypto.randomUUID(),
-      driver: settings.driver, // 'responses' | 'chat',协议差异全在 ai/drivers/ 内消化
       responsesUrl: settings.apiUrl,
       apiKey: settings.apiKey,
       model: settings.model,
       instructions: buildSystem(chat, settings),
-      input,
+      input: rows.map((row) => row.item),
       tools: rulesOn ? tools : tools.filter((t) => t.name !== "confirm"),
-      executors: buildExecutors(ctx),
+      run: createRunner(ctx),
       maxRounds: MAX_ROUNDS,
       errorMaxChars: ERROR_MAX_CHARS,
-      workdir: cwd,
-      env: process.env,
+      compaction: compactionOf(settings),
+      usage: latestUsage(chatId),
       signal,
       emit: emitKernel,
       prepareInput, // 附件展开/剥除:当前轮的图片才进 input_image,旧轮不带字节
     });
 
-    const finalText = result.items
+    const finalText = ledger.generated
       .filter((item) => item?.type === "message")
       .map(messageText)
       .join("\n\n")
@@ -188,7 +218,7 @@ const runChat = async (chatId) => {
   } catch (error) {
     const aborted = signal.aborted || error?.name === "AbortError";
     const message = String(error?.message || error).slice(0, ERROR_MAX_CHARS);
-    settleDanglingCalls(chatId, generated, aborted ? "任务被用户停止,该调用未完成" : "运行出错,该调用未完成");
+    settleDanglingCalls(chatId, ledger.generated, aborted ? "任务被用户停止,该调用未完成" : "运行出错,该调用未完成");
 
     const marker = aborted
       ? { role: "system", content: "[stopped] 上一条回复被用户停止,输出到此为止。" }

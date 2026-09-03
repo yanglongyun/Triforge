@@ -1,7 +1,7 @@
 // 组件的 ai 能力:无状态单次补全 —— 不建对话、不进邮箱、没有历史。
 // 每次调用把 summary 打到服务端控制台(问责的形式保留,但不落库);summary 必填。
 // 用用户在设置里配好的同一套模型;每组件并发限 2,可见性是第一道闸。
-import { complete } from "../ai/index.js";
+import { complete } from "../ai/complete.js";
 import { getSettings } from "../repo/settings.js";
 
 const inflight = new Map<string, number>();
@@ -35,7 +35,6 @@ export const runWidgetAi = async ({
       modelOptions: undefined,
       retry: undefined,
       signal: undefined,
-      driver: settings.driver,
       responsesUrl: settings.apiUrl,
       apiKey: settings.apiKey,
       model: settings.model,

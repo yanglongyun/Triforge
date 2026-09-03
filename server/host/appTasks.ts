@@ -12,8 +12,8 @@
 //   1. **不过护盾**:任务没有人守在旁边,confirm 也不在工具表里 —— 直接按 skip 跑;
 //   2. 结果以 SSE 流回给发起的应用:tool(进度)/ error / done。应用只认 error 和 done。
 import { homedir } from "node:os";
-import { runAgent as runAi } from "../ai/index.js";
-import { buildExecutors, tools } from "../tools/index.js";
+import { runAgent as runAi } from "../agent/index.js";
+import { createRunner, tools } from "../tools/index.js";
 import { getSettings } from "../repo/settings.js";
 import { createTask, settleTask } from "../repo/tasks.js";
 import { createChat } from "../repo/chats.js";
@@ -21,6 +21,7 @@ import { appendItem } from "../repo/messages.js";
 import { EVENTS } from "../shared/events.js";
 import { defaultDir } from "../repo/tree.js";
 import { buildSystem } from "../runs/system.js";
+import { compactionOf, createLedger } from "../runs/index.js";
 import { emit } from "../bus.js";
 
 const MAX_ROUNDS = 64;
@@ -35,9 +36,9 @@ const running = new Map(); // taskId → AbortController
 export const openTask = ({ appId, title, prompt, cwd }) => {
   const chat = createChat({ title: String(title || prompt).slice(0, 24), workdir: cwd, originApp: appId });
   createTask({ id: chat.id, appId, prompt });
-  appendItem(chat.id, { role: "user", content: prompt }, { meta: { kind: "message" } });
+  const userRow = appendItem(chat.id, { role: "user", content: prompt.slice(0, 100_000) }, { meta: { kind: "message" } });
   emit({ type: "tasks_changed" });
-  return chat.id;
+  return { taskId: chat.id, userRow };
 };
 
 /** 落一条助手消息并广播 —— complete 那条一问一答的「答」。 */
@@ -58,7 +59,7 @@ export const runAppTask = async (
   }
 
   const cwd = workdir || defaultDir();
-  const taskId = openTask({ appId, title, prompt, cwd });
+  const { taskId, userRow } = openTask({ appId, title, prompt, cwd });
 
   res.writeHead(200, {
     "content-type": "text/event-stream; charset=utf-8",
@@ -77,40 +78,41 @@ export const runAppTask = async (
   const ctx = {
     selfChatId: taskId,
     chatId: taskId,
+    signal: controller.signal,
     cwd,
     emit,
     toolResultMaxChars: Number(settings.toolResultMaxChars) || 30000,
   };
+  // 任务的历史就是刚落的那条用户消息;和会话同一套账本,压缩同样在循环里
+  const ledger = createLedger(taskId, [{ id: userRow.id, item: userRow.item }]);
 
   try {
-    const result = await runAi({
+    await runAi({
       runId: taskId,
-      driver: settings.driver,
       responsesUrl: settings.apiUrl,
       apiKey: settings.apiKey,
       model: settings.model,
       instructions: buildSystem({ id: `task:${taskId}`, system: null, workdir: cwd }, settings, { rules: false })
         + `\n\n# 本轮是应用触发的任务\n\n发起方:应用「${appName}」(${appId})。没有用户守在旁边,不要提问、不要等确认;`
         + `按提示把事做完,做不了就直说失败原因。`,
-      input: [{ role: "user", content: prompt.slice(0, 100_000) }],
+      input: [userRow.item],
       tools: tools.filter((t) => t.name !== "confirm"), // 没人守着,不能问
-      executors: buildExecutors(ctx),
+      run: createRunner(ctx),
       maxRounds: MAX_ROUNDS,
       errorMaxChars: ERROR_MAX_CHARS,
-      workdir: cwd,
-      env: process.env,
+      compaction: compactionOf(settings),
       signal: controller.signal,
-      // 与会话同一套落库口径:内核吐出的每个 item 都进 messages,详情页据此回放
+      // 与会话同一套落库口径:循环吐出的每个 item 都进 messages,详情页据此回放
       emit: (type, data) => {
         if (type === "function_call" && data.phase === "started") { send("tool", { phase: "started" }); return; }
-        if (!data.item) return;
-        appendItem(taskId, data.item, { usage: data.usage || null });
-        emit({ type: EVENTS.INPUT, chatId: taskId });
+        if (type !== "compact" && !data.item) return;
+        ledger.record(type, data);
+        if (data.item) emit({ type: EVENTS.INPUT, chatId: taskId });
         if (type === "function_call") send("tool", { name: data.item.name });
       },
     });
 
-    const finalText = result.items
+    const finalText = ledger.generated
       .filter((item) => item?.type === "message")
       .map((item) => (typeof item.content === "string" ? item.content
         : Array.isArray(item.content) ? item.content.map((p) => p?.text || "").join("") : ""))

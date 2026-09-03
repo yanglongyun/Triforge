@@ -7,7 +7,6 @@ import { Check, Settings2 } from "lucide-react";
 import { ChromeImportDialog } from "../ui";
 
 const emptySettings: Settings = {
-  driver: "responses",
   apiUrl: "",
   apiKey: "",
   model: "",
@@ -17,12 +16,6 @@ const emptySettings: Settings = {
   toolResultMaxChars: "30000",
   telemetry: "on",
 };
-
-/** 两种接口协议:URL 提示跟着走。 */
-const DRIVER_OPTIONS = [
-  { id: "responses", label: "Responses API", urlPlaceholder: "https://api.openai.com/v1/responses" },
-  { id: "chat", label: "Chat Completions", urlPlaceholder: "https://open.bigmodel.cn/api/paas/v4/chat/completions" },
-];
 
 const inputClass =
   "w-full border border-border bg-bg px-3 py-2 text-[13px] text-text outline-none transition-colors focus:border-accent";
@@ -90,24 +83,12 @@ export function SettingsPanel({ onSaved }: { onSaved?: (settings: Settings) => v
               </select>
             </Field>
 
-            <Field label="接口协议">
-              <select
-                className={`${inputClass} cursor-pointer`}
-                value={form.driver || "responses"}
-                onChange={(e) => set("driver", e.target.value)}
-              >
-                {DRIVER_OPTIONS.map((option) => (
-                  <option key={option.id} value={option.id}>{option.label}</option>
-                ))}
-              </select>
-            </Field>
-
             <Field label="接口地址">
               <input
                 className={inputClass}
                 value={form.apiUrl}
                 onChange={(e) => set("apiUrl", e.target.value)}
-                placeholder={(DRIVER_OPTIONS.find((o) => o.id === (form.driver || "responses")) || DRIVER_OPTIONS[0]).urlPlaceholder}
+                placeholder="https://api.openai.com/v1/responses"
               />
             </Field>
 

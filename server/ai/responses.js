@@ -1,8 +1,7 @@
-// Responses API 驱动。
-// 只负责一件事:把统一的 { input, instructions, tools } 发出去,把流解析成统一的
+// Responses API:单次请求。
+// 只负责一件事:把 { input, instructions, tools } 发出去,把流解析成
 // { items, usage, status, stopReason },沿途用 onEvent 吐增量。
-// 重试、循环、工具执行都不在这儿 —— 那些是协议无关的,在上一层。
-import { EVENTS } from '../events.js';
+// 重试在 request.js,循环在 index.js,工具执行在 runner.js —— 都不在这儿。
 
 const readError = async (response) => {
     const body = await response.text().catch(() => '');
@@ -36,7 +35,7 @@ const pickModelOptions = (options) => {
 };
 
 /** 单次尝试：发请求、读流、解析。失败时抛出的错误带上 `status` 和 `emitted`。 */
-async function attempt({ url, apiKey, model, input, instructions, tools, modelOptions, signal, onEvent, errorMaxChars }) {
+export async function attempt({ url, apiKey, model, input, instructions, tools, modelOptions, signal, onEvent, errorMaxChars }) {
     let emitted = false;
     const fail = (message, status) => {
         const error = new Error(message);
@@ -90,12 +89,12 @@ async function attempt({ url, apiKey, model, input, instructions, tools, modelOp
                 try { event = JSON.parse(payload); } catch { continue; }
                 if (event.type === 'response.output_text.delta') {
                     emitted = true;
-                    onEvent(EVENTS.MESSAGE, { delta: String(event.delta || '') });
+                    onEvent('message', { delta: String(event.delta || '') });
                 } else if (event.type === 'response.reasoning_text.delta' || event.type === 'response.reasoning_summary_text.delta') {
                     emitted = true;
-                    onEvent(EVENTS.REASONING, { delta: String(event.delta || '') });
+                    onEvent('reasoning', { delta: String(event.delta || '') });
                 } else if (event.type === 'response.output_item.added' && event.item?.type === 'function_call') {
-                    onEvent(EVENTS.FUNCTION_CALL, { phase: 'started' });
+                    onEvent('function_call', { phase: 'started' });
                 } else if (event.type === 'response.output_item.done' && event.item) {
                     items.push(event.item);
                 } else if (event.type === 'response.completed' || event.type === 'response.incomplete') {
@@ -124,5 +123,3 @@ async function attempt({ url, apiKey, model, input, instructions, tools, modelOp
 
     return { items, usage, status: status || 'completed', stopReason };
 }
-
-export default { id: 'responses', label: 'Responses API', attempt };

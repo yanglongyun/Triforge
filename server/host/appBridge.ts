@@ -5,7 +5,7 @@
 //
 // 两道闸,顺序不能反:先认 token(你是谁),再查 manifest.permissions(你被允许什么)。
 import type { IncomingMessage, ServerResponse } from "node:http";
-import { complete } from "../ai/index.js";
+import { complete } from "../ai/complete.js";
 import { getSettings } from "../repo/settings.js";
 import { emit } from "../bus.js";
 import { getApp } from "./apps.js";
@@ -33,7 +33,7 @@ const bearer = (req: IncomingMessage) =>
 const runtime = () => {
   const s = getSettings() as any;
   if (!s.apiUrl || !s.apiKey || !s.model) return null;
-  return { driver: s.driver, responsesUrl: s.apiUrl, apiKey: s.apiKey, model: s.model };
+  return { responsesUrl: s.apiUrl, apiKey: s.apiKey, model: s.model };
 };
 
 /** 返回 true = 这个请求已经由 /host/* 处理掉了。 */
@@ -79,16 +79,14 @@ export const handleHostRoutes = async (
         json(res, 400, { error: "宿主还没配置模型:先在设置里填接口地址、密钥和模型" });
         return true;
       }
-      // 结构化输出:app 传 schema(JSON Schema),按协议翻成各自的原生格式约束
+      // 结构化输出:app 传 schema(JSON Schema),走 Responses 原生的格式约束
       let modelOptions: any;
       if (input.schema && typeof input.schema === "object") {
         const name = String(input.schemaName || "result").slice(0, 64);
-        modelOptions = base.driver === "chat"
-          ? { chat: { response_format: { type: "json_schema", json_schema: { name, schema: input.schema, strict: true } } } }
-          : { text: { format: { type: "json_schema", name, schema: input.schema, strict: true } } };
+        modelOptions = { text: { format: { type: "json_schema", name, schema: input.schema, strict: true } } };
       }
       // 补全也是「应用替你干的活」—— 在任务里留一条,一问一答同样进 messages
-      const taskId = openTask({
+      const { taskId } = openTask({
         appId: app.id,
         title: String(input.title || "").trim() || prompt,
         prompt,

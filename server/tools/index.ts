@@ -1,5 +1,5 @@
-// 工具装配:定义表(发给模型)与执行映射(注入内核)在这里合拢。
-// 内核(ai/)只认 tools 数组 + executors Map,不知道 Worktop 是什么;
+// 工具装配:定义表(发给模型)与执行(注入循环)在这里合拢。
+// 循环(agent/)只认 tools 数组 + run(call),不知道 Worktop 是什么;
 // Worktop 的外部能力(文件、进程、浏览器)全部通过 ctx 闭包进执行器。
 //
 // 六个工具:
@@ -48,26 +48,42 @@ export const truncateToolResult = (text: unknown, maxChars = 30000) => {
     `需要完整内容时:重跑命令并重定向到文件(如 cmd > /tmp/out.log 2>&1),再用 read 分段读取]…\n\n${tail}`;
 };
 
-/**
- * 按本次运行的 ctx 生成执行映射。
- * 内核每次调用只带 {signal, cwd, env};Worktop 的能力在这里合并进去,
- * 结果在这里统一截断 —— 截断只写一处,工具实现不用各自操心。
- */
 /** 工具执行上下文:Worktop 的外部能力经此注入,各工具按需取用(刻意宽松)。 */
-export type ToolCtx = Record<string, any> & { toolResultMaxChars?: number; signal?: AbortSignal };
+export type ToolCtx = Record<string, any> & { toolResultMaxChars?: number; signal?: AbortSignal; cwd?: string };
 
-export const buildExecutors = (ctx: ToolCtx) => {
-  const executors = new Map();
-  for (const [name, impl] of Object.entries(IMPLS)) {
-    executors.set(name, async (args: unknown, kernelCtx: { signal?: AbortSignal } = {}) => {
-      const result: any = await impl(args as any, { ...ctx, signal: kernelCtx.signal });
-      // 带图的结果(read 读图片)整体放行:文本部分照常截断,image 交给内核
-      // (runner 会把它挂到 function_call_output 上,附件层在当前轮展开成 input_image)
-      if (result && typeof result === "object" && result.image) {
-        return { output: truncateToolResult(String(result.output || ""), ctx.toolResultMaxChars), image: result.image };
+const parseArgs = (value: unknown) => {
+  if (value && typeof value === "object") return value as Record<string, unknown>;
+  try { return JSON.parse(String(value || "{}")) as Record<string, unknown>; } catch { return {}; }
+};
+
+/**
+ * 按本次运行的 ctx 生成 run(call):按名字找实现、执行、统一截断、包成 function_call_output。
+ * 工具自己出错就把错误回喂给模型;取消不是工具错误,必须一路抛到循环外。
+ * 截断只写一处,工具实现不用各自操心;带图的结果文本照常截断,image 挂在 item 上,附件层在当前轮展开。
+ */
+export const createRunner = (ctx: ToolCtx) => async (call: { name?: string; call_id?: string; arguments?: unknown }) => {
+  const name = String(call?.name || "");
+  const impl = (IMPLS as unknown as Record<string, (args: any, ctx: any) => unknown>)[name];
+  let result: any;
+  try {
+    if (typeof impl !== "function") result = { error: `未知工具:${name}` };
+    else {
+      const raw: any = await impl(parseArgs(call?.arguments), ctx);
+      if (raw && typeof raw === "object" && raw.image) {
+        result = { output: truncateToolResult(String(raw.output || ""), ctx.toolResultMaxChars), image: raw.image };
+      } else {
+        result = truncateToolResult(typeof raw === "string" ? raw : JSON.stringify(raw), ctx.toolResultMaxChars);
       }
-      return truncateToolResult(result, ctx.toolResultMaxChars);
-    });
+    }
+  } catch (error: any) {
+    if (error?.name === "AbortError" || ctx.signal?.aborted) throw error;
+    result = { error: error?.message || String(error) };
   }
-  return executors;
+  const item: Record<string, unknown> = {
+    type: "function_call_output",
+    call_id: String(call?.call_id || ""),
+    output: typeof result === "string" ? result : JSON.stringify(result),
+  };
+  if (result?.image?.path) item.image = result.image;
+  return item;
 };
