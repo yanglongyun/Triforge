@@ -231,17 +231,6 @@ export function useTabGroups({ canCloseTab = () => true, onTabClosed = () => {} 
   }, [openTab]);
 
   /** 就地换身:同位置把 oldId 换成新标签 —— 新标签页 Enter 后变成对话/网站,位置不跳。 */
-  const replaceTab = useCallback((groupId: WorkspaceGroupId, oldId: string, tab: WorkspaceTab) => {
-    setGroups((prev) => {
-      const group = prev[groupId];
-      const idx = group.tabs.findIndex((t) => t.id === oldId);
-      if (idx === -1) return prev;
-      const tabs = [...group.tabs];
-      tabs[idx] = tab;
-      return { ...prev, [groupId]: { ...group, tabs, activeId: tab.id } };
-    });
-  }, []);
-
   const openWeb = useCallback((
     url: string,
     title?: string,
@@ -302,6 +291,26 @@ export function useTabGroups({ canCloseTab = () => true, onTabClosed = () => {} 
     if (idx === -1) return;
     closeTabs(groupId, [id]);
   }, [closeTabs]);
+
+  /** 原位替换(新标签页 → 选中的对话)。目标已经开着就不造第二份:关掉这张,切到已有的那张。 */
+  const replaceTab = useCallback((groupId: WorkspaceGroupId, oldId: string, tab: WorkspaceTab) => {
+    for (const gid of groupOrder) {
+      const existing = groupsRef.current[gid].tabs.find((t) => t.id === tab.id && t.id !== oldId);
+      if (existing) {
+        closeTab(groupId, oldId);
+        activateTab(gid, existing.id);
+        return;
+      }
+    }
+    setGroups((prev) => {
+      const group = prev[groupId];
+      const idx = group.tabs.findIndex((t) => t.id === oldId);
+      if (idx === -1) return prev;
+      const tabs = [...group.tabs];
+      tabs[idx] = tab;
+      return { ...prev, [groupId]: { ...group, tabs, activeId: tab.id } };
+    });
+  }, [closeTab, activateTab]);
 
   const moveTab = useCallback((fromId: WorkspaceGroupId, tabId: string, toId = otherGroup(fromId), toIndex?: number) => {
     const from = groupsRef.current[fromId];
