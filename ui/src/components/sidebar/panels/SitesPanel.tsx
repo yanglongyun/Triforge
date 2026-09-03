@@ -148,10 +148,20 @@ export function SitesPanel({ onOpenUrl, socket }: {
       { danger: true, confirmText: isFolder ? "删除" : "移除" }))) return;
     try { await api.removeSite(site.id); load(); } catch { /* 列表会自己对齐 */ }
   };
-  const rename = async (site: Site) => {
-    const title = await dialog.prompt(site.title, { title: "重命名", confirmText: "保存" });
-    if (!title || !title.trim()) return;
-    try { await api.updateSite(site.id, { title: title.trim() }); load(); } catch { /* 同上 */ }
+  const siteInputClass = "w-full h-7 px-2 rounded border border-border bg-bg text-[12.5px] text-text placeholder:text-text-faint outline-none focus:border-accent";
+  // 编辑在行下就地展开:网站改名字 + 网址,文件夹只改名字
+  const [siteEditing, setSiteEditing] = useState<{ id: string; kind: Site["kind"]; title: string; url: string } | null>(null);
+  const editSite = (site: Site) => setSiteEditing({ id: site.id, kind: site.kind, title: site.title, url: site.url });
+  const saveSite = async () => {
+    if (!siteEditing) return;
+    const title = siteEditing.title.trim();
+    const url = siteEditing.url.trim();
+    if (siteEditing.kind === "site" && !url) { void dialog.alert("网址不能为空"); return; }
+    try {
+      await api.updateSite(siteEditing.id, siteEditing.kind === "site" ? { title, url } : { title });
+      setSiteEditing(null);
+      load();
+    } catch (e: any) { void dialog.alert(e?.message || "保存失败"); }
   };
   const contextMenu = (e: React.MouseEvent, site: Site) => {
     e.preventDefault(); e.stopPropagation();
@@ -165,7 +175,7 @@ export function SitesPanel({ onOpenUrl, socket }: {
             { label: "在此新建文件夹…", icon: <FolderPlus size={13} />, onClick: () => void addFolder(site.id) },
           ]
           : [{ label: "打开", icon: <Globe size={13} />, onClick: () => onOpenUrl(site.url, site.title) }]),
-        { label: "重命名…", icon: <Pencil size={13} />, onClick: () => void rename(site) },
+        { label: isFolder ? "重命名" : "编辑", icon: <Pencil size={13} />, onClick: () => editSite(site) },
         "divider" as const,
         { label: isFolder ? "删除文件夹" : "移除", icon: <Trash2 size={13} />, danger: true, onClick: () => void remove(site) },
       ],
@@ -401,9 +411,9 @@ export function SitesPanel({ onOpenUrl, socket }: {
         ) : <Favicon url={site.url} />}
         <span className="flex-1 min-w-0 truncate text-[14px]">{site.title || hostOf(site.url)}</span>
         <button
-          onClick={(e) => { e.stopPropagation(); void rename(site); }}
+          onClick={(e) => { e.stopPropagation(); editSite(site); }}
           onPointerDown={(e) => e.stopPropagation()}
-          title="重命名"
+          title={isFolder ? "重命名" : "编辑"}
           className={actionBtn}
         >
           <Pencil size={12} />
@@ -419,11 +429,35 @@ export function SitesPanel({ onOpenUrl, socket }: {
       </div>
     );
   };
+  const siteEditor = () => siteEditing && (
+    <div
+      className="mx-2 my-1.5 p-2.5 rounded-lg border border-border bg-bg-raised flex flex-col gap-1.5"
+      onClick={(e) => e.stopPropagation()}
+      onPointerDown={(e) => e.stopPropagation()}
+      onKeyDown={(e) => { if (e.key === "Escape") setSiteEditing(null); if (e.key === "Enter") void saveSite(); }}
+    >
+      <input className={siteInputClass} placeholder="名称" autoFocus value={siteEditing.title} onChange={(e) => setSiteEditing({ ...siteEditing, title: e.target.value })} />
+      {siteEditing.kind === "site" && (
+        <input className={siteInputClass} placeholder="网址" value={siteEditing.url} onChange={(e) => setSiteEditing({ ...siteEditing, url: e.target.value })} />
+      )}
+      <div className="flex gap-1.5 pt-0.5">
+        <button onClick={() => void saveSite()} className="h-7 px-3 rounded bg-accent text-white text-[12.5px] hover:opacity-90">保存</button>
+        <button onClick={() => setSiteEditing(null)} className="h-7 px-3 rounded border border-border text-[12.5px] text-text-dim hover:text-text hover:bg-bg-hover">取消</button>
+        <button
+          onClick={() => { const t = sites.find((x) => x.id === siteEditing.id); if (t) { setSiteEditing(null); void remove(t); } }}
+          className="ml-auto h-7 px-2 rounded text-[12.5px] text-danger hover:bg-bg-hover"
+        >
+          {siteEditing.kind === "folder" ? "删除" : "移除"}
+        </button>
+      </div>
+    </div>
+  );
   const Tree = ({ parentId, depth }: { parentId: string | null; depth: number }) => (
     <>
       {childrenOf(parentId).map((site) => (
         <div key={site.id}>
           <Row site={site} depth={depth} />
+          {siteEditing?.id === site.id && siteEditor()}
           {site.kind === "folder" && open.has(site.id) && <Tree parentId={site.id} depth={depth + 1} />}
         </div>
       ))}
