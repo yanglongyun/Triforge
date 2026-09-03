@@ -1,8 +1,9 @@
 // 面板宿主:侧边栏的「壳」= 最左侧竖排活动栏 + 内容面板。
 //
 // 活动栏仿 VS Code:贯穿整个窗口高度,分两段 ——
-//   原生(会话/文件/网站/应用/小组件,焊死)钉顶 → 任务/设置钉底。
-// 组件不再陈列在活动栏上:全部收进「小组件」面板(格子;点一个进入,‹ 返回)。
+//   原生(会话/文件/网站/应用,焊死)钉顶 → 小组件/任务/设置钉底。
+// 小组件与任务不是主角:点开占侧栏下半(上半的面板还在),再点一次关掉;
+// 组件不再陈列在活动栏上:全部收进「小组件」(格子;点一个进入,‹ 返回)。
 // 状态点(会话未读/运行、应用在跑)上浮到图标上,面板关着也看得见。
 // 「收起侧栏」只收内容面板,活动栏常驻;点当前图标一下 = 收起(VS Code 的肌肉记忆)。
 // 组件的身体是 iframe,指向组件自己的 origin;契约是出厂技能 skills/widget。
@@ -25,6 +26,8 @@ import { WidgetFrame } from "../widgets/WidgetFrame";
 type Socket = { send: (m: any) => void; on: (t: string, fn: (p: any) => void) => () => void };
 
 const TOOL_WIDGET_KEY = "worktop.tools.widget";
+const LOWER_KEY = "worktop.lower";
+type LowerId = "tools" | "tasks";
 
 /** 「让 AI 造一个组件」的开工指令:自包含的契约速查表(全写进提示词,不指望 AI 去翻文档)。 */
 const buildWidgetPrompt = (desc: string) => `请为我造一个组件:${desc.trim()}
@@ -153,7 +156,7 @@ export function PanelHost({
     writeOrder(ids);
   };
   const nativeIds = NATIVE_PANELS.map((p) => p.id as string);
-  const activePanelId = nativeIds.includes(sideTab) || sideTab === "tasks" || sideTab === "tools" ? sideTab : "agents";
+  const activePanelId = nativeIds.includes(sideTab) ? sideTab : "agents";
   const switchTab = (tab: string) => {
     setSideTab(tab);
     localStorage.setItem("worktop.sideTab", tab);
@@ -165,6 +168,21 @@ export function PanelHost({
     if (desktop && activePanelId === id && desktopOpen) { onSetDesktopOpen?.(false); return; }
     switchTab(id);
     if (desktop && !desktopOpen) onSetDesktopOpen?.(true);
+  };
+
+  // 下半:小组件 / 任务不是主角,不抢上半的面板 —— 打开后占侧栏下半,再点一次关掉
+  const [lower, setLower] = useState<LowerId | null>(() => {
+    const v = localStorage.getItem(LOWER_KEY);
+    return v === "tools" || v === "tasks" ? v : null;
+  });
+  const openLower = (id: LowerId | null) => {
+    setLower(id);
+    if (id) localStorage.setItem(LOWER_KEY, id); else localStorage.removeItem(LOWER_KEY);
+  };
+  const toggleLower = (id: LowerId) => {
+    const desktop = window.matchMedia("(min-width: 768px)").matches;
+    if (desktop && !desktopOpen) { onSetDesktopOpen?.(true); openLower(id); return; }
+    openLower(lower === id ? null : id);
   };
 
   // ── 图标上的状态点:面板关着也看得见 ──
@@ -325,7 +343,7 @@ export function PanelHost({
     if (mobileOpen) onCloseMobile?.();
   };
 
-  const toolWidget = activePanelId === "tools" ? tiles.find((w) => w.id === toolWidgetId) || null : null;
+  const toolWidget = lower === "tools" ? tiles.find((w) => w.id === toolWidgetId) || null : null;
   const activeNative = NATIVE_PANELS.find((p) => p.id === activePanelId) || null;
 
   return (
@@ -338,7 +356,7 @@ export function PanelHost({
         "md:flex", // 桌面端活动栏常驻 —— 收起收的是内容面板,不是它
       ].join(" ")}
     >
-      {/* ── 活动栏:52px 竖排,两段:原生钉顶,任务/设置钉底 ── */}
+      {/* ── 活动栏:52px 竖排,两段:原生钉顶,小组件/任务/设置钉底 ── */}
       <div className="w-[52px] shrink-0 flex flex-col items-center pt-2 pb-1.5">
         <div className="shrink-0 w-full flex flex-col items-center gap-0.5">
           {NATIVE_PANELS.map((p) => (
@@ -352,14 +370,14 @@ export function PanelHost({
               <p.icon size={18} />
             </RailButton>
           ))}
-          <RailButton title="小组件" active={activePanelId === "tools" && !settingsActive} onClick={() => onRailClick("tools")}>
-            <Puzzle size={18} />
-          </RailButton>
         </div>
         <div className="flex-1 min-h-0" />
         <div className="shrink-0 w-full flex flex-col items-center gap-0.5 pt-1">
           <div className="w-7 h-px bg-border mb-1" />
-          <RailButton title="任务:应用在后台替你干的活" active={activePanelId === "tasks" && !settingsActive} onClick={() => onRailClick("tasks")}>
+          <RailButton title="小组件(占侧栏下半)" active={lower === "tools" && desktopOpen} onClick={() => toggleLower("tools")}>
+            <Puzzle size={18} />
+          </RailButton>
+          <RailButton title="任务:应用在后台替你干的活(占侧栏下半)" active={lower === "tasks" && desktopOpen} onClick={() => toggleLower("tasks")}>
             <Activity size={18} />
           </RailButton>
           <RailButton title="设置" active={settingsActive} onClick={handleToggleSettings}>
@@ -378,26 +396,11 @@ export function PanelHost({
       >
         {/* 面板头:一行搞定 —— 当前面板叫什么 + 右侧收起(移动端 X 关抽屉),没有品牌行 */}
         {/* 高度与标签栏对齐(两边各让一半:40 / 44 → 42) */}
+        {/* ── 上半:当前原生面板;下半开着时两半平分 ── */}
+        <div className="flex-1 min-h-0 flex flex-col">
         <div className="shrink-0 h-[42px] flex items-center gap-2 px-3.5 border-b border-border">
-          {toolWidget && (
-            <button
-              onClick={() => enterWidget(null)}
-              title="返回小组件"
-              className="-ml-1.5 w-6 h-6 rounded flex items-center justify-center text-text-faint hover:text-text hover:bg-bg-hover transition-colors"
-            >
-              <ChevronLeft size={15} />
-            </button>
-          )}
-          {toolWidget
-            ? <span className="text-[14px] leading-none">{toolWidget.icon}</span>
-            : activePanelId === "tools"
-              ? <Puzzle size={14} className="text-accent shrink-0" />
-              : activePanelId === "tasks"
-                ? <Activity size={14} className="text-accent shrink-0" />
-                : activeNative && <activeNative.icon size={14} className="text-accent shrink-0" />}
-          <span className="text-[13px] font-medium text-text truncate flex-1">
-            {toolWidget ? toolWidget.name : activePanelId === "tools" ? "小组件" : activePanelId === "tasks" ? "任务" : activeNative?.title}
-          </span>
+          {activeNative && <activeNative.icon size={14} className="text-accent shrink-0" />}
+          <span className="text-[13px] font-medium text-text truncate flex-1">{activeNative?.title}</span>
           {onToggleNav && (
             <button
               onClick={onToggleNav}
@@ -445,66 +448,99 @@ export function PanelHost({
         {activePanelId === "apps" && (
           <AppsPanel socket={socket} onOpenApp={(app) => onOpenApp(app.id, app.name)} onCreate={createAppWithAI} />
         )}
-        {activePanelId === "tasks" && <TasksPanel socket={socket} onOpenTask={onOpenTask} />}
-        {activePanelId === "tools" && (toolWidget ? (
-          <WidgetFrame key={toolWidget.id} widget={toolWidget} />
-        ) : (
-          <div
-            className="flex-1 min-h-0 overflow-y-auto p-2"
-            onDragOver={(e) => { if (dragId) { e.preventDefault(); setDropAt(null); } }}
-            onDrop={(e) => { if (dragId) { e.preventDefault(); reorder(dragId, null); } }}
-          >
-            <div className="grid grid-cols-4 gap-1">
-              {tiles.map((w) => (
+        </div>
+
+        {/* ── 下半:小组件 / 任务,占一半高;头一行 = (‹ 返回)图标 + 名字 + ✕ ── */}
+        {lower && (
+          <div className="flex-1 min-h-0 flex flex-col border-t border-border">
+            <div className="shrink-0 h-[34px] flex items-center gap-2 px-3.5 border-b border-border">
+              {toolWidget && (
                 <button
-                  key={w.id}
-                  draggable
-                  onDragStart={(e) => {
-                    e.dataTransfer.effectAllowed = "move";
-                    setDragId(w.id);
-                    beginGlobalDrag();
-                  }}
-                  onDragEnd={() => { setDragId(null); setDropAt(undefined); endGlobalDrag(); }}
-                  onDragOver={(e) => {
-                    if (!dragId || dragId === w.id) return;
-                    e.preventDefault();
-                    e.stopPropagation();
-                    setDropAt(w.id);
-                  }}
-                  onDrop={(e) => {
-                    if (!dragId || dragId === w.id) return;
-                    e.preventDefault();
-                    e.stopPropagation();
-                    reorder(dragId, w.id);
-                  }}
-                  onClick={() => enterWidget(w.id)}
-                  onContextMenu={(e) => onWidgetContext(e, w)}
-                  title={`${w.name}${w.description ? `\n${w.description}` : ""}\n(可拖动排序,右键删除)`}
-                  className={[
-                    "relative flex flex-col items-center gap-1 px-1 py-2.5 rounded-lg text-[11.5px] text-text-dim hover:bg-bg-hover transition-colors",
-                    dragId === w.id ? "opacity-40" : "",
-                    // 插入指示线:落点左侧一条 accent 短线
-                    dropAt === w.id ? "before:content-[''] before:absolute before:-left-[3px] before:top-1 before:bottom-1 before:w-[2px] before:rounded before:bg-accent" : "",
-                  ].join(" ")}
+                  onClick={() => enterWidget(null)}
+                  title="返回小组件"
+                  className="-ml-1.5 w-6 h-6 rounded flex items-center justify-center text-text-faint hover:text-text hover:bg-bg-hover transition-colors"
                 >
-                  <span className="text-[22px] leading-none">{w.icon}</span>
-                  <span className="max-w-full truncate">{w.name}</span>
+                  <ChevronLeft size={15} />
                 </button>
-              ))}
+              )}
+              {toolWidget
+                ? <span className="text-[14px] leading-none">{toolWidget.icon}</span>
+                : lower === "tools"
+                  ? <Puzzle size={14} className="text-accent shrink-0" />
+                  : <Activity size={14} className="text-accent shrink-0" />}
+              <span className="text-[13px] font-medium text-text truncate flex-1">
+                {toolWidget ? toolWidget.name : lower === "tools" ? "小组件" : "任务"}
+              </span>
               <button
-                onClick={() => void createWidgetWithAI()}
-                title="让 AI 造一个组件"
-                className="flex flex-col items-center gap-1 px-1 py-2.5 rounded-lg text-[11.5px] text-text-faint hover:text-text hover:bg-bg-hover transition-colors"
+                onClick={() => openLower(null)}
+                title="关闭"
+                className="w-6 h-6 rounded flex items-center justify-center text-text-faint hover:text-text hover:bg-bg-hover transition-colors"
               >
-                <span className="w-[22px] h-[22px] flex items-center justify-center"><Plus size={18} /></span>
-                <span>造一个</span>
+                <X size={14} />
               </button>
             </div>
-            {!tiles.length && (
-              <div className="px-3 py-6 text-center text-[12px] text-text-faint leading-relaxed">还没有小组件。点「造一个」让 AI 写。</div>
-            )}
+            {lower === "tasks" && <TasksPanel socket={socket} onOpenTask={onOpenTask} />}
+            {lower === "tools" && (toolWidget ? (
+              <WidgetFrame key={toolWidget.id} widget={toolWidget} />
+            ) : (
+              <div
+                className="flex-1 min-h-0 overflow-y-auto p-2"
+                onDragOver={(e) => { if (dragId) { e.preventDefault(); setDropAt(null); } }}
+                onDrop={(e) => { if (dragId) { e.preventDefault(); reorder(dragId, null); } }}
+              >
+                <div className="grid grid-cols-4 gap-1">
+                  {tiles.map((w) => (
+                    <button
+                      key={w.id}
+                      draggable
+                      onDragStart={(e) => {
+                        e.dataTransfer.effectAllowed = "move";
+                        setDragId(w.id);
+                        beginGlobalDrag();
+                      }}
+                      onDragEnd={() => { setDragId(null); setDropAt(undefined); endGlobalDrag(); }}
+                      onDragOver={(e) => {
+                        if (!dragId || dragId === w.id) return;
+                        e.preventDefault();
+                        e.stopPropagation();
+                        setDropAt(w.id);
+                      }}
+                      onDrop={(e) => {
+                        if (!dragId || dragId === w.id) return;
+                        e.preventDefault();
+                        e.stopPropagation();
+                        reorder(dragId, w.id);
+                      }}
+                      onClick={() => enterWidget(w.id)}
+                      onContextMenu={(e) => onWidgetContext(e, w)}
+                      title={`${w.name}${w.description ? `\n${w.description}` : ""}\n(可拖动排序,右键删除)`}
+                      className={[
+                        "relative flex flex-col items-center gap-1 px-1 py-2.5 rounded-lg text-[11.5px] text-text-dim hover:bg-bg-hover transition-colors",
+                        dragId === w.id ? "opacity-40" : "",
+                        // 插入指示线:落点左侧一条 accent 短线
+                        dropAt === w.id ? "before:content-[''] before:absolute before:-left-[3px] before:top-1 before:bottom-1 before:w-[2px] before:rounded before:bg-accent" : "",
+                      ].join(" ")}
+                    >
+                      <span className="text-[22px] leading-none">{w.icon}</span>
+                      <span className="max-w-full truncate">{w.name}</span>
+                    </button>
+                  ))}
+                  <button
+                    onClick={() => void createWidgetWithAI()}
+                    title="让 AI 造一个组件"
+                    className="flex flex-col items-center gap-1 px-1 py-2.5 rounded-lg text-[11.5px] text-text-faint hover:text-text hover:bg-bg-hover transition-colors"
+                  >
+                    <span className="w-[22px] h-[22px] flex items-center justify-center"><Plus size={18} /></span>
+                    <span>造一个</span>
+                  </button>
+                </div>
+                {!tiles.length && (
+                  <div className="px-3 py-6 text-center text-[12px] text-text-faint leading-relaxed">还没有小组件。点「造一个」让 AI 写。</div>
+                )}
+              </div>
+            ))}
           </div>
-        ))}
+        )}
 
         <div
           onPointerDown={startResize}
