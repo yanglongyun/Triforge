@@ -453,7 +453,7 @@ export function PanelHost({
         {/* ── 下半:小组件 / 任务,占一半高;头一行 = (‹ 返回)图标 + 名字 + ✕ ── */}
         {lower && (
           <div className="flex-1 min-h-0 flex flex-col border-t border-border">
-            <div className="shrink-0 h-[34px] flex items-center gap-2 px-3.5 border-b border-border">
+            <div className="shrink-0 h-[34px] flex items-center gap-2 px-3.5">
               {toolWidget && (
                 <button
                   onClick={() => enterWidget(null)}
