@@ -150,6 +150,32 @@ const readBookmarks = (dir) => {
   return out;
 };
 
+/** Chrome 的密码库 Login Data:password_value 和 cookie 同一套加密(v10 + Safe Storage 派生密钥)。 */
+const readPasswords = (dir, key) => {
+  const source = join(CHROME_DIR, dir, "Login Data");
+  if (!existsSync(source)) return [];
+  const work = mkdtempSync(join(tmpdir(), "worktop-logins-"));
+  let db;
+  try {
+    const copy = join(work, "Login Data");
+    copyFileSync(source, copy);
+    for (const suffix of ["-wal", "-shm", "-journal"]) if (existsSync(source + suffix)) copyFileSync(source + suffix, copy + suffix);
+    db = new DatabaseSync(copy, { readOnly: true });
+    const rows = db.prepare("SELECT origin_url, username_value, password_value FROM logins WHERE blacklisted_by_user = 0").all();
+    const out = [];
+    for (const row of rows) {
+      let password = "";
+      try { password = row.password_value?.length ? decryptCookie(row.password_value, key, "") : ""; } catch { password = ""; }
+      if (!password && !row.username_value) continue;
+      out.push({ url: String(row.origin_url || ""), username: String(row.username_value || ""), password });
+    }
+    return out;
+  } finally {
+    try { db?.close(); } catch { /* 无所谓 */ }
+    rmSync(work, { recursive: true, force: true });
+  }
+};
+
 const arg = (name) => process.argv.find((a) => a.startsWith(`--${name}=`))?.split("=").slice(1).join("=") || "";
 
 try {
@@ -162,10 +188,12 @@ try {
     const dir = arg("profile") || chromeProfiles()[0]?.name;
     if (!dir) throw new Error("没有找到 Chrome 的 Cookie 数据库");
 
-    const result = { ok: true, profile: dir, cookies: [], bookmarks: [] };
+    const result = { ok: true, profile: dir, cookies: [], bookmarks: [], passwords: [] };
 
+    const needKey = want.includes("cookies") || want.includes("passwords");
+    const key = needKey ? storageKey() : null; // 钥匙串授权在这一步弹;只导书签时不会打扰用户
+    if (want.includes("passwords")) result.passwords = readPasswords(dir, key);
     if (want.includes("cookies")) {
-      const key = storageKey();  // 钥匙串授权在这一步弹;只导书签时不会打扰用户
       result.cookies = readCookies(join(CHROME_DIR, dir, "Cookies")).map((row) => {
         const host = String(row.host_key || "");
         let value = "";

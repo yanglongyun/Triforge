@@ -95,6 +95,19 @@ const initDb = () => {
 
     -- 网站收藏:一棵浅树。kind='folder' 的行没有 url,别的行 parent_id 指向它。
     -- position 决定同级次序(拖拽排序),不靠 created_at —— 用户排的顺序和创建顺序无关。
+    -- 密码:按网站存的账号密码。password_enc 是 AES-256-GCM 密文(密钥在钥匙串),库里没有明文。
+    CREATE TABLE IF NOT EXISTS passwords (
+      id           TEXT PRIMARY KEY,
+      host         TEXT NOT NULL DEFAULT '',
+      url          TEXT NOT NULL DEFAULT '',
+      username     TEXT NOT NULL DEFAULT '',
+      password_enc TEXT NOT NULL,
+      note         TEXT NOT NULL DEFAULT '',
+      created_at   TEXT NOT NULL DEFAULT (datetime('now')),
+      updated_at   TEXT NOT NULL DEFAULT (datetime('now'))
+    );
+    CREATE INDEX IF NOT EXISTS idx_passwords_host ON passwords(host, username);
+
     CREATE TABLE IF NOT EXISTS sites (
       id         TEXT PRIMARY KEY,
       title      TEXT NOT NULL,

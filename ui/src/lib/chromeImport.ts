@@ -8,8 +8,8 @@ import { api } from "../api";
 const STATE_KEY = "worktop.chromeImport.state";
 
 export type ChromeProfile = { dir: string; name: string; email: string };
-export type ImportChoice = { profile: string; cookies: boolean; bookmarks: boolean };
-export type ImportResult = { profile: string; total: number; imported: number; failed: number; bookmarks: number; folders: number };
+export type ImportChoice = { profile: string; cookies: boolean; bookmarks: boolean; passwords: boolean };
+export type ImportResult = { profile: string; total: number; imported: number; failed: number; bookmarks: number; folders: number; passwords: number };
 
 const read = () => {
   try { return localStorage.getItem(STATE_KEY) || ""; } catch { return ""; }
@@ -78,6 +78,12 @@ export const importFromChrome = async (choice: ImportChoice): Promise<ImportResu
     await walk(result.bookmarks, null);
   }
 
+  // 密码:交给宿主加密落库,服务端按 host+账号+密码 去重
+  let passwordsAdded = 0;
+  if (choice.passwords && result.passwords?.length) {
+    try { passwordsAdded = await api.importPasswords(result.passwords); } catch { /* 钥匙串拿不到时导不了,界面会看到 0 */ }
+  }
+
   markImported();
-  return { profile: result.profile, total: result.total, imported: result.imported, failed: result.failed, bookmarks, folders };
+  return { profile: result.profile, total: result.total, imported: result.imported, failed: result.failed, bookmarks, folders, passwords: passwordsAdded };
 };

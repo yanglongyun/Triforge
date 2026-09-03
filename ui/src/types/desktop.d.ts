@@ -24,9 +24,9 @@ declare global {
         | { ok: false; error: string }
       >;
       /** 导入。选 cookies 时系统会弹钥匙串授权,拒绝则 ok:false。 */
-      importChromeCookies: (options?: { profile?: string; cookies?: boolean; bookmarks?: boolean }) => Promise<
+      importChromeCookies: (options?: { profile?: string; cookies?: boolean; bookmarks?: boolean; passwords?: boolean }) => Promise<
         { ok: true; profile: string; total: number; imported: number; failed: number;
-          bookmarks: ChromeBookmarkNode[] }
+          bookmarks: ChromeBookmarkNode[]; passwords: { url: string; username: string; password: string }[] }
         | { ok: false; error: string }
       >;
       /** 回答浏览器抛上来的问询(权限 true/false;HTTP 认证 {username,password} 或 null)。 */

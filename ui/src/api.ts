@@ -69,6 +69,9 @@ export type Site = {
   created_at: string;
 };
 
+/** 密码:列表不带密码,明文单独 reveal。 */
+export type PasswordEntry = { id: string; host: string; url: string; username: string; note: string; created_at: string; updated_at: string };
+
 /** 浏览记录:一个 url 一行,重复访问只抬时间与次数。 */
 export type HistoryEntry = { url: string; title: string; visits: number; visited_at: string };
 
@@ -257,6 +260,19 @@ export const api = {
   toggleSkill: (id: string, enabled: boolean) =>
     request<{ ok: boolean }>("/api/skills/toggle", { method: "POST", ...jsonBody({ id, enabled }) }),
   skillDoc: (id: string) => request<{ id: string; content: string }>(`/api/skills/doc?id=${encodeURIComponent(id)}`),
+
+  // ── 密码(宿主加密落库)──
+  listPasswords: () => request<{ passwords: PasswordEntry[] }>("/api/passwords").then((r) => r.passwords || []),
+  revealPassword: (id: string) => request<{ password: string }>(`/api/passwords/reveal?id=${encodeURIComponent(id)}`).then((r) => r.password),
+  createPassword: (body: { url?: string; username?: string; password?: string; note?: string }) =>
+    request<{ item: PasswordEntry }>("/api/passwords", { method: "POST", ...jsonBody(body) }).then((r) => r.item),
+  updatePassword: (id: string, body: { url?: string; username?: string; password?: string; note?: string }) =>
+    request<{ item: PasswordEntry }>(`/api/passwords?id=${encodeURIComponent(id)}`, { method: "PATCH", ...jsonBody(body) }).then((r) => r.item),
+  removePassword: (id: string) => request<{ deleted: boolean }>(`/api/passwords?id=${encodeURIComponent(id)}`, { method: "DELETE" }),
+  clearPasswords: () => request<{ cleared: boolean }>("/api/passwords?all=1", { method: "DELETE" }),
+  importPasswords: (items: { url?: string; username?: string; password?: string; note?: string }[]) =>
+    request<{ added: number }>("/api/passwords/import", { method: "POST", ...jsonBody({ items }) }).then((r) => r.added),
+  exportPasswordsCsv: () => fetch("/api/passwords/export").then((r) => r.text()),
 
   // ── 应用(apps:跨宿主的公共契约,见仓库根 APP.md)──
   listApps: () => request<{ apps: AppInfo[] }>("/api/apps").then((r) => r.apps || []),

@@ -46,13 +46,13 @@ export const listChromeProfiles = async (runtime) => {
  * 导入。
  * @param targetSession Electron session(网页标签用的 persist:web)
  * @param runtime { nodeBin, script } 由 main.js 按开发/打包两种布局给出
- * @param options { profile, cookies, bookmarks } 用户在对话框里选的
+ * @param options { profile, cookies, bookmarks, passwords } 用户在对话框里选的
  */
 export const importChromeCookies = async (targetSession, runtime, options = {}) => {
   if (process.platform !== "darwin") throw new Error("目前只支持从 macOS 版 Chrome 导入");
   if (!chromeProfiles().length) throw new Error("没有找到 Chrome 的 Cookie 数据库");
 
-  const want = [options.cookies !== false && "cookies", options.bookmarks && "bookmarks"].filter(Boolean);
+  const want = [options.cookies !== false && "cookies", options.bookmarks && "bookmarks", options.passwords && "passwords"].filter(Boolean);
   if (!want.length) throw new Error("没有选择要导入的数据");
 
   const args = [`--what=${want.join(",")}`];
@@ -96,5 +96,6 @@ export const importChromeCookies = async (targetSession, runtime, options = {}) 
     imported,
     failed,
     bookmarks: result.bookmarks || [],
+    passwords: result.passwords || [],
   };
 };

@@ -452,7 +452,7 @@ export function WebPanel({ tab, socket, onUpdate }: {
             setImportNote(
               `已从 ${r.profile} 导入 ${r.imported} 条登录信息` +
               `${r.failed ? `,跳过 ${r.failed} 条` : ""}` +
-              `${r.bookmarks ? `,新增 ${r.bookmarks} 个网站` : ""}。刷新页面后生效。`,
+              `${r.bookmarks ? `,新增 ${r.bookmarks} 个网站` : ""}${r.passwords ? `,导入 ${r.passwords} 条密码` : ""}。刷新页面后生效。`,
             );
           }}
         />

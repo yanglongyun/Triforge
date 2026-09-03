@@ -5,7 +5,7 @@
 // 而放不下的结果就是替用户默认(从前是自动挑最近用过的那个配置,多 Profile 的人没得选)。
 import { useEffect, useState } from "react";
 import { createPortal } from "react-dom";
-import { AlertTriangle, Check, ChevronDown, Cookie, Loader2, Star, X } from "lucide-react";
+import { AlertTriangle, Check, ChevronDown, Cookie, Loader2, Star, X, KeyRound } from "lucide-react";
 import { Switch } from "./Switch";
 import {
   importFromChrome, listChromeProfiles,
@@ -21,6 +21,7 @@ export function ChromeImportDialog({ onClose, onDone }: {
   const [pickerOpen, setPickerOpen] = useState(false);
   const [cookies, setCookies] = useState(true);
   const [bookmarks, setBookmarks] = useState(true);
+  const [passwords, setPasswords] = useState(true);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState("");
 
@@ -42,13 +43,13 @@ export function ChromeImportDialog({ onClose, onDone }: {
   }, [busy, pickerOpen, onClose]);
 
   const current = profiles.find((p) => p.dir === profile);
-  const nothingPicked = !cookies && !bookmarks;
+  const nothingPicked = !cookies && !bookmarks && !passwords;
 
   const run = () => {
     if (busy || nothingPicked) return;
     setBusy(true);
     setError("");
-    void importFromChrome({ profile, cookies, bookmarks })
+    void importFromChrome({ profile, cookies, bookmarks, passwords })
       .then((result) => { onDone?.(result); onClose(); })
       .catch((e) => { setError(e?.message || "导入失败"); setBusy(false); });
   };
@@ -125,6 +126,10 @@ export function ChromeImportDialog({ onClose, onDone }: {
           <Row icon={<Star size={17} className="text-text-dim" />} label="书签"
             hint="加入「网站」面板,已有的不重复添加"
             on={bookmarks} onChange={setBookmarks} disabled={busy} />
+          <div className="h-px bg-border mx-3.5" />
+          <Row icon={<KeyRound size={17} className="text-text-dim" />} label="密码"
+            hint="加入「网站」面板的密码页,加密保存在本机"
+            on={passwords} onChange={setPasswords} disabled={busy} />
         </div>
 
         {error && (
