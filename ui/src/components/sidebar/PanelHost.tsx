@@ -1,15 +1,15 @@
 // 面板宿主:侧边栏的「壳」= 最左侧竖排活动栏 + 内容面板。
 //
 // 活动栏仿 VS Code:贯穿整个窗口高度,分两段 ——
-//   原生六件(会话/文件/网站/技能/应用/工具,焊死)钉顶 → 任务/设置钉底。
-// 组件不再陈列在活动栏上:全部收进「工具」面板(格子;点一个进入该组件,‹ 返回)。
+//   原生(会话/文件/网站/应用/小组件,焊死)钉顶 → 任务/设置钉底。
+// 组件不再陈列在活动栏上:全部收进「小组件」面板(格子;点一个进入,‹ 返回)。
 // 状态点(会话未读/运行、应用在跑)上浮到图标上,面板关着也看得见。
 // 「收起侧栏」只收内容面板,活动栏常驻;点当前图标一下 = 收起(VS Code 的肌肉记忆)。
 // 组件的身体是 iframe,指向组件自己的 origin;契约是出厂技能 skills/widget。
 import { useEffect, useState } from "react";
 import { api, type GitRepositoryStatus, type Node } from "../../api";
 import { ContextMenu, dialog, type MenuItem } from "../ui";
-import { Activity, ChevronLeft, PanelLeft, Plus, Settings, Trash2, Wrench, X } from "lucide-react";
+import { Activity, ChevronLeft, PanelLeft, Plus, Puzzle, Settings, Trash2, X } from "lucide-react";
 import { beginGlobalDrag, endGlobalDrag } from "../../lib/drag";
 import { CREATE_WIDGET_EVENT, applyOrder, dropFromOrder, useWidgetOrder, writeOrder } from "../../lib/widgetOrder";
 import { EVENTS } from "../../../../server/shared/events";
@@ -29,7 +29,7 @@ const TOOL_WIDGET_KEY = "worktop.tools.widget";
 /** 「让 AI 造一个组件」的开工指令:自包含的契约速查表(全写进提示词,不指望 AI 去翻文档)。 */
 const buildWidgetPrompt = (desc: string) => `请为我造一个组件:${desc.trim()}
 
-按「技能」里的 widget 做。写完告诉我组件名,它会出现在侧栏的「工具」面板里。`;
+按「技能」里的 widget 做。写完告诉我组件名,它会出现在侧栏的「小组件」面板里。`;
 
 /** 「让 AI 造一个应用」的开工指令:自包含的契约速查表(见 AGENT 仓库 SPEC.md)。 */
 const buildAppPrompt = (desc: string) => `请为我造一个应用:${desc.trim()}
@@ -131,11 +131,11 @@ export function PanelHost({
     .then((list) => setWidgets(list as WidgetDef[]))
     .catch(() => {});
   useEffect(() => { void reloadWidgets(); }, [refreshKey]);
-  // 装了就进「工具」面板,没有钉选;顺序 = 用户拖出来的顺序,新装的垫后
+  // 装了就进「小组件」面板,没有钉选;顺序 = 用户拖出来的顺序,新装的垫后
   const tiles = applyOrder(widgets);
   void order; // 订阅它只为拖拽后重排
 
-  // 工具面板里当前进入的组件(null = 看格子);记住,下次打开还在
+  // 小组件面板里当前进入的组件(null = 看格子);记住,下次打开还在
   const [toolWidgetId, setToolWidgetId] = useState<string | null>(() => localStorage.getItem(TOOL_WIDGET_KEY));
   const enterWidget = (id: string | null) => {
     setToolWidgetId(id);
@@ -143,7 +143,7 @@ export function PanelHost({
   };
 
   const [sideTab, setSideTab] = useState<string>(() => localStorage.getItem("worktop.sideTab") || "agents");
-  // 工具面板格子的拖拽排序:dragId = 手里拿着谁;dropAt = 松手会插到谁前面(null = 段尾)
+  // 小组件面板格子的拖拽排序:dragId = 手里拿着谁;dropAt = 松手会插到谁前面(null = 段尾)
   const [dragId, setDragId] = useState<string | null>(null);
   const [dropAt, setDropAt] = useState<string | null | undefined>(undefined);
   const reorder = (id: string, beforeId: string | null) => {
@@ -214,7 +214,7 @@ export function PanelHost({
     if (toolWidgetId === widget.id) enterWidget(null);
   };
 
-  // 让 AI 造一个组件:一句话 → 新对话 → agent 在 widgets/ 里写出目录 → 自动出现在「工具」面板
+  // 让 AI 造一个组件:一句话 → 新对话 → agent 在 widgets/ 里写出目录 → 自动出现在「小组件」面板
   const createWidgetWithAI = async () => {
     const desc = await dialog.prompt("", {
       title: "让 AI 造一个组件",
@@ -305,7 +305,7 @@ export function PanelHost({
     }
   };
 
-  // ── 右键菜单(工具面板的组件格子):删除 ──
+  // ── 右键菜单(小组件面板的格子):删除 ──
   const [menu, setMenu] = useState<{ x: number; y: number; items: MenuItem[] } | null>(null);
   const onWidgetContext = (e: React.MouseEvent, widget: WidgetDef) => {
     e.preventDefault();
@@ -338,7 +338,7 @@ export function PanelHost({
         "md:flex", // 桌面端活动栏常驻 —— 收起收的是内容面板,不是它
       ].join(" ")}
     >
-      {/* ── 活动栏:52px 竖排,两段:六原生钉顶,任务/设置钉底 ── */}
+      {/* ── 活动栏:52px 竖排,两段:原生钉顶,任务/设置钉底 ── */}
       <div className="w-[52px] shrink-0 flex flex-col items-center pt-2 pb-1.5">
         <div className="shrink-0 w-full flex flex-col items-center gap-0.5">
           {NATIVE_PANELS.map((p) => (
@@ -352,8 +352,8 @@ export function PanelHost({
               <p.icon size={18} />
             </RailButton>
           ))}
-          <RailButton title="工具:你的组件" active={activePanelId === "tools" && !settingsActive} onClick={() => onRailClick("tools")}>
-            <Wrench size={18} />
+          <RailButton title="小组件" active={activePanelId === "tools" && !settingsActive} onClick={() => onRailClick("tools")}>
+            <Puzzle size={18} />
           </RailButton>
         </div>
         <div className="flex-1 min-h-0" />
@@ -382,7 +382,7 @@ export function PanelHost({
           {toolWidget && (
             <button
               onClick={() => enterWidget(null)}
-              title="返回工具"
+              title="返回小组件"
               className="-ml-1.5 w-6 h-6 rounded flex items-center justify-center text-text-faint hover:text-text hover:bg-bg-hover transition-colors"
             >
               <ChevronLeft size={15} />
@@ -391,12 +391,12 @@ export function PanelHost({
           {toolWidget
             ? <span className="text-[14px] leading-none">{toolWidget.icon}</span>
             : activePanelId === "tools"
-              ? <Wrench size={14} className="text-accent shrink-0" />
+              ? <Puzzle size={14} className="text-accent shrink-0" />
               : activePanelId === "tasks"
                 ? <Activity size={14} className="text-accent shrink-0" />
                 : activeNative && <activeNative.icon size={14} className="text-accent shrink-0" />}
           <span className="text-[13px] font-medium text-text truncate flex-1">
-            {toolWidget ? toolWidget.name : activePanelId === "tools" ? "工具" : activePanelId === "tasks" ? "任务" : activeNative?.title}
+            {toolWidget ? toolWidget.name : activePanelId === "tools" ? "小组件" : activePanelId === "tasks" ? "任务" : activeNative?.title}
           </span>
           {onToggleNav && (
             <button
@@ -501,7 +501,7 @@ export function PanelHost({
               </button>
             </div>
             {!tiles.length && (
-              <div className="px-3 py-6 text-center text-[12px] text-text-faint leading-relaxed">还没有组件。点「造一个」让 AI 写,或在「组件」管理页里看。</div>
+              <div className="px-3 py-6 text-center text-[12px] text-text-faint leading-relaxed">还没有小组件。点「造一个」让 AI 写。</div>
             )}
           </div>
         ))}

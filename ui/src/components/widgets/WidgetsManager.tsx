@@ -45,7 +45,7 @@ export function WidgetsManager() {
           <div className="flex-1 min-w-0">
             <h1 className="text-[17px] font-semibold text-text">组件</h1>
             <p className="mt-0.5 text-[12.5px] text-text-faint">
-零构建的小工具,一个目录即一个组件。装好就出现在侧栏「工具」面板里。
+零构建的小工具,一个目录即一个组件。装好就出现在侧栏「小组件」面板里。
             </p>
           </div>
           <button
@@ -73,7 +73,7 @@ export function WidgetsManager() {
                   key={widget.id}
                   className="group flex flex-col p-3.5 rounded-lg border border-border bg-surface hover:border-accent/40 transition-colors"
                 >
-                  {/* 顶行:图标 + 名字。装了就在工具面板里,没有显示开关 */}
+                  {/* 顶行:图标 + 名字。装了就在小组件面板里,没有显示开关 */}
                   <div className="flex items-center gap-3">
                     <span className="shrink-0 w-9 h-9 rounded-md bg-bg-panel flex items-center justify-center text-[19px] leading-none">
                       {widget.icon}
