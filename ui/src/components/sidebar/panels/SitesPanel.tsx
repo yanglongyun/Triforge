@@ -128,11 +128,10 @@ export function SitesPanel({ onOpenUrl, socket }: {
   const collapseAll = () => setOpen(writeOpen(new Set()));
 
   // ── 收藏 ──
-  const add = async (parentId: string | null = null) => {
-    const url = await dialog.prompt("", { title: "添加网站", placeholder: "example.com 或 https://…", confirmText: "添加" });
-    if (!url || !url.trim()) return;
-    try { await api.createSite({ url: url.trim(), parentId }); load(); }
-    catch (e: any) { void dialog.alert(e?.message || "添加失败"); }
+  // 添加网站 = 就地展开一张空表单(名称 + 网址),在目标文件夹(或根)的最上面
+  const add = (parentId: string | null = null) => {
+    setSiteEditing({ id: null, kind: "site", title: "", url: "", parentId });
+    if (parentId) setOpen((o) => { const n = new Set(o); n.add(parentId); return n; });
   };
   const addFolder = async (parentId: string | null = null) => {
     const title = await dialog.prompt("", { title: "新建文件夹", placeholder: "文件夹名…", confirmText: "创建" });
@@ -150,7 +149,8 @@ export function SitesPanel({ onOpenUrl, socket }: {
   };
   const siteInputClass = "w-full h-7 px-2 rounded border border-border bg-bg text-[12.5px] text-text placeholder:text-text-faint outline-none focus:border-accent";
   // 编辑在行下就地展开:网站改名字 + 网址,文件夹只改名字
-  const [siteEditing, setSiteEditing] = useState<{ id: string; kind: Site["kind"]; title: string; url: string } | null>(null);
+  // id 为 null = 新建(parentId 说明放哪);否则是编辑已有的一条
+  const [siteEditing, setSiteEditing] = useState<{ id: string | null; kind: Site["kind"]; title: string; url: string; parentId?: string | null } | null>(null);
   const editSite = (site: Site) => setSiteEditing({ id: site.id, kind: site.kind, title: site.title, url: site.url });
   const saveSite = async () => {
     if (!siteEditing) return;
@@ -158,10 +158,11 @@ export function SitesPanel({ onOpenUrl, socket }: {
     const url = siteEditing.url.trim();
     if (siteEditing.kind === "site" && !url) { void dialog.alert("网址不能为空"); return; }
     try {
-      await api.updateSite(siteEditing.id, siteEditing.kind === "site" ? { title, url } : { title });
+      if (siteEditing.id === null) await api.createSite({ url, title: title || undefined, parentId: siteEditing.parentId ?? null });
+      else await api.updateSite(siteEditing.id, siteEditing.kind === "site" ? { title, url } : { title });
       setSiteEditing(null);
       load();
-    } catch (e: any) { void dialog.alert(e?.message || "保存失败"); }
+    } catch (e: any) { void dialog.alert(e?.message || (siteEditing.id === null ? "添加失败" : "保存失败")); }
   };
   const contextMenu = (e: React.MouseEvent, site: Site) => {
     e.preventDefault(); e.stopPropagation();
@@ -171,7 +172,7 @@ export function SitesPanel({ onOpenUrl, socket }: {
       items: [
         ...(isFolder
           ? [
-            { label: "在此添加网站…", icon: <Plus size={13} />, onClick: () => void add(site.id) },
+            { label: "在此添加网站…", icon: <Plus size={13} />, onClick: () => add(site.id) },
             { label: "在此新建文件夹…", icon: <FolderPlus size={13} />, onClick: () => void addFolder(site.id) },
           ]
           : [{ label: "打开", icon: <Globe size={13} />, onClick: () => onOpenUrl(site.url, site.title) }]),
@@ -293,7 +294,7 @@ export function SitesPanel({ onOpenUrl, socket }: {
   // ── 工具行:每个子视图自己的 ＋ 与 ⋯ ──
   const placeholder = { sites: "搜索收藏…", history: "搜索历史…", passwords: "搜索密码(域名 / 账号)…" }[view];
   const addAction = view === "sites"
-    ? { title: "添加网站", onClick: () => void add() }
+    ? { title: "添加网站", onClick: () => add() }
     : view === "passwords"
       ? { title: "添加密码", onClick: () => void editPassword(null) }
       : undefined;
@@ -436,19 +437,21 @@ export function SitesPanel({ onOpenUrl, socket }: {
       onPointerDown={(e) => e.stopPropagation()}
       onKeyDown={(e) => { if (e.key === "Escape") setSiteEditing(null); if (e.key === "Enter") void saveSite(); }}
     >
-      <input className={siteInputClass} placeholder="名称" autoFocus value={siteEditing.title} onChange={(e) => setSiteEditing({ ...siteEditing, title: e.target.value })} />
       {siteEditing.kind === "site" && (
-        <input className={siteInputClass} placeholder="网址" value={siteEditing.url} onChange={(e) => setSiteEditing({ ...siteEditing, url: e.target.value })} />
+        <input className={siteInputClass} placeholder="网址:example.com 或 https://…" autoFocus={siteEditing.id === null} value={siteEditing.url} onChange={(e) => setSiteEditing({ ...siteEditing, url: e.target.value })} />
       )}
+      <input className={siteInputClass} placeholder={siteEditing.id === null ? "名称(留空用网站标题)" : "名称"} autoFocus={siteEditing.id !== null} value={siteEditing.title} onChange={(e) => setSiteEditing({ ...siteEditing, title: e.target.value })} />
       <div className="flex gap-1.5 pt-0.5">
-        <button onClick={() => void saveSite()} className="h-7 px-3 rounded bg-accent text-white text-[12.5px] hover:opacity-90">保存</button>
+        <button onClick={() => void saveSite()} className="h-7 px-3 rounded bg-accent text-white text-[12.5px] hover:opacity-90">{siteEditing.id === null ? "添加" : "保存"}</button>
         <button onClick={() => setSiteEditing(null)} className="h-7 px-3 rounded border border-border text-[12.5px] text-text-dim hover:text-text hover:bg-bg-hover">取消</button>
-        <button
-          onClick={() => { const t = sites.find((x) => x.id === siteEditing.id); if (t) { setSiteEditing(null); void remove(t); } }}
-          className="ml-auto h-7 px-2 rounded text-[12.5px] text-danger hover:bg-bg-hover"
-        >
-          {siteEditing.kind === "folder" ? "删除" : "移除"}
-        </button>
+        {siteEditing.id !== null && (
+          <button
+            onClick={() => { const t = sites.find((x) => x.id === siteEditing.id); if (t) { setSiteEditing(null); void remove(t); } }}
+            className="ml-auto h-7 px-2 rounded text-[12.5px] text-danger hover:bg-bg-hover"
+          >
+            {siteEditing.kind === "folder" ? "删除" : "移除"}
+          </button>
+        )}
       </div>
     </div>
   );
@@ -458,6 +461,7 @@ export function SitesPanel({ onOpenUrl, socket }: {
         <div key={site.id}>
           <Row site={site} depth={depth} />
           {siteEditing?.id === site.id && siteEditor()}
+          {siteEditing?.id === null && siteEditing.parentId === site.id && siteEditor()}
           {site.kind === "folder" && open.has(site.id) && <Tree parentId={site.id} depth={depth + 1} />}
         </div>
       ))}
@@ -590,6 +594,7 @@ export function SitesPanel({ onOpenUrl, socket }: {
             </>
           ) : (
             <>
+              {siteEditing?.id === null && !siteEditing.parentId && siteEditor()}
               <Tree parentId={null} depth={0} />
               {!sites.length && empty("还没有收藏的网站")}
             </>
