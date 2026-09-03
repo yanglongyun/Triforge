@@ -494,6 +494,11 @@ app.whenReady().then(async () => {
     // 晚一步的话第一个 webview 就漏过去了
     routeNewWindows(port);
     servePageMenu();
+    // 内置浏览器的 UA 用纯 Chrome 串:去掉 Electron 默认带的 "Worktop/x.y.z" 和 "Electron/x.y.z" ——
+    // Google 登录直接拒绝 Electron UA,阿里云控制台的风控见到它就反复校验重载。壳的身份不该写在网页的 UA 里。
+    const chromeUA = app.userAgentFallback.replace(/ (Worktop|Electron)\/[\d.]+/g, "");
+    app.userAgentFallback = chromeUA;   // 我们开的弹窗(OAuth)也用它
+    webSession().setUserAgent(chromeUA); // 网页标签所在的分区
     // 权限 / 认证 / 证书:都挂在网页那个 session 上,和窗口无关,越早挂越好
     servePermissions(webSession(), toRenderer);
     serveHttpAuth(toRenderer);
