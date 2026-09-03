@@ -1,3 +1,6 @@
+/** Chrome 书签树:有 url 的是书签,有 children 的是文件夹。 */
+export type ChromeBookmarkNode = { title: string; url?: string; children?: ChromeBookmarkNode[] };
+
 // 壳(preload.cjs)经 contextBridge 暴露的窄桥。开发态(纯浏览器)不存在,全部可选。
 export {};
 
@@ -23,7 +26,7 @@ declare global {
       /** 导入。选 cookies 时系统会弹钥匙串授权,拒绝则 ok:false。 */
       importChromeCookies: (options?: { profile?: string; cookies?: boolean; bookmarks?: boolean }) => Promise<
         { ok: true; profile: string; total: number; imported: number; failed: number;
-          bookmarks: { title: string; url: string }[] }
+          bookmarks: ChromeBookmarkNode[] }
         | { ok: false; error: string }
       >;
       /** 回答浏览器抛上来的问询(权限 true/false;HTTP 认证 {username,password} 或 null)。 */

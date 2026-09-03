@@ -9,7 +9,7 @@ const STATE_KEY = "worktop.chromeImport.state";
 
 export type ChromeProfile = { dir: string; name: string; email: string };
 export type ImportChoice = { profile: string; cookies: boolean; bookmarks: boolean };
-export type ImportResult = { profile: string; total: number; imported: number; failed: number; bookmarks: number };
+export type ImportResult = { profile: string; total: number; imported: number; failed: number; bookmarks: number; folders: number };
 
 const read = () => {
   try { return localStorage.getItem(STATE_KEY) || ""; } catch { return ""; }
@@ -46,25 +46,38 @@ export const importFromChrome = async (choice: ImportChoice): Promise<ImportResu
   const result = await bridge.importChromeCookies(choice);
   if (!result.ok) throw new Error(result.error);
 
-  // 去重不在这儿做:服务端建站点时已经按**主机**去重(见 service/sites.ts 的 siteKey),
-  // 遇到已有的直接返回那一行、不插入。在客户端再写一套只会更弱(按 URL 比)且会和它打架。
-  //
-  // 这里只负责**数对**:返回的 id 在导入前就存在,或本次已经见过,都不算新增 ——
-  // Chrome 的书签是按页面存的,同一个站往往有好几条(实测 103 条书签只落 97 个站)。
-  let bookmarks = 0;
+  // 去重在服务端:同一个 url 已收藏就返回那一行、不插入。这里只负责数对(返回的 id 导入前就有 = 不算新增)。
+  // 文件夹:同一层里同名的复用 —— 再导一次不会多出一份「书签栏」。
+  let bookmarks = 0, folders = 0;
   if (choice.bookmarks && result.bookmarks.length) {
-    const before = new Set((await api.listSites().catch(() => [])).map((site) => site.id));
+    const existing = await api.listSites().catch(() => []);
+    const before = new Set(existing.map((site) => site.id));
     const added = new Set<string>();
-    for (const bookmark of result.bookmarks) {
-      try {
-        const site = await api.createSite({ title: bookmark.title, url: bookmark.url });
-        if (!site || before.has(site.id) || added.has(site.id)) continue;
-        added.add(site.id);
-        bookmarks += 1;
-      } catch { /* 单条失败跳过,不因为一条坏书签毁掉整次导入 */ }
-    }
+    const folderAt = new Map<string, string>(); // `${parent}\u0000${title}` → id
+    for (const site of existing) if (site.kind === "folder") folderAt.set(`${site.parent_id || ""}\u0000${site.title}`, site.id);
+    const walk = async (nodes: { title: string; url?: string; children?: any[] }[], parentId: string | null) => {
+      for (const node of nodes) {
+        try {
+          if (node.children) {
+            const key = `${parentId || ""}\u0000${node.title}`;
+            let id = folderAt.get(key);
+            if (!id) {
+              const folder = await api.createSiteFolder({ title: node.title, parentId });
+              id = folder.id; folderAt.set(key, id); folders += 1;
+            }
+            await walk(node.children, id);
+          } else if (node.url) {
+            const site = await api.createSite({ title: node.title, url: node.url, parentId });
+            if (!site || before.has(site.id) || added.has(site.id)) continue;
+            added.add(site.id);
+            bookmarks += 1;
+          }
+        } catch { /* 单条失败跳过,不因为一条坏书签毁掉整次导入 */ }
+      }
+    };
+    await walk(result.bookmarks, null);
   }
 
   markImported();
-  return { profile: result.profile, total: result.total, imported: result.imported, failed: result.failed, bookmarks };
+  return { profile: result.profile, total: result.total, imported: result.imported, failed: result.failed, bookmarks, folders };
 };

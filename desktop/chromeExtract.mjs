@@ -127,15 +127,27 @@ const readBookmarks = (dir) => {
   if (!existsSync(file)) return [];
   let roots;
   try { roots = JSON.parse(readFileSync(file, "utf8"))?.roots || {}; } catch { return []; }
-  const out = [];
+  // 树原样带回:{ title, url } 是书签,{ title, children } 是文件夹。
+  // 只要 http(s):chrome:// 与 javascript: 这类进了「网站」面板也打不开;空文件夹不要。
   const walk = (node) => {
-    if (!node) return;
-    if (node.type === "url" && node.url) out.push({ title: String(node.name || ""), url: String(node.url) });
-    for (const child of node.children || []) walk(child);
+    if (!node) return null;
+    if (node.type === "url") {
+      const url = String(node.url || "");
+      return /^https?:\/\//i.test(url) ? { title: String(node.name || ""), url } : null;
+    }
+    const children = (node.children || []).map(walk).filter(Boolean);
+    return children.length ? { title: String(node.name || ""), children } : null;
   };
-  for (const root of Object.values(roots)) walk(root);
-  // 只要 http(s):chrome:// 与 javascript: 这类进了「网站」面板也打不开
-  return out.filter((b) => /^https?:\/\//i.test(b.url));
+  const out = [];
+  // 书签栏的内容直接放顶层;其他根(其他书签 / 移动设备书签)各成一个文件夹
+  const bar = walk(roots.bookmark_bar);
+  if (bar) out.push(...bar.children);
+  for (const [key, root] of Object.entries(roots)) {
+    if (key === "bookmark_bar") continue;
+    const folder = walk(root);
+    if (folder) out.push(folder);
+  }
+  return out;
 };
 
 const arg = (name) => process.argv.find((a) => a.startsWith(`--${name}=`))?.split("=").slice(1).join("=") || "";

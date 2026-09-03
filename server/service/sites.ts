@@ -1,4 +1,4 @@
-// 网站收藏:侧栏「网站」页的数据。一棵浅树 —— 文件夹 + 站点,同级可拖动排序。
+// 网站收藏:侧栏「网站」页的数据。一棵树 —— 文件夹可以无限嵌套,同级可拖动排序。
 // 打开动作全在界面(<webview> 标签),这里只管数据。
 import { randomUUID } from "crypto";
 import { getDb } from "../db.js";
@@ -29,12 +29,8 @@ const normalizeUrl = (raw: unknown) => {
 const list = () =>
   getDb().prepare("SELECT * FROM sites ORDER BY position, created_at, rowid").all() as unknown as SiteRow[];
 
-/** 站点身份键:主机去 www.、小写 + 非默认端口 —— 收藏去重不看协议和路径尾斜杠。 */
-const siteKey = (normalized: string) => {
-  const u = new URL(normalized);
-  return u.hostname.toLowerCase().replace(/^www\./, "") + (u.port ? `:${u.port}` : "");
-};
-
+/** 站点身份键:规范化后的完整 url(书签是按页面存的,同一个站的不同页面是不同条目)。 */
+const siteKey = (normalized: string) => normalized.replace(/\/$/, "");
 const nextPosition = (parentId: string | null) => {
   const row = getDb()
     .prepare("SELECT COALESCE(MAX(position), -1) + 1 AS p FROM sites WHERE parent_id IS ?")
@@ -44,7 +40,7 @@ const nextPosition = (parentId: string | null) => {
 
 const create = ({ url, title, parentId }: { url?: string; title?: string; parentId?: string | null } = {}) => {
   const normalized = normalizeUrl(url);
-  // 同一个站已收藏:直接返回已有条目,不重复插行(去重跨文件夹 —— 一个站只该存在一次)
+  // 同一个 url 已收藏:直接返回已有条目,不重复插行(去重跨文件夹 —— 一条书签只该存在一次)
   const key = siteKey(normalized);
   const existing = list().find((row) => {
     if (row.kind !== "site") return false;
@@ -91,6 +87,16 @@ const update = (id: string, { title, url }: { title?: string; url?: string } = {
  * 顺序与归属一起改 —— 拖进文件夹和拖动次序在界面上是同一个手势,
  * 拆成两个接口的话中间那一刻的状态是错的。
  */
+/** target 是不是 folderId 自己或它的后代。 */
+const isWithin = (target: string, folderId: string, known: Map<string, SiteRow>) => {
+  let cur: string | null = target;
+  for (let i = 0; cur && i < 64; i++) {
+    if (cur === folderId) return true;
+    cur = known.get(cur)?.parent_id ?? null;
+  }
+  return false;
+};
+
 const reorder = ({ parentId, ids }: { parentId?: string | null; ids?: unknown } = {}) => {
   const db = getDb();
   const parent = parentId || null;
@@ -102,8 +108,8 @@ const reorder = ({ parentId, ids }: { parentId?: string | null; ids?: unknown } 
   for (const id of wanted) {
     const row = known.get(id);
     if (!row) continue;
-    // 文件夹不能塞进文件夹:这棵树只有两层,深了之后侧栏那点宽度根本展示不开
-    if (row.kind === "folder" && parent) continue;
+    // 文件夹不能套进自己或自己的后代
+    if (row.kind === "folder" && parent && isWithin(parent, row.id, known)) continue;
     write.run(parent, index, id);
     index += 1;
   }
@@ -115,9 +121,9 @@ const remove = (id: string) => {
   const db = getDb();
   const row = db.prepare("SELECT * FROM sites WHERE id = ?").get(String(id)) as unknown as SiteRow | undefined;
   if (!row) return false;
-  // 删文件夹:里面的站点提回根层,不跟着消失 —— 收藏是用户攒的,不该被一个手势清空
+  // 删文件夹:里面的东西提到它的上一层,不跟着消失 —— 收藏是用户攒的,不该被一个手势清空
   if (row.kind === "folder") {
-    db.prepare("UPDATE sites SET parent_id = NULL WHERE parent_id = ?").run(row.id);
+    db.prepare("UPDATE sites SET parent_id = ? WHERE parent_id = ?").run(row.parent_id, row.id);
   }
   db.prepare("DELETE FROM sites WHERE id = ?").run(row.id);
   changed();
