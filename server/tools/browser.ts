@@ -81,7 +81,7 @@ export const browser = async ({
         const normalized = /^[a-z][a-z0-9+.-]*:/i.test(target) ? target : `https://${target}`;
         if (!/^https?:\/\//i.test(normalized)) return "error: 只支持 http(s) 网址";
         const tab = await openTab(normalized);
-        return `已在分屏侧边打开网页标签 ${fmtTab(tab)}\n(页面可能还在加载;用 read 读正文,用 js/click/type 操作)`;
+        return `已在后台打开网页标签 ${fmtTab(tab)}\n(页面可能还在加载;用 read 读正文,用 js/click/type 操作)`;
       }
       case "navigate": {
         const target = String(url || "").trim();
