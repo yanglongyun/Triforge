@@ -44,7 +44,6 @@ export function WorkspaceLayout({
   tabs,
   content,
   onUpdateWebTab,
-  tasksRunning,
 }: {
   groups: WorkspaceGroupState[];
   /** 全部分组(含收起的 side):常驻层按它持有网页/终端,分屏开合不影响生命。 */
@@ -59,7 +58,6 @@ export function WorkspaceLayout({
   /** 内容区直通参数包(原样透传给 TabContent)。 */
   content: TabContentProps;
   onUpdateWebTab: (id: string, patch: Partial<Pick<WebTab, "title" | "url" | "favicon">>) => void;
-  tasksRunning?: boolean;
 }) {
   const containerRef = useRef<HTMLDivElement | null>(null);
   const splitDragRef = useRef<SplitDragSession | null>(null);
@@ -209,7 +207,6 @@ export function WorkspaceLayout({
               onOpenNav={onOpenNav}
               tabs={tabs}
               content={content}
-              tasksRunning={tasksRunning}
             />
           </div>
         </Fragment>

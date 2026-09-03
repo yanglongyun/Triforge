@@ -339,13 +339,6 @@ export function App() {
       tabGroups.closeTab(groupId, tabId);
       openApp(appId, name || appId);
     };
-    // 新标签页上的「全部应用 / 技能」:这张空白页让位给列表页
-    const onLaunchPage = (e: Event) => {
-      const { tabId, groupId, page } = ((e as CustomEvent).detail || {}) as { tabId?: string; groupId?: WorkspaceGroupId; page?: "apps" | "skills" };
-      if (!tabId || !groupId || !page) return;
-      tabGroups.closeTab(groupId, tabId);
-      if (page === "apps") tabGroups.openApps({ groupId }); else tabGroups.openSkills({ groupId });
-    };
     const onLaunchCreate = (e: Event) => {
       const { tabId, groupId, kind } = ((e as CustomEvent).detail || {}) as { tabId?: string; groupId?: WorkspaceGroupId; kind?: string };
       if (tabId && groupId) tabGroups.closeTab(groupId, tabId);
@@ -364,7 +357,6 @@ export function App() {
     window.addEventListener("worktop:launch-create", onLaunchCreate);
     window.addEventListener("worktop:launch-open", onLaunchOpen);
     window.addEventListener("worktop:launch-app", onLaunchApp);
-    window.addEventListener("worktop:launch-page", onLaunchPage);
     return () => {
       window.removeEventListener("worktop:new-tab", onNewTab);
       window.removeEventListener("worktop:launch", onLaunch);
@@ -372,7 +364,6 @@ export function App() {
       window.removeEventListener("worktop:launch-create", onLaunchCreate);
       window.removeEventListener("worktop:launch-open", onLaunchOpen);
       window.removeEventListener("worktop:launch-app", onLaunchApp);
-      window.removeEventListener("worktop:launch-page", onLaunchPage);
     };
   });
 
@@ -425,16 +416,7 @@ export function App() {
     closeToRight: tabGroups.closeToRight,
     closeGroup: tabGroups.closeGroup,
     newTab: (groupId) => tabGroups.openLauncher({ groupId }),
-    openTasks: () => tabGroups.openTasks(),
   };
-
-  // 标签栏右端任务小图标的点:有任务在跑就亮
-  const [tasksRunning, setTasksRunning] = useState(false);
-  useEffect(() => {
-    const load = () => void api.listTasks(20).then((list) => setTasksRunning(list.some((t) => t.status === "running"))).catch(() => {});
-    load();
-    return socket.on("tasks_changed", load);
-  }, [socket]);
 
   const toggleNav = () => {
     if (window.matchMedia("(min-width: 768px)").matches) {
@@ -452,7 +434,11 @@ export function App() {
         onSelect={openNode}
         socket={socket}
         onOpenUrl={openWebTab}
+        onOpenApp={openApp}
+        onOpenTask={(taskId, title) => tabGroups.openTask(taskId, title)}
+        onOpenSkill={(skillId, title) => tabGroups.openSkill(skillId, title)}
         onToggleNav={toggleNav}
+        onSetDesktopOpen={setDesktopNavOpen}
         onOpenSide={(n) => openNode(n, { groupId: "side" })}
         onOpenTerminal={openTerminal}
         onOpenGit={openGit}
@@ -460,7 +446,6 @@ export function App() {
         refreshKey={treeRefresh}
         settingsActive={isSettingsTab(tabGroups.activeTab)}
         onOpenSettings={openSettings}
-        onOpenWidgets={openWidgets}
         mobileOpen={mobileNavOpen}
         desktopOpen={desktopNavOpen}
         onCloseMobile={closeNav}
@@ -506,12 +491,8 @@ export function App() {
             onGitChanged: refreshGit,
             onOpenGitDiff: (root, path, staged, commit) => tabGroups.openGitDiff(root, path, staged, { commit }),
             onOpenUrl: openWebTab,
-            onOpenApp: openApp,
-            onOpenTask: (taskId, title) => tabGroups.openTask(taskId, title),
-            onOpenSkill: (skillId, title) => tabGroups.openSkill(skillId, title),
           }}
           onUpdateWebTab={tabGroups.updateWebTab}
-          tasksRunning={tasksRunning}
         />
       </div>
     </div>

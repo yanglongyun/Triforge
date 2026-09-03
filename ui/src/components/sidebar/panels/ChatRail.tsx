@@ -1,12 +1,10 @@
-// 对话列表:对话不再长在文件树里,这里是它们的家。
-// 工具行:搜索(只搜对话)+ ＋ 新建 + ⋯(排序 / 每行显示什么 / 清理空对话)。
+// 会话列表:对话不再长在文件树里,这里是它们的家。
 // 置顶 / 最近两组;行上呼吸点 = 正在运行,绿点 = 未读;悬停 ⋯ 出操作。
 import { useCallback, useEffect, useState } from "react";
 import type { Node } from "../../../api";
 import { api } from "../../../api";
 import { ContextMenu, dialog, type MenuItem } from "../../ui";
-import { Copy, Folder, FolderOpen, MoreVertical, Pencil, Pin, PinOff, Plus, Trash2 } from "lucide-react";
-import { Toolbar } from "../Toolbar";
+import { Copy, Folder, FolderOpen, MoreVertical, Pencil, Pin, PinOff, Plus, SlidersHorizontal, Trash2 } from "lucide-react";
 import { relativeTime, toggleChatRowField, useChatRowFields, type ChatRowFields } from "../../../lib/chatRows";
 
 type Socket = { send: (m: any) => void; on: (t: string, fn: (p: any) => void) => () => void };
@@ -18,7 +16,6 @@ const shortDir = (path: string) => {
   return parts.length > 2 ? `…/${tail}` : `/${tail}`;
 };
 
-const SORT_KEY = "worktop.chats.sort";
 const REVEAL_LABEL = /Mac/i.test(navigator.platform) ? "在 Finder 中显示工作目录" : "在文件管理器中显示工作目录";
 
 export function ChatRail({
@@ -43,20 +40,16 @@ export function ChatRail({
   const [renameDraft, setRenameDraft] = useState("");
   const [menu, setMenu] = useState<{ x: number; y: number; items: MenuItem[] } | null>(null);
   const fields = useChatRowFields();
-  const [q, setQ] = useState("");
-  const [sort, setSort] = useState<"recent" | "name">(() => (localStorage.getItem(SORT_KEY) === "name" ? "name" : "recent"));
-  const changeSort = (next: "recent" | "name") => { setSort(next); localStorage.setItem(SORT_KEY, next); };
-  // ⋯ 菜单每次打开现算:勾选项勾完不关菜单,对勾要立刻跟着变
-  const moreItems = (): MenuItem[] => [
-    { label: "按最近排序", checked: sort === "recent", keepOpen: true, onClick: () => changeSort("recent") },
-    { label: "按名称排序", checked: sort === "name", keepOpen: true, onClick: () => changeSort("name") },
-    "divider",
-    ...([["dir", "显示所在目录"], ["last", "显示最后一条消息"], ["time", "显示时间"]] as [keyof ChatRowFields, string][])
-      .map(([key, label]): MenuItem => ({ label, checked: fields[key], keepOpen: true, onClick: () => toggleChatRowField(key) })),
-    "divider",
-    { label: "清理空对话", icon: <Trash2 size={13} />, danger: true, disabled: !agents.some((a) => !a.last && !running.has(a.id)),
-      onClick: () => void cleanEmpty() },
-  ];
+  // 显示项菜单只存**位置**:菜单项每次渲染现算 —— 勾完不关菜单,对勾要立刻跟着变,
+  // 存成 items 快照的话勾了也不动(菜单是打开那一刻算的)
+  const [fieldsMenuAt, setFieldsMenuAt] = useState<{ x: number; y: number } | null>(null);
+  const fieldsMenuItems: MenuItem[] = ([
+    ["dir", "所在目录"],
+    ["last", "最后一条消息"],
+    ["time", "时间"],
+  ] as [keyof ChatRowFields, string][]).map(([key, label]) => ({
+    label, checked: fields[key], keepOpen: true, onClick: () => toggleChatRowField(key),
+  }));
 
   const load = useCallback(async () => {
     const result = await api.listChats().catch(() => null);
@@ -92,15 +85,6 @@ export function ChatRail({
     onCreateHandled();
     void createNow(createReq.workdir);
   }, [createReq]);
-
-  // 清理空对话:一句话都没说过、也没在跑的
-  const cleanEmpty = async () => {
-    const empty = agents.filter((a) => !a.last && !running.has(a.id));
-    if (!empty.length) return;
-    if (!(await dialog.confirm(`删除 ${empty.length} 个空对话?`, { danger: true, confirmText: "删除" }))) return;
-    for (const a of empty) await api.deleteChat(a.id).catch(() => {});
-    load();
-  };
 
   const commitRename = async () => {
     const id = renamingId;
@@ -202,53 +186,63 @@ export function ChatRail({
     );
   };
 
-  const needle = q.trim().toLowerCase();
-  const matches = (a: Node) =>
-    !needle || a.title.toLowerCase().includes(needle) || (a.workdir || "").toLowerCase().includes(needle) || (a.last?.text || "").toLowerCase().includes(needle);
-  const byName = (a: Node, b: Node) => a.title.localeCompare(b.title, "zh");
-  const visible = agents.filter(matches);
-  const pinned = sort === "name" ? visible.filter((a) => a.pinned).sort(byName) : visible.filter((a) => a.pinned);
-  const recent = sort === "name" ? visible.filter((a) => !a.pinned).sort(byName) : visible.filter((a) => !a.pinned);
+  const pinned = agents.filter((a) => a.pinned);
+  const recent = agents.filter((a) => !a.pinned);
 
   return (
-    <div className="flex-1 min-h-0 flex flex-col">
-      <Toolbar
-        value={q}
-        onChange={setQ}
-        placeholder="搜索对话…"
-        add={{ title: "新建对话", onClick: () => void createNow() }}
-        more={moreItems}
-      />
-      <div className="flex-1 overflow-y-auto py-1">
-        {pinned.length > 0 && (<>
-          {!needle && <div className="px-3 pt-2 pb-1 text-[11px] font-medium text-text-faint select-none">置顶</div>}
-          {pinned.map(row)}
-        </>)}
-        {recent.length > 0 && (<>
-          {!needle && <div className="px-3 pt-2 pb-1 text-[11px] font-medium text-text-faint select-none">最近</div>}
-          {recent.map(row)}
-        </>)}
+    <div className="flex-1 overflow-y-auto py-1">
+      {/* 面板内部的创建入口(顶部 + 已让位给「添加面板」,创建归各面板自己) */}
+      {agents.length > 0 && (
+        <div
+          onClick={() => void createNow()}
+          className="flex items-center gap-1.5 py-[4px] pl-3 pr-2 cursor-pointer select-none text-text hover:bg-bg-hover"
+        >
+          <Plus size={14} className="shrink-0" />
+          <span className="text-[13.5px]">新建对话</span>
+        </div>
+      )}
+      {pinned.length > 0 && (<>
+        <div className="px-3 pt-2 pb-1 text-[11px] font-medium text-text-faint select-none">置顶</div>
+        {pinned.map(row)}
+      </>)}
+      {recent.length > 0 && (<>
+        <div className="flex items-center gap-1 pl-3 pr-2 pt-2 pb-1 text-[11px] font-medium text-text-faint select-none">
+          <span className="flex-1">最近</span>
+          {/* 显示项:控制点就在这一行右端,不占额外空间、也不必进设置页 */}
+          <button
+            onClick={(e) => {
+              e.stopPropagation();
+              const r = (e.currentTarget as HTMLElement).getBoundingClientRect();
+              setFieldsMenuAt((open) => (open ? null : { x: r.right - 176, y: r.bottom + 4 }));
+            }}
+            title="每行显示哪些信息"
+            className="shrink-0 w-5 h-5 rounded flex items-center justify-center hover:text-text hover:bg-bg-hover transition-colors"
+          >
+            <SlidersHorizontal size={12} />
+          </button>
+        </div>
+        {recent.map(row)}
+      </>)}
 
-        {needle && !visible.length && (
-          <div className="px-3 py-6 text-center text-[12.5px] text-text-faint">没有匹配的对话</div>
-        )}
-        {!needle && agents.length === 0 && (
-          <div className="flex flex-col items-center gap-3 px-6 py-16 text-center">
-            <div className="text-3xl opacity-80">🌱</div>
-            <div className="text-[13px] text-text-faint leading-relaxed">
+      {agents.length === 0 && (
+        <div className="flex flex-col items-center gap-3 px-6 py-16 text-center">
+          <div className="text-3xl opacity-80">🌱</div>
+          <div className="text-[13px] text-text-faint leading-relaxed">
 还没有对话
-            </div>
-            <button
-              onClick={() => void createNow()}
-              className="mt-1 inline-flex items-center gap-1.5 px-3 py-1.5 rounded-md bg-accent text-white text-[13px] hover:opacity-90 transition-opacity"
-            >
-              <Plus size={13} /> 新建对话
-            </button>
           </div>
-        )}
-      </div>
+          <button
+            onClick={() => void createNow()}
+            className="mt-1 inline-flex items-center gap-1.5 px-3 py-1.5 rounded-md bg-accent text-white text-[13px] hover:opacity-90 transition-opacity"
+          >
+            <Plus size={13} /> 新建对话
+          </button>
+        </div>
+      )}
 
       {menu && <ContextMenu x={menu.x} y={menu.y} items={menu.items} onClose={() => setMenu(null)} />}
+      {fieldsMenuAt && (
+        <ContextMenu x={fieldsMenuAt.x} y={fieldsMenuAt.y} items={fieldsMenuItems} onClose={() => setFieldsMenuAt(null)} />
+      )}
     </div>
   );
 }

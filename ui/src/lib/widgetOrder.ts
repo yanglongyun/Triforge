@@ -1,6 +1,6 @@
-// 工具箱里组件的顺序(装了就显示,没有钉选)。
+// 活动栏上组件的顺序(装了就显示,没有钉选)。
 //
-// 侧栏工具箱与组件管理页都要读它,放这里当唯一事实源,改动经 window 事件广播。
+// 侧栏活动栏与组件管理页都要读它,放这里当唯一事实源,改动经 window 事件广播。
 // 存的是 id 列表:在列表里的按列表序,不在的(新装的)按服务端序排在后面。
 import { useEffect, useState } from "react";
 
@@ -47,3 +47,7 @@ export const useWidgetOrder = (): string[] => {
   }, []);
   return order;
 };
+
+/** 「让 AI 造一个组件」:动作住在 PanelHost(要开对话、发提示词),管理页只管喊一声。 */
+export const CREATE_WIDGET_EVENT = "worktop:create-widget";
+export const requestCreateWidget = () => window.dispatchEvent(new Event(CREATE_WIDGET_EVENT));
