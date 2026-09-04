@@ -141,8 +141,13 @@ export function SitesPanel({ onOpenUrl, socket }: {
   };
   const remove = async (site: Site) => {
     const isFolder = site.kind === "folder";
-    const count = isFolder ? childrenOf(site.id).length : 0;
-    const hint = count ? `\n里面的 ${count} 项会移到上一层,不会被删除。` : "";
+    // 整棵子树里有多少条收藏(不算文件夹本身)
+    let count = 0;
+    if (isFolder) {
+      const stack = [site.id];
+      while (stack.length) for (const c of childrenOf(stack.pop()!)) { if (c.kind === "folder") stack.push(c.id); else count++; }
+    }
+    const hint = isFolder ? (count ? `\n里面的 ${count} 条收藏会一起删除,不可恢复。` : "\n它是空的。") : "";
     if (!(await dialog.confirm(`${isFolder ? "删除文件夹" : "从收藏里移除"}「${site.title}」?${hint}`,
       { danger: true, confirmText: isFolder ? "删除" : "移除" }))) return;
     try { await api.removeSite(site.id); load(); } catch { /* 列表会自己对齐 */ }

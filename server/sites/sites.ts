@@ -121,11 +121,14 @@ const remove = (id: string) => {
   const db = getDb();
   const row = db.prepare("SELECT * FROM sites WHERE id = ?").get(String(id)) as unknown as SiteRow | undefined;
   if (!row) return false;
-  // 删文件夹:里面的东西提到它的上一层,不跟着消失 —— 收藏是用户攒的,不该被一个手势清空
-  if (row.kind === "folder") {
-    db.prepare("UPDATE sites SET parent_id = ? WHERE parent_id = ?").run(row.parent_id, row.id);
+  // 删文件夹 = 整棵子树一起删(界面上会先说清楚里面有多少条收藏)
+  const ids = [row.id];
+  for (let i = 0; i < ids.length; i++) {
+    const kids = db.prepare("SELECT id FROM sites WHERE parent_id = ?").all(ids[i]) as unknown as { id: string }[];
+    for (const k of kids) ids.push(k.id);
   }
-  db.prepare("DELETE FROM sites WHERE id = ?").run(row.id);
+  const del = db.prepare("DELETE FROM sites WHERE id = ?");
+  for (const id of ids) del.run(id);
   changed();
   return true;
 };
