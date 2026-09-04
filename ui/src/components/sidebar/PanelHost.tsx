@@ -9,8 +9,9 @@
 // 组件的身体是 iframe,指向组件自己的 origin;契约是出厂技能 skills/widget。
 import { useEffect, useRef, useState } from "react";
 import { api, type GitRepositoryStatus, type Node } from "../../api";
-import { ContextMenu, dialog, type MenuItem } from "../ui";
-import { Activity, ChevronLeft, PanelLeft, Plus, Puzzle, Settings, Trash2, X } from "lucide-react";
+import { ContextMenu, Favicon, dialog, type MenuItem } from "../ui";
+import { isPinned, togglePin, unpin, useRailPins, type RailPin } from "../../lib/railPins";
+import { Activity, ChevronLeft, PanelLeft, Pin, PinOff, Plus, Puzzle, Settings, Trash2, X } from "lucide-react";
 import { beginGlobalDrag, endGlobalDrag } from "../../lib/drag";
 import { CREATE_WIDGET_EVENT, applyOrder, dropFromOrder, useWidgetOrder, writeOrder } from "../../lib/widgetOrder";
 import { EVENTS } from "../../../../server/shared/events";
@@ -266,6 +267,7 @@ export function PanelHost({
     try { await api.removeWidget(widget.id); } catch (e: any) { void dialog.alert(e?.message || "删除失败"); return; }
     void reloadWidgets();
     dropFromOrder(widget.id);
+    unpin("widget", widget.id);
     if (toolWidgetId === widget.id) enterWidget(null);
   };
 
@@ -364,10 +366,43 @@ export function PanelHost({
   const [menu, setMenu] = useState<{ x: number; y: number; items: MenuItem[] } | null>(null);
   const onWidgetContext = (e: React.MouseEvent, widget: WidgetDef) => {
     e.preventDefault();
+    const pinned = isPinned("widget", widget.id);
     setMenu({
       x: e.clientX, y: e.clientY,
-      items: [{ label: `删除组件「${widget.name}」`, icon: <Trash2 size={13} />, danger: true, onClick: () => void removeWidget(widget) }],
+      items: [
+        { label: pinned ? "从活动栏取消固定" : "固定到活动栏", icon: pinned ? <PinOff size={13} /> : <Pin size={13} />,
+          onClick: () => { togglePin({ kind: "widget", id: widget.id, title: widget.name, icon: widget.icon }); } },
+        "divider",
+        { label: `删除组件「${widget.name}」`, icon: <Trash2 size={13} />, danger: true, onClick: () => void removeWidget(widget) },
+      ],
     });
+  };
+
+  // ── 活动栏上固定的应用 / 网站 / 小组件 ──
+  const pins = useRailPins();
+  const openPin = (p: RailPin) => {
+    if (p.kind === "app") onOpenApp(p.id, p.title);
+    else if (p.kind === "site" && p.url) onOpenUrl(p.url, p.title);
+    else if (p.kind === "widget") {
+      const desktop = window.matchMedia("(min-width: 768px)").matches;
+      if (desktop && !desktopOpen) onSetDesktopOpen?.(true);
+      openLower("tools"); enterWidget(p.id);
+    }
+    if (mobileOpen) onCloseMobile?.();
+  };
+  const onPinContext = (e: React.MouseEvent, p: RailPin) => {
+    e.preventDefault();
+    setMenu({
+      x: e.clientX, y: e.clientY,
+      items: [{ label: "从活动栏取消固定", icon: <PinOff size={13} />, onClick: () => unpin(p.kind, p.id) }],
+    });
+  };
+  const pinIcon = (p: RailPin) => {
+    if (p.kind === "site" && p.url) return <Favicon url={p.url} size={16} />;
+    if (p.kind === "widget") return <span className="text-[16px] leading-none">{p.icon}</span>;
+    return p.hasIcon
+      ? <img src={`/api/apps/icon?id=${encodeURIComponent(p.id)}`} alt="" className="w-[18px] h-[18px] rounded" />
+      : <span className="w-[18px] h-[18px] rounded bg-bg-inset flex items-center justify-center text-[11px]">{Array.from(p.title)[0]}</span>;
   };
 
   // 移动端抽屉:选中即收(文件夹除外)
@@ -393,7 +428,7 @@ export function PanelHost({
         "md:flex", // 桌面端活动栏常驻 —— 收起收的是内容面板,不是它
       ].join(" ")}
     >
-      {/* ── 活动栏:52px 竖排,两段:原生钉顶,小组件/任务/设置钉底 ── */}
+      {/* ── 活动栏:52px 竖排,三段:原生钉顶 → 固定的应用/网站/小组件(有才出现,带分割线,可滚)→ 小组件/任务/设置钉底 ── */}
       <div className="w-[52px] shrink-0 flex flex-col items-center pt-2 pb-1.5">
         <div className="shrink-0 w-full flex flex-col items-center gap-0.5">
           {NATIVE_PANELS.map((p) => (
@@ -408,7 +443,20 @@ export function PanelHost({
             </RailButton>
           ))}
         </div>
-        <div className="flex-1 min-h-0" />
+        {pins.length > 0 && <div className="shrink-0 w-7 h-px bg-border my-1.5" />}
+        <div className="flex-1 min-h-0 w-full overflow-y-auto no-scrollbar flex flex-col items-center gap-0.5">
+          {pins.map((p) => (
+            <RailButton
+              key={`${p.kind}:${p.id}`}
+              title={`${p.title}(${p.kind === "app" ? "应用" : p.kind === "site" ? "网站" : "小组件"},右键取消固定)`}
+              active={p.kind === "widget" && lower === "tools" && toolWidgetId === p.id && desktopOpen}
+              onClick={() => openPin(p)}
+              onContextMenu={(e) => onPinContext(e, p)}
+            >
+              {pinIcon(p)}
+            </RailButton>
+          ))}
+        </div>
         <div className="shrink-0 w-full flex flex-col items-center gap-0.5 pt-1">
           <div className="w-7 h-px bg-border mb-1" />
           <RailButton title="小组件(占侧栏下半)" active={lower === "tools" && desktopOpen} onClick={() => toggleLower("tools")}>

@@ -6,7 +6,8 @@
 import { useCallback, useEffect, useState } from "react";
 import { api, type AppInfo } from "../../../api";
 import { ContextMenu, type MenuItem } from "../../ui";
-import { AlertTriangle, Plus, RotateCw, Square } from "lucide-react";
+import { AlertTriangle, Pin, PinOff, Plus, RotateCw, Square } from "lucide-react";
+import { isPinned, togglePin } from "../../../lib/railPins";
 
 type Socket = { send: (m: any) => void; on: (t: string, fn: (p: any) => void) => () => void };
 
@@ -44,10 +45,13 @@ export function AppsPanel({ socket, onOpenApp, onCreate }: {
     e.preventDefault();
     e.stopPropagation();
     const running = app.status === "ready" || app.status === "starting";
+    const pinned = isPinned("app", app.id);
     setMenu({
       x: e.clientX, y: e.clientY,
       items: [
         { label: "打开", onClick: () => onOpenApp(app), disabled: !!app.invalid },
+        { label: pinned ? "从活动栏取消固定" : "固定到活动栏", icon: pinned ? <PinOff size={13} /> : <Pin size={13} />, disabled: !!app.invalid,
+          onClick: () => { togglePin({ kind: "app", id: app.id, title: app.name, hasIcon: app.hasIcon }); } },
         { label: "重启", icon: <RotateCw size={13} />, disabled: !!app.invalid,
           onClick: () => { void api.restartApp(app.id).then(load).catch(() => {}); } },
         { label: "停止", icon: <Square size={13} />, disabled: !running,

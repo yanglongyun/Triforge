@@ -9,7 +9,8 @@
 // 拖拽用指针事件,和标签栏同一套路:超阈值才算拖、挂 lib/drag.ts 的
 // 全局护栏(webview/iframe 会吞 pointerup)、松手事件被吞时靠 buttons===0 自愈。
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
-import { ChevronDown, ChevronRight, ChevronsDownUp, ChevronsUpDown, Copy, Download, Eye, EyeOff, Folder, FolderPlus, Globe, History, KeyRound, Pencil, Plus, Star, Trash2, Upload, User, X } from "lucide-react";
+import { ChevronDown, ChevronRight, ChevronsDownUp, ChevronsUpDown, Copy, Download, Eye, EyeOff, Folder, FolderPlus, Globe, History, KeyRound, Pencil, Plus, Star, Pin, PinOff, Trash2, Upload, User, X } from "lucide-react";
+import { isPinned, togglePin } from "../../../lib/railPins";
 import { api, type HistoryEntry, type PasswordEntry, type Site } from "../../../api";
 import { beginGlobalDrag, endGlobalDrag } from "../../../lib/drag";
 import { ChromeImportDialog, ContextMenu, dialog, showToast, type MenuItem } from "../../ui";
@@ -180,7 +181,12 @@ export function SitesPanel({ onOpenUrl, socket }: {
             { label: "在此添加网站…", icon: <Plus size={13} />, onClick: () => add(site.id) },
             { label: "在此新建文件夹…", icon: <FolderPlus size={13} />, onClick: () => void addFolder(site.id) },
           ]
-          : [{ label: "打开", icon: <Globe size={13} />, onClick: () => onOpenUrl(site.url, site.title) }]),
+          : [
+            { label: "打开", icon: <Globe size={13} />, onClick: () => onOpenUrl(site.url, site.title) },
+            { label: isPinned("site", site.id) ? "从活动栏取消固定" : "固定到活动栏",
+              icon: isPinned("site", site.id) ? <PinOff size={13} /> : <Pin size={13} />,
+              onClick: () => { togglePin({ kind: "site", id: site.id, title: site.title || hostOf(site.url), url: site.url }); } },
+          ]),
         { label: isFolder ? "重命名" : "编辑", icon: <Pencil size={13} />, onClick: () => editSite(site) },
         "divider" as const,
         { label: isFolder ? "删除文件夹" : "移除", icon: <Trash2 size={13} />, danger: true, onClick: () => void remove(site) },
