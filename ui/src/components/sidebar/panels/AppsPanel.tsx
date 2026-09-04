@@ -61,16 +61,19 @@ export function AppsPanel({ socket, onOpenApp, onCreate }: {
   };
 
   return (
-    <div className="flex-1 overflow-y-auto py-1">
+    <div className="flex-1 min-h-0 flex flex-col">
       {onCreate && apps.length > 0 && (
-        <div
-          onClick={onCreate}
-          className="flex items-center gap-1.5 py-[4px] pl-3 pr-2 cursor-pointer select-none text-text hover:bg-bg-hover"
-        >
-          <Plus size={14} className="shrink-0" />
-          <span className="text-[13.5px]">创建应用…</span>
+        <div className="shrink-0 py-1 border-b border-border">
+          <div
+            onClick={onCreate}
+            className="flex items-center gap-1.5 py-[4px] pl-3 pr-2 cursor-pointer select-none text-text hover:bg-bg-hover"
+          >
+            <Plus size={14} className="shrink-0" />
+            <span className="text-[13.5px]">创建应用…</span>
+          </div>
         </div>
       )}
+      <div className="flex-1 min-h-0 overflow-y-auto py-1">
       {apps.map((app) => (
         <div
           key={app.id}
@@ -117,6 +120,7 @@ export function AppsPanel({ socket, onOpenApp, onCreate }: {
         </div>
       )}
 
+      </div>
       {menu && <ContextMenu x={menu.x} y={menu.y} items={menu.items} onClose={() => setMenu(null)} />}
     </div>
   );

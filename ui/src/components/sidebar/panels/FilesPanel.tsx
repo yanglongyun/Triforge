@@ -674,12 +674,14 @@ export function FilesPanel({
       <div className={active ? "flex flex-col flex-1 min-h-0" : "hidden"}>
         {/* 面板内部的入口:添加工作区(样式同对话面板的「新建对话」);一个都没有时由下面的空状态承担 */}
         {roots.length > 0 && (
-          <div
-            onClick={openAddWorkspace}
-            className="flex items-center gap-1.5 py-[4px] pl-3 pr-2 cursor-pointer select-none text-text hover:bg-bg-hover"
-          >
-            <Plus size={14} className="shrink-0" />
-            <span className="text-[13.5px]">添加工作区</span>
+          <div className="shrink-0 py-1 border-b border-border">
+            <div
+              onClick={openAddWorkspace}
+              className="flex items-center gap-1.5 py-[4px] pl-3 pr-2 cursor-pointer select-none text-text hover:bg-bg-hover"
+            >
+              <Plus size={14} className="shrink-0" />
+              <span className="text-[13.5px]">添加工作区</span>
+            </div>
           </div>
         )}
 
