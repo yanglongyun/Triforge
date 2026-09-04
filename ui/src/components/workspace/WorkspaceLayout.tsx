@@ -212,6 +212,7 @@ export function WorkspaceLayout({
         </Fragment>
       ))}
 
+      <FocusIntoFrames onFocusGroup={tabs.focusGroup} />
       <PersistentPanelLayer
         containerRef={containerRef}
         allGroups={allGroups}
@@ -224,6 +225,22 @@ export function WorkspaceLayout({
       />
     </div>
   );
+}
+
+/** 点进 iframe / webview 时鼠标事件不会冒泡到宿主 DOM,但窗口会 blur、activeElement 变成那个框 —— 据此激活它所在的半区。 */
+function FocusIntoFrames({ onFocusGroup }: { onFocusGroup: (groupId: WorkspaceGroupState["id"]) => void }) {
+  useEffect(() => {
+    const onBlur = () => {
+      const el = document.activeElement as HTMLElement | null;
+      if (!el || (el.tagName !== "IFRAME" && el.tagName !== "WEBVIEW")) return;
+      const host = el.closest<HTMLElement>("[data-focus-group]");
+      const id = host?.dataset.focusGroup;
+      if (id === "main" || id === "side") onFocusGroup(id);
+    };
+    window.addEventListener("blur", onBlur);
+    return () => window.removeEventListener("blur", onBlur);
+  }, [onFocusGroup]);
+  return null;
 }
 
 function SplitHandle({

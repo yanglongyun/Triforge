@@ -82,13 +82,14 @@ export function PersistentPanelLayer({
               <div
                 key={t.id}
                 onMouseDown={() => onFocusGroup(g.id)}
+                data-focus-group={g.id}
                 className="absolute z-10 flex-col bg-bg"
                 style={visible
                   ? { display: "flex", left: rect.left, top: rect.top, width: rect.width, height: rect.height }
                   : { display: "none" }}
               >
                 {isWebTab(t)
-                  ? <WebPanel tab={t} socket={socket} onUpdate={onUpdateWebTab} />
+                  ? <WebPanel tab={t} socket={socket} onUpdate={onUpdateWebTab} onFocus={onFocusGroup} groupId={g.id} />
                     : <TerminalPanel tab={t} socket={socket} onClose={() => onCloseTab(g.id, t.id)} />}
               </div>
             );

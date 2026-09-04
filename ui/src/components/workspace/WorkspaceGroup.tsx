@@ -58,6 +58,7 @@ export function WorkspaceGroup({
   return (
     <section
       onMouseDown={() => tabs.focusGroup(group.id)}
+      data-focus-group={group.id}
       data-tab-drop-group={group.id}
       data-tab-count={group.tabs.length}
       className={[

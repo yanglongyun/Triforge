@@ -3,7 +3,7 @@
 // 面板由 WorkspaceGroup 常驻挂载、CSS 控显隐 —— 卸载 = 断网重载,登录态全丢。
 import { useCallback, useEffect, useRef, useState } from "react";
 import { ArrowLeft, ArrowRight, ChevronDown, ChevronUp, Download as DownloadIcon, ExternalLink, Globe, History, KeyRound, MoreHorizontal, RotateCw, Star, Trash2, X } from "lucide-react";
-import type { WebTab } from "../types";
+import type { WorkspaceGroupId, WebTab } from "../types";
 import { api, type HistoryEntry } from "../../../api";
 import { IN_ELECTRON, RE_REGISTER_EVENT, registerWebview, unregisterWebview } from "../../../lib/webviewHost";
 import { displayUrl, hostKey, normalizeUrl } from "../../../lib/urls";
@@ -24,14 +24,24 @@ type Socket = {
  *  导入的登录态、「退出所有网站」都落在这个分区上,对不上就是各清各的。 */
 const WEB_PARTITION = "persist:web";
 
-export function WebPanel({ tab, socket, onUpdate }: {
+export function WebPanel({ tab, socket, onUpdate, onFocus, groupId }: {
   tab: WebTab;
   socket: Socket;
   /** 必须是恒定引用(useCallback):注册 effect 依赖它,抖了 webview 会掉册。 */
   onUpdate: (id: string, patch: Partial<Pick<WebTab, "title" | "url" | "favicon">>) => void;
+  /** 网页拿到焦点(用户在页面里点了)→ 激活它所在的半区。鼠标事件发生在 guest 里,宿主 DOM 看不见,只能靠 focus。 */
+  onFocus?: (groupId: WorkspaceGroupId) => void;
+  groupId?: WorkspaceGroupId;
 }) {
   const viewRef = useRef<HTMLElement | null>(null);
   const wcIdRef = useRef<number | null>(null);
+  useEffect(() => {
+    const view = viewRef.current;
+    if (!view || !onFocus || !groupId) return;
+    const handler = () => onFocus(groupId);
+    view.addEventListener("focus", handler);
+    return () => view.removeEventListener("focus", handler);
+  }, [onFocus, groupId]);
   // 平时展示人话形(藏 https:// 和尾斜杠),点进编辑时换完整 URL
   const [address, setAddress] = useState(displayUrl(tab.url));
   // <webview> 的 src 只在挂载时给一次。之后 tab.url 跟着页面自己的导航走(did-navigate 回写),
