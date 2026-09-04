@@ -6,7 +6,8 @@ import { EVENTS } from "../../server/shared/events";
 import { QuickOpen, CommandPalette, type Command } from "./components/command";
 import { PanelHost } from "./components/sidebar";
 import { WorkspaceLayout, isAppTab, isSettingsTab, isNodeTab, useTabGroups, terminalTab, webTab, type TabActions, type WorkspaceGroupId } from "./components/workspace";
-import { looksLikeUrl, normalizeUrl } from "./lib/urls";
+import { normalizeUrl } from "./lib/urls";
+import { toNavigableUrl } from "./lib/search";
 import { BrowsingPrompts, DialogHost, ContextMenu, dialog, showToast, SystemNotices, ToastHost, type MenuItem } from "./components/ui";
 import { FileText, Folder, FolderPlus, Bot, Globe, LayoutGrid, Search, Settings as SettingsIcon, Terminal, X, PanelRight } from "lucide-react";
 
@@ -306,8 +307,8 @@ export function App() {
       }
       if (kind === "web") {
         if (!input) return;
-        // 网址卡:像地址栏 —— 是网址就打开,不是就丢给 Google
-        const url = looksLikeUrl(input) ? normalizeUrl(input) : `https://www.google.com/search?q=${encodeURIComponent(input)}`;
+        // 网址卡:像地址栏 —— 是网址就打开,不是就交给设置里选的搜索引擎
+        const url = toNavigableUrl(input);
         const existing = tabGroups.findWebTab(url);
         if (existing) {
           // 同站已开:别开第二个,关掉这张空白页去聚焦那个

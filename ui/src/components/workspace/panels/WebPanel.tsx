@@ -7,6 +7,7 @@ import type { WorkspaceGroupId, WebTab } from "../types";
 import { api, type HistoryEntry } from "../../../api";
 import { IN_ELECTRON, RE_REGISTER_EVENT, registerWebview, unregisterWebview } from "../../../lib/webviewHost";
 import { displayUrl, hostKey, normalizeUrl } from "../../../lib/urls";
+import { toNavigableUrl } from "../../../lib/search";
 import { ChromeImportDialog } from "../../ui";
 import { clearFinishedDownloads, progressText, useDownloads } from "../../../lib/downloads";
 import {
@@ -142,7 +143,8 @@ export function WebPanel({ tab, socket, onUpdate, onFocus, groupId }: {
   }, [onUpdate, socket, tab.id]);
 
   const go = (target?: string) => {
-    const url = target ? normalizeUrl(target) : (address.trim() ? normalizeUrl(address) : "");
+    // 地址栏的老规矩:像网址就开,不像就交给设置里选的搜索引擎
+    const url = target ? normalizeUrl(target) : toNavigableUrl(address);
     if (!url) return;
     setEditing(false);
     (viewRef.current as any)?.loadURL?.(url);

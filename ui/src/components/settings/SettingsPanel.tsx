@@ -2,6 +2,7 @@ import { useEffect, useState, type ReactNode } from "react";
 import type { Settings } from "../../api";
 import { api } from "../../api";
 import { getThemePref, setThemePref, type ThemePref } from "../../lib/theme";
+import { SEARCH_ENGINES, getSearchEngine, setSearchEngine, type SearchEngineId } from "../../lib/search";
 import { chromeImportAvailable } from "../../lib/chromeImport";
 import { Check, Settings2 } from "lucide-react";
 import { ChromeImportDialog } from "../ui";
@@ -26,6 +27,9 @@ export function SettingsPanel({ onSaved }: { onSaved?: (settings: Settings) => v
   const [saved, setSaved] = useState(false);
   // 外观是本机视觉偏好:即改即生效,存 localStorage,不进服务端设置
   const [themePref, setThemePrefState] = useState<ThemePref>(() => getThemePref());
+  // 搜索引擎同理:地址栏 / 新标签页里输了不像网址的东西交给谁搜
+  const [searchEngine, setSearchEngineState] = useState<SearchEngineId>(() => getSearchEngine().id);
+  const changeSearchEngine = (id: SearchEngineId) => { setSearchEngine(id); setSearchEngineState(id); };
   const changeTheme = (pref: ThemePref) => { setThemePrefState(pref); setThemePref(pref); };
 
   useEffect(() => {
@@ -81,6 +85,17 @@ export function SettingsPanel({ onSaved }: { onSaved?: (settings: Settings) => v
                 <option value="light">浅色</option>
                 <option value="dark">深色</option>
               </select>
+            </Field>
+
+            <Field label="搜索引擎">
+              <select
+                className={`${inputClass} cursor-pointer`}
+                value={searchEngine}
+                onChange={(e) => changeSearchEngine(e.target.value as SearchEngineId)}
+              >
+                {SEARCH_ENGINES.map((e) => <option key={e.id} value={e.id}>{e.name}</option>)}
+              </select>
+              <div className="mt-1.5 text-[12px] text-text-faint">地址栏和新标签页里输的不像网址的内容,交给它搜。</div>
             </Field>
 
             <Field label="接口地址">

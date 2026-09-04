@@ -6,12 +6,13 @@ import { Bot, Globe, Terminal } from "lucide-react";
 import { api, type AppInfo, type HistoryEntry, type Node } from "../../../api";
 import { Favicon } from "../../ui";
 import type { LauncherTab, WorkspaceGroupId } from "../types";
+import { getSearchEngine } from "../../../lib/search";
 
 type Mode = "chat" | "web" | "term";
 const MODE_KEY = "worktop.launcher.mode";
 const MODES: { id: Mode; label: string; icon: typeof Bot; placeholder: string; hint: string }[] = [
   { id: "chat", label: "对话", icon: Bot, placeholder: "想做什么?说一句,开新对话", hint: "↩ 开新对话" },
-  { id: "web", label: "网址", icon: Globe, placeholder: "网址,或者要搜的东西", hint: "↩ 打开 · 不是网址就搜" },
+  { id: "web", label: "网址", icon: Globe, placeholder: "网址,或者要搜的东西", hint: "↩ 打开 / 搜索" },
   { id: "term", label: "命令", icon: Terminal, placeholder: "命令;留空回车只开终端", hint: "↩ 开终端" },
 ];
 const readMode = (): Mode => {
@@ -127,7 +128,7 @@ export function LauncherPanel({ tab, groupId }: { tab: LauncherTab; groupId: Wor
             <span className="shrink-0 text-[11px] rounded px-1.5 py-0.5 select-none text-text-faint bg-bg-inset whitespace-nowrap">{current.hint}</span>
           </div>
           <div className="text-center text-[12px] text-text-faint mt-2">
-            {mode === "chat" ? "对话开在当前选中的目录里" : mode === "web" ? "github.com → 打开 · 其它 → Google 搜索" : "终端开在当前选中的目录里"} · Tab 切换模式
+            {mode === "chat" ? "对话开在当前选中的目录里" : mode === "web" ? `github.com → 打开 · 其它 → ${getSearchEngine().name} 搜索` : "终端开在当前选中的目录里"} · Tab 切换模式
           </div>
         </div>
 
