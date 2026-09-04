@@ -1,5 +1,6 @@
 import { marked } from 'marked';
 import TurndownService from 'turndown';
+import { gfm } from 'turndown-plugin-gfm';
 
 /**
  * Markdown ↔ HTML。
@@ -17,6 +18,7 @@ const turndown = new TurndownService({
   codeBlockStyle: 'fenced',
   emDelimiter: '*',
 });
+turndown.use(gfm);
 
 // contenteditable 用 <div> 分行,turndown 默认会把它们黏成一段
 turndown.addRule('divLine', {

@@ -51,9 +51,9 @@ const asString = (value: unknown, fallback = "") =>
 /** 应用的家:~/.worktop/apps(与 widgets 并列)。产品自己的东西,不混进用户的文件夹。 */
 export const appsHome = () => path.join(productHome(), "apps");
 
-/** 随包的出厂应用(和预装组件同一套路:UI_DIST 旁边)。 */
+/** 随包的出厂应用。 */
 const presetDir = () =>
-  path.join(process.env.WORKTOP_UI_DIST || path.join(REPO_ROOT, "ui/dist"), "apps");
+  path.join(process.env.WORKTOP_RESOURCES || path.join(REPO_ROOT, "resources"), "apps");
 
 /** 出厂应用落地:复制进应用的家,之后就是用户自己的 app(可改可删)。
  *  目录已存在就整个跳过 —— 绝不覆盖用户改过的代码,更不覆盖它的数据。 */

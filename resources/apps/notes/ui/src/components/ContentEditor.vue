@@ -9,7 +9,7 @@
     <div
       ref="editorRef"
       contenteditable="true"
-      class="min-h-[60vh] w-full whitespace-pre-wrap break-words text-base leading-7 text-nt outline-none
+      class="note-editor min-h-[60vh] w-full whitespace-pre-wrap break-words text-base leading-7 text-nt outline-none
              [&_img]:my-2 [&_img]:max-w-full [&_img]:rounded-md
              [&_h1]:mt-6 [&_h1]:mb-2 [&_h1]:text-3xl [&_h1]:font-bold [&_h1]:leading-tight
              [&_h2]:mt-5 [&_h2]:mb-2 [&_h2]:text-2xl [&_h2]:font-bold [&_h2]:leading-tight
@@ -29,6 +29,7 @@
 <script setup>
 import { computed, nextTick, onMounted, ref, watch } from 'vue'
 import { contentToHtml } from '../lib/html'
+import { mdToHtml } from '../lib/markdown'
 
 const props = defineProps({
   value:       { type: String, default: '' },
@@ -136,11 +137,18 @@ function onInput(e) {
   emitChange()
 }
 
+/** 只把明显带 Markdown 语法的文本当 Markdown,普通多行文本不做猜测。 */
+function looksLikeMarkdown(text) {
+  return /(^|\n)\s{0,3}(#{1,6}\s|(?:[-*+]\s+|\d+[.)]\s+)|>\s|```|~~~|(?:-{3,}|\*{3,}|_{3,})\s*$)/m.test(text)
+    || /(^|\n)\s*\|?.+\|.+\n\s*\|?\s*:?-{3,}/m.test(text)
+    || /(^|[^\\])(?:\*\*|__|~~|`)[^\n]+(?:\*\*|__|~~|`)/.test(text)
+    || /\[[^\]]+\]\([^\s)]+(?:\s+"[^"]*")?\)/.test(text)
+    || /(^|\n)\s*[-*+]\s+\[[ xX]\]\s+/m.test(text)
+}
+
 /**
- * 粘贴一律降成纯文本。
- *
- * 从网页粘进来的 HTML 会把别人的字体、颜色和内联样式一起带进正文,
- * 正文马上就花了 —— 而且我们最终要转成 Markdown,那些样式反正也留不住。
+ * Markdown 粘贴为所见即所得内容;普通文本仍按纯文本插入。
+ * 剪贴板自带的 HTML 不采用,避免把外部网页的字体、颜色和内联样式带进正文。
  */
 function onPaste(e) {
   const cd = e.clipboardData
@@ -148,7 +156,8 @@ function onPaste(e) {
   e.preventDefault()
   const text = cd.getData('text/plain') || ''
   if (text) {
-    document.execCommand('insertText', false, text)
+    if (looksLikeMarkdown(text)) document.execCommand('insertHTML', false, mdToHtml(text))
+    else document.execCommand('insertText', false, text)
     nextTick(emitChange)
   }
 }

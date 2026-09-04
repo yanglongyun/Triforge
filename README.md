@@ -69,7 +69,7 @@
 每个组件跑在**自己的 origin** 上(一个 loopback 端口),宿主 API 是同源 HTTP
 (`fetch("/_wt/sql")`),不需要任何 SDK;默认被 CSP 断网,权限在 manifest 里明文声明。
 
-完整契约是一条出厂技能:`~/.worktop/skills/widget/SKILL.md`(源在 `ui/public/skills/widget/`)。AI 造组件时自己读它,你也可以改它。
+完整契约是一条出厂技能:`~/.worktop/skills/widget/SKILL.md`(源在 `resources/skills/widget/`)。AI 造组件时自己读它,你也可以改它。
 
 ## 用起来什么感觉
 

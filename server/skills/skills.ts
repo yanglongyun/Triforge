@@ -8,14 +8,14 @@ import { REPO_ROOT } from "../home.js";
 import { parseSkill, productHome } from "../workspace/tree.js";
 import { getSettings, saveSettings } from "../settings.js";
 
-const UI_DIST = process.env.WORKTOP_UI_DIST || path.join(REPO_ROOT, "ui/dist");
+const RESOURCES = process.env.WORKTOP_RESOURCES || path.join(REPO_ROOT, "resources");
 const SKILL_NAME = /^[a-z0-9][a-z0-9-]{0,63}$/;
 
 const skillsHome = () => path.join(productHome(), "skills");
 
 export const seedPresetSkills = () => {
   const home = skillsHome();
-  const presetDir = path.join(UI_DIST, "skills");
+  const presetDir = path.join(RESOURCES, "skills");
   let entries: fs.Dirent[];
   try { entries = fs.readdirSync(presetDir, { withFileTypes: true }); } catch { return; }
   fs.mkdirSync(home, { recursive: true });

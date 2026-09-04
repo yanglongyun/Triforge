@@ -49,6 +49,46 @@ textarea:focus-visible,
 
 ::selection { background: rgba(35,131,226,0.22); }
 
+/* 正文编辑器:Markdown 粘贴后的块级结构要在编辑态直接可读。 */
+.note-editor p { margin: 0.45em 0; }
+.note-editor ul, .note-editor ol { margin: 0.45em 0; padding-left: 1.6em; }
+.note-editor ul { list-style: disc; }
+.note-editor ol { list-style: decimal; }
+.note-editor li { margin: 0.12em 0; }
+.note-editor li > p { margin: 0; }
+.note-editor blockquote {
+  margin: 0.65em 0;
+  border-left: 3px solid var(--color-nt-divider);
+  padding-left: 12px;
+  color: var(--color-nt-muted);
+}
+.note-editor code {
+  border-radius: 3px;
+  background: var(--color-nt-hover-strong);
+  padding: 1px 5px;
+  font-family: ui-monospace, SFMono-Regular, "SF Mono", Menlo, Consolas, monospace;
+  font-size: 0.9em;
+}
+.note-editor pre {
+  margin: 0.7em 0;
+  overflow-x: auto;
+  border-radius: 6px;
+  background: var(--color-nt-hover-strong);
+  padding: 12px 14px;
+  white-space: pre;
+  font-size: 0.9em;
+  line-height: 1.55;
+}
+.note-editor pre code { background: transparent; padding: 0; font-size: inherit; }
+.note-editor a { color: var(--color-nt-accent); text-decoration: underline; }
+.note-editor hr { margin: 1em 0; border: 0; border-top: 1px solid var(--color-nt-divider); }
+.note-editor table { margin: 0.7em 0; border-collapse: collapse; }
+.note-editor th, .note-editor td { border: 1px solid var(--color-nt-divider); padding: 5px 9px; }
+.note-editor th { background: var(--color-nt-hover); font-weight: 600; }
+.note-editor input[type="checkbox"] { margin-right: 0.45em; }
+.note-editor .task-list-item { list-style: none; }
+.note-editor .contains-task-list { padding-left: 0.3em; }
+
 .no-scrollbar::-webkit-scrollbar { display: none; }
 .no-scrollbar { -ms-overflow-style: none; scrollbar-width: none; }
 

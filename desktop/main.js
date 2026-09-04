@@ -45,6 +45,7 @@ const layout = () => {
       WORKTOP_VERSION: app.getVersion(),
       WORKTOP_HOME: app.getPath("userData"), // database/ 落在这里(macOS 惯例:应用数据进 Application Support)
       WORKTOP_UI_DIST: join(res, "core/ui"),
+      WORKTOP_RESOURCES: join(res, "core/resources"),
     },
   };
 };
@@ -494,11 +495,9 @@ app.whenReady().then(async () => {
     // 晚一步的话第一个 webview 就漏过去了
     routeNewWindows(port);
     servePageMenu();
-    // 内置浏览器的 UA 用纯 Chrome 串:去掉 Electron 默认带的 "Worktop/x.y.z" 和 "Electron/x.y.z" ——
-    // Google 登录直接拒绝 Electron UA,阿里云控制台的风控见到它就反复校验重载。壳的身份不该写在网页的 UA 里。
-    // 只改网页那个分区(网页标签 + 我们开的弹窗都在它上面);宿主界面的 UA 不动 —— 界面靠它识别自己在壳里
-    const chromeUA = app.userAgentFallback.replace(/ (Worktop|Electron)\/[\d.]+/g, "");
-    webSession().setUserAgent(chromeUA);
+    // 网页分区的 UA 保持 Electron 原生串(带 Worktop/x 和 Electron/x)。
+    // 试过改成纯 Chrome 串:Cloudflare Turnstile 会把"自称 Chrome 但指纹对不上"的判成异常,登录一律失败;
+    // 请求头、navigator.userAgentData、window.chrome 全伪装过也不过。认到是 Electron 反而按嵌入式浏览器放行。
     // 权限 / 认证 / 证书:都挂在网页那个 session 上,和窗口无关,越早挂越好
     servePermissions(webSession(), toRenderer);
     serveHttpAuth(toRenderer);

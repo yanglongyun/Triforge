@@ -1,5 +1,5 @@
 import { REPO_ROOT } from "../home.js";
-// 组件注册表:组件 = 组件的家里的一个目录。契约是出厂技能 skills/widget/SKILL.md(ui/public/skills)。
+// 组件注册表:组件 = 组件的家里的一个目录。契约是出厂技能 resources/skills/widget/SKILL.md。
 //
 //   <家>/widgets/<id>/
 //     widget.json   manifest(名字/图标/权限)
@@ -13,7 +13,7 @@ import fs from "fs";
 import path from "path";
 import { productHome } from "../workspace/tree.js";
 
-const UI_DIST = process.env.WORKTOP_UI_DIST || path.join(REPO_ROOT, "ui/dist");
+const RESOURCES = process.env.WORKTOP_RESOURCES || path.join(REPO_ROOT, "resources");
 
 const WIDGET_ID = /^[a-z0-9][a-z0-9-]{0,63}$/;
 const PERMISSIONS = ["sql", "fs", "ai", "net"] as const; // ui 免申请
@@ -117,7 +117,7 @@ export const sweepTrash = () => {
  *  目录已存在就整个跳过 —— 绝不覆盖用户改过的代码,更不覆盖 data.db。 */
 export const seedPresetWidgets = () => {
   const home = widgetsHome();
-  const presetDir = path.join(UI_DIST, "widgets");
+  const presetDir = path.join(RESOURCES, "widgets");
   let entries: fs.Dirent[];
   try { entries = fs.readdirSync(presetDir, { withFileTypes: true }); } catch { return; }
   fs.mkdirSync(home, { recursive: true });

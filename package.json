@@ -53,6 +53,10 @@
         "to": "core/ui"
       },
       {
+        "from": "resources",
+        "to": "core/resources"
+      },
+      {
         "from": "dist/node-runtime",
         "to": "core/bin"
       },
